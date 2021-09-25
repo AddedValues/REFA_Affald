@@ -14,7 +14,7 @@ from gekko import GEKKO
 #-------------------------------------------------------------------
 # %% Read input from Excel fil REFAinput.xlsb  
 
-pathfolder = r'C:\\GitHub\\REFA Affald\\'
+pathfolder = r'C:\\GitHub\\REFA Affald\\Excel'
 filename = r'REFAinput.xlsm'
 path = os.path.join(pathfolder, filename)
 
@@ -35,7 +35,7 @@ sh = wb.sheets['Fuel']
 dfDataFuel   : pd.DataFrame
 dfFuelBounds : pd.DataFrame
 dfDataFuel   = sh.range('C4').options(pd.DataFrame, index=True, header=True, expand='table').value
-dfFuelBounds = sh.range('O4').options(pd.DataFrame, index=False, header=True, expand='table').value
+dfFuelBounds = sh.range('O4').options(pd.DataFrame, index=True, header=True, expand='table').value
 
 print('Input data imported.')
 
@@ -46,18 +46,22 @@ print('Input data imported.')
 
 #---------------------------------------------------------------------------
 #%% Extract comfortable arrays from dataframes.
-# Define counters.
+
+# Plant units
 units = dfDataU.index
 nunit = len(units)
-fuels = dfDataFuel.index
-nfuel = len(fuels)
-onU = dfDataU['aktiv']
-kapTon = dfDataU['kapTon']
-kapNom = dfDataU['kapNom']
-kapRgk = dfDataU['kapRgk']
-etaq = dfDataU['etaq']
-costDV = dfDataU['DV']
-costAux = dfDataU['aux']
+onU = dfDataU['aktiv'] != 0
+aunits = [u for u in units if onU[u]]
+naunit = len(aunits)
+
+kapTon = dfDataU['kapTon'][onU == True]
+kapNom = dfDataU['kapNom'][onU == True]
+kapRgk = dfDataU['kapRgk'][onU == True]
+etaq = dfDataU['etaq'][onU == True]
+costDV = dfDataU['DV'][onU == True]
+costAux = dfDataU['aux'][onU == True]
+
+# Prognoses
 days = dfProgn['ndage']
 qdem = dfProgn['varmebehov']
 power = dfProgn['ELprod']
@@ -65,53 +69,67 @@ taxEts = dfProgn['ets']
 taxAfv = dfProgn['afv'] / 3.6
 taxAtl = dfProgn['atl'] / 3.6
 
-onF = dfDataFuel['aktiv']
-fkind = dfDataFuel['fkind']
-storable = [x for x in dfDataFuel['lagerbart'] != 0]
-tonnage = dfDataFuel['tonnage']
-price = dfDataFuel['pris']
-lhvMWf = dfDataFuel['brandv'] / 3.6
-shareCo2 = dfDataFuel['co2andel']
-
-# dfFuelBounds shall be converted into 2 dataframes
-dfFuelMax = dfFuelBounds[dfFuelBounds['Bound']=='max']
-dfFuelMin = dfFuelBounds[dfFuelBounds['Bound']=='min']
-
-# Setup lookup tables.
-
-# Aktive items.
-aunits = [unit for unit in units if onU[unit]]
-afuels = [fuel for fuel in fuels if onF[fuel]]
-
-#HACK: reducing no. of active fuels for debugging purposes.
-afuels = afuels[:2]
-
-
-naunit = len(aunits)
+# Fuels
+fuels = dfDataFuel.index
+nfuel = len(fuels)
+onF = dfDataFuel['aktiv'] != 0
+afuels = [f for f in fuels if onF[f]]
 nafuel = len(afuels)
 
+fkind = dfDataFuel['fkind'][onF == True]
+storable = (dfDataFuel['lagerbart'] != 0)[onF == True]
+tonnage = dfDataFuel['tonnage'][onF == True]
+price = dfDataFuel['pris'][onF == True]
+lhvMWf = dfDataFuel['brandv'][onF == True] / 3.6
+shareCo2 = dfDataFuel['co2andel'][onF == True]
 
+#%% TEST begin
+
+# dropunits = [u for u in units if u not in aunits]
+# dropfuels = [f for f in fuels if f not in afuels]
+# dd = dfFuelBounds[dfFuelBounds['Bound']=='max']
+# dd2 = dd.drop(dropfuels, inplace=False).drop(columns='Bound')
+
+#%% TEST end
+
+# dfFuelBounds shall be converted into 2 dataframes.
+dfFuelMax = (dfFuelBounds[dfFuelBounds['Bound']=='max']).drop(dropfuels, inplace=False).drop(columns='Bound')
+dfFuelMin = (dfFuelBounds[dfFuelBounds['Bound']=='min']).drop(dropfuels, inplace=False).drop(columns='Bound')
+
+# Setup lookup tables.
 months = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
 months = ['jan','feb']
 nmo = len(months)
+
 ukinds = {'affald':1, 'biomasse':2, 'varme':3, 'peak':4, 'cooler':5}
 fkinds  = {'affald':1, 'biomasse':2, 'varme':3}
 
-#TODO: ua .. uc shall use the dict ukind.
-ua = [uu for uu in dfDataU[dfDataU['ukind']==1].index if onU[uu]]
-ub = [uu for uu in dfDataU[dfDataU['ukind']==2].index if onU[uu]]
-uc = [uu for uu in dfDataU[dfDataU['ukind']==3].index if onU[uu]]
+ua = [uu for uu in dfDataU[dfDataU['ukind'] == ukinds['affald']  ].index if onU[uu]]
+ub = [uu for uu in dfDataU[dfDataU['ukind'] == ukinds['biomasse']].index if onU[uu]]
+uc = [uu for uu in dfDataU[dfDataU['ukind'] == ukinds['varme']   ].index if onU[uu]]
+nua = len(ua); nub = len(ub); nuc = len(uc)
 
-#TODO: fa .. fc shall use the dict fkind.
-fa = [ff for ff in dfDataFuel[dfDataFuel['fkind']==1].index if onF[ff]]
-fb = [ff for ff in dfDataFuel[dfDataFuel['fkind']==2].index if onF[ff]]
-fc = [ff for ff in dfDataFuel[dfDataFuel['fkind']==3].index if onF[ff]]
+fa = [ff for ff in dfDataFuel[dfDataFuel['fkind'] == fkinds['affald']  ].index if onF[ff]]
+fb = [ff for ff in dfDataFuel[dfDataFuel['fkind'] == fkinds['biomasse']].index if onF[ff]]
+fc = [ff for ff in dfDataFuel[dfDataFuel['fkind'] == fkinds['varme']   ].index if onF[ff]]
+nfa = len(fa); nfb = len(fb); nfc = len(fc)
 
+
+
+
+#--------------------------------------------------------------------------------------
+
+#%%
 u2f = pd.DataFrame(index=aunits, columns=afuels, dtype=bool)
-for u in units:
-    for f in fuels:
+for u in aunits:
+    for f in afuels:
         u2f.at[u,f] = (u in ua and f in fa) or (u in ub and f in fb) or (u in uc and f in fc)
-#  u2f.to_numpy()
+#%%
+# Convert data frames to arrays and include only active entities.
+aunit = [{i:u} for i,u in enumerate(aunits)]
+afuel = [{i:f} for i,f in enumerate(afuels)]
+u2f = u2f.to_numpy()
+
 
 print('Counters and lookups are defined.')
 #--------------------------------------------------------------------------------------
@@ -125,178 +143,81 @@ m.options.SOLVER=1  # APOPT is an MINLP solver
 rgkRabatMinShare = m.Const(name='rabatMinShare', value=0.07)
 rgkRabatSats = m.Const(name='rgkRabatSats', value = 0.10)
 
-# Declare model parameters
-# width = m.Param(value=60)
-# thickness = m.Param(value=0.15)
-# density = m.Param(value=0.3)
-# modulus = m.Param(value=30000)
-# load = m.Param(value=66)
-
-
-# # Declare variables and initial guesses
-NPV = m.Var('NPV')  # Objective variable.
 #--------------------------------------------------------------------------------------
-
-#%% Misc. helper functions
-
-# NB: GEKKO stores names in lower case.
-
-def createVars(varname:str, dim, lowerBound=None, upperBound=None, isInteger=False) -> np.ndarray:
-    print('varname={0}, dim={1}'.format(varname, dim))
-    if lowerBound is not None and upperBound is not None and lowerBound >= upperBound:
-        raise ValueError('Conflicting bounds: lowerBound={0} GE upperBound={1}'.format(lowerBound, upperBound))
-    vars = m.Array(m.Var, dim, integer=isInteger, lb=lowerBound, ub=upperBound)
-
-    # if lowerBound is None:
-    #     if upperBound is None:
-    #         vars = m.Array(m.Var, dim, integer=isInteger)
-    #     else: 
-    #         vars = m.Array(m.Var, dim, integer=isInteger, ub=upperBound)
-    # elif upperBound is None:
-    #     vars = m.Array(m.Var, dim, integer=isInteger, lb=lowerBound)
-    # else:
-    #     vars = m.Array(m.Var, dim, integer=isInteger, lb=lowerBound, ub=upperBound)
-
-    return vars
-
-def createVar2D(varname:str, dim, lowerBound=None, upperBound=None, isInteger=False) -> np.ndarray:
-    print('varname={0}, dim={1}'.format(varname, dim))
-    if lowerBound is None:
-        if upperBound is None:
-            vars = m.Array(m.Var, dim, integer=isInteger)
-        else: 
-            vars = m.Array(m.Var, dim, integer=isInteger, ub=upperBound)
-    elif upperBound is None:
-        vars = m.Array(m.Var, dim, integer=isInteger, lb=lowerBound)
-    else:
-        vars = m.Array(m.Var, dim, integer=isInteger, lb=lowerBound, ub=upperBound)
-
-    return vars
-
-def createVars1D(prefix:str, serIndex:list, lowerBound:float, upperBound:float = None, integer=False) -> pd.Series:
-    vars = pd.Series(index=serIndex, dtype=object)
-    for i in serIndex:
-        vname = prefix + i 
-        if lowerBound is None:
-            if upperBound is None:
-                vars.at[i] = m.Var(name=vname, integer=integer)
-            else:
-                vars.at[i] = m.Var(name=vname, integer=integer, up=upperBound)
-        elif upperBound is None:
-            vars.at[i] = m.Var(name=vname, integer=integer, lb=lowerBound)
-        else:
-            vars.at[i] = m.Var(name=vname, integer=integer, lb=lowerBound, up=upperBound)
-
-    return vars
-#--------------------------------------------------------------------------------------
-
 #%% Create model variables.
 
-# xx = m.Array(m.Var, (2))
-# m.Obj(np.sum(xx**2))
+# Variables are only defined on active entities.
+# Results for non-active entities hence default to zero.
 
-#%%
+NPV = m.Var('NPV')  # Objective variable.
+
 # Fundamental decision variables.
-# vbOnU(mo,u):
-vbOnU = m.Array(m.Var, (nmo, naunit), integer=True)
-# vbOnF(mo,f):
-vbOnF = m.Array(m.Var, (nmo, nafuel), integer=True)
+vbOnU        = m.Array(m.Var, (nmo, naunit), integer=True)
+vbOnRgk      = m.Array(m.Var, (nmo, nua), integer=True)
+vbOnRgkRabat = m.Array(m.Var, (nmo, nua), integer=True)
 
+# FuelDemand(mo,u,f):
+vFuelDemand = m.Array(m.Var, (nmo, naunit, nafuel), lb=0.0)
 
+vQ        = m.Array(m.Var, (nmo, naunit), lb=0.0)
+vQrgkMiss = m.Array(m.Var, (nmo),         lb=0.0)
+vQafv     = m.Array(m.Var, (nmo),         lb=0.0)
+vQrgk     = m.Array(m.Var, (nmo, nua),    lb=0.0)
+vQaffM    = m.Array(m.Var, (nmo, nua),    lb=0.0)
 
-
-vRgkRabat = m.Array(m.Var, (nmo, naunit), lb=0.0)
-
+vIncomeTotal   = m.Array(m.Var, (nmo),         lb=0.0)
+vIncomeF       = m.Array(m.Var, (nmo, nafuel))
+vRgkRabat      = m.Array(m.Var, (nmo),         lb=0.0)
+vCostsU        = m.Array(m.Var, (nmo, naunit), lb=0.0)
+vCostsTotalF   = m.Array(m.Var, (nmo),         lb=0.0)
+vCostsAFV      = m.Array(m.Var, (nmo),         lb=0.0)
+vCostsATL      = m.Array(m.Var, (nmo),         lb=0.0)
+vCostsETS      = m.Array(m.Var, (nmo),         lb=0.0)
+vCO2emis       = m.Array(m.Var, (nmo, nafuel), lb=0.0)
+vTotalAffEProd = m.Array(m.Var, (nmo),         lb=0.0)
 
 #--------------------------------------------------------------------------------------
 
+#%% Create equations.
+
+pPenalty_bOnU     = m.Param(value=1E+3)
+pPenalty_QrgkMiss = m.Param(value=20.0)
+
+# Objective
+m.Obj(np.sum(vIncomeTotal) - np.sum(vCostsU) - np.sum(vCostsTotalF) \
+      - pPenalty_bOnU * np.sum(vbOnU) - pPenalty_QrgkMiss * np.sum(vQrgkMiss) )
+
+# IncomeTotal
+eqIncomeTotal = list()
+for mo in range(months):
+    
+    # eqIncomeTotal.append( == np.sum()
+    pass
+
+
+# Equation  ZQ_AffUseYear(f)   'Affaldsforbrug på aarsniveau';
+# Equation  ZQ_AffMin(f,mo)    'Mindste  drivmiddelforbrug paa maanedsniveau';
+# Equation  ZQ_BioUseYear(f)   'Biomasseforbrug på aarsniveau';
+# Equation  ZQ_OVUseYear(f)    'Overskudsvarmeforbrug på aarsniveau';
+
+# ZQ_AffUseYear(fa) $OnF(fa) ..  sum(mo, sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo)))  =E=  sum(mo, FuelBounds(fa,'max',mo));
+# ZQ_AffMin(fa,mo)  $OnF(fa) ..          sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))   =G=  FuelBounds(fa,'min',mo);
+# ZQ_BioUseYear(fb) $OnF(fb) ..  sum(mo, sum(ub $(OnU(ub) AND u2f(ub,fb)), FuelDemand(ub,fb,mo)))  =L=  sum(mo, FuelBounds(fb,'max',mo));
+# ZQ_OVUseYear(fc)  $OnF(fc) ..  sum(mo, sum(uc $(OnU(uc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo)))  =E=  sum(mo, FuelBounds(fc,'max',mo));
+
+eqAffUseYear = list()
+for ifa in range(nfa):
+    ub = dfFuelBounds[fa[ifa]]
+    m.Equation()
+    pass
+    
+
+
+for mo in range(nmo):
+    m.Equations
+
+
 #%%
-# vbOnU = pd.DataFrame(index=months, columns=aunits.to_numpy())
-# for mo in months:
-#     for u in aunits:
-#         name = 'vbOnU_' + mo + '_' + u
-#         vbOnU.at[mo,u] = m.Var(name=name, integer=True)
-
-# vbOnF(mo,f):
-vbOnF = pd.DataFrame(index=months, columns=afuels.to_numpy())
-for mo in months:
-    for f in afuels:
-        name = 'vbOnF_' + mo + '_' + f
-        vbOnF.at[mo,f] = m.Var(name=name, integer=True)
-
-# vbOnRgk(mo,ua):
-vbOnRgk = pd.DataFrame(index=months, columns=u.to_numpy())
-for mo in months:
-    for u in [uu for uu in ua if uu in aunits]:
-        name = 'vbOnRgk_' + mo + '_' + u
-        vbOnF.at[mo,u] = m.Var(name=name, integer=True)
-
-# vbOnRgkRabat(mo,ua):
-vbOnRgkRabat = pd.DataFrame(index=months, columns=ua.to_numpy())
-for mo in months:
-    for u in [uu for uu in ua if uu in aunits]:
-        name = 'vbOnRgkRabat_' + mo + '_' + u
-        vbOnF.at[mo,u] = m.Var(name=name, integer=True)
-
-# FuelDemand(mo,u,f):
-# Create unique column names cf. u2f truth table.
-ufCols = list()
-for u in aunits:
-    for f in afuels:
-        if u2f.at[u,f]:
-            ufCols.append(u + '_' + f)
-
-vFuelDemand = pd.DataFrame(index=months, columns=ufCols)
-for mo in months:
-    for colname in ufCols:
-        name = 'vFuelDemand_' + colname
-        vFuelDemand.at[mo,colname] = m.Var(name=name, lb=0.0)
-
-# Q(mo,u):
-vQ = pd.DataFrame(index=months, columns=aunits.to_numpy())
-for mo in months:
-    for u in aunits:
-        name = 'vQ_' + mo + '_' + u
-        vQ.at[mo,u] = m.Var(name=name, lb=0.0)
-
-# Qrgk(mo,ua)
-vQrgk = pd.DataFrame(index=months, columns=ua)
-for mo in months:
-    for u in ua:
-        name = 'vQrgk_' + mo + '_' + ua
-        vQrgk.at[mo,ua] = m.Var(name=name, lb=0.0)
-
-# Qrgk(mo,ua)
-vRgkRabat = pd.DataFrame(index=months, columns=ua)
-for mo in months:
-    for u in ua:
-        name = 'vQrgk_' + mo + '_' + ua
-        vQrgk.at[mo,ua] = m.Var(name=name, lb=0.0)
-
-# Variable som kun er tidsafhængige:  Var(mo)
-vRgkRabat = createVars1D('vRgkRabat_', months, lowerBound=0.0)
-vQrgkMiss = createVars1D('vQrgkMiss_', months, lowerBound=0.0)
-vQafv     = createVars1D('vQafv_',     months, lowerBound=0.0)
-
-# QaffM(mo,ua)
-vQaffM = pd.DataFrame(index=months, columns=ua)
-for mo in months:
-    for u in ua:
-        name = 'vQaffM_' + mo + '_' + ua
-        vQaffM.at[mo,ua] = m.Var(name=name, lb=0.0)
-
-# vIncomeTotal = createVars1D('vIncomeTotal_', months, lowerBound=0.0, upperBound=None)
-# vCostsTotalF = createVars1D('vCostsTotalF_', months, lowerBound=0.0)
-# vCostsAFV = createVars1D('vCostsAFV_', months, lowerBound=0.0)
-# vCostsATL = createVars1D('vCostsATL_', months, lowerBound=0.0)
-# vCostsETS = createVars1D('vCostsETS_', months, lowerBound=0.0)
-# vTotalAffEProd = createVars1D('vTotalAffEProd_', months, lowerBound=0.0)
-
-
-#%%-----------------------------------------------------------
-
-
-height = m.Var(value=30.00,lb=10.0,ub=50.0)
 # diameter = m.Var(value=3.00,lb=1.0,ub=4.0)
 # weight = m.Var()
 
@@ -320,8 +241,9 @@ height = m.Var(value=30.00,lb=10.0,ub=50.0)
 # Objective 
 # m.Maximize(NPV)
 
+# m.options.IMODE = 3  # Steady state optimization.
 # # solve optimization
-# m.solve()  # remote=False for local solve
+# m.solve(disp=True)  # remote=False for local solve
 
 # print ('')
 # print ('--- Results of the Optimization Problem ---')

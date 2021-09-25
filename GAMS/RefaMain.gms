@@ -17,7 +17,6 @@ set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, n
 #--- set mo    'Aarsmaaneder'   / jan, feb, mar/; #--- , apr, maj, jun, jul, aug, sep, okt, nov, dec /;
 
 
-
 # ¤¤¤¤¤  TODO: INDFØR fkind FOR BIOGENT AFFALD   ¤¤¤¤¤¤¤¤¤
 # ¤¤¤¤¤  TODO: INDFØR fkind FOR BIOGENT AFFALD   ¤¤¤¤¤¤¤¤¤
 # ¤¤¤¤¤  TODO: INDFØR fkind FOR BIOGENT AFFALD   ¤¤¤¤¤¤¤¤¤
@@ -188,6 +187,18 @@ $If not errorfree $exit
 # Erklaering af variable.
 # ------------------------------------------------------------------------------------------------
 Free     variable NPV                      'Nutidsvaerdi af affaldsdisponering';
+
+Binary   variable bOnU(u,mo)               'Anlaeg on-off';
+Binary   variable bOnRgk(ua,mo)            'Affaldsanlaeg RGK on-off';
+Binary   variable bOnRgkRabat(mo)          'Indikator for om der i paagaeldende maaned kan opnaas RGK rabat';
+
+Positive variable FuelDemand(u,f,mo)       'Drivmiddel forbrug paa hvert anlaeg';
+Positive variable Q(u,mo)                  'Grundlast MWq';
+Positive variable QaffM(ua,mo)             'Modtryksvarme på affaldsanlaeg MWq';
+Positive variable Qrgk(u,mo)               'RGK produktion MWq';
+Positive variable Qafv(mo)                 'Varme paalagt affaldvarmeafgift';
+Positive variable QRgkMiss(mo)             'Slack variabel til beregning om RGK-rabat kan opnaas';
+
 Positive variable IncomeTotal(mo)          'Indkomst total';
 Free     variable IncomeF(f,mo)            'Indkomst fra drivmidler';
 Positive variable RgkRabat(mo)             'RGK rabat paa tillaegsafgift';
@@ -196,18 +207,9 @@ Positive variable CostsTotalF(mo)          'Omkostninger Total på drivmidler DK
 Positive variable CostsAFV(mo)             'Omkostninger til affaldvarmeafgift DKK';
 Positive variable CostsATL(mo)             'Omkostninger til affaldstillaegsafgift DKK';
 Positive variable CostsETS(mo)             'Omkostninger til CO2-kvoter DKK';
-Positive variable FuelDemand(u,f,mo)       'Drivmiddel forbrug paa hvert anlaeg';
 Positive variable CO2emis(f,mo)            'CO2-emission';
 Positive variable TotalAffEProd(mo)        'Samlet energiproduktion affaldsanlaeg';
 #--- Positive variable RgkShare(mo)             'RGK-andel af samlet affalds-energiproduktion';
-Positive variable Q(u,mo)                  'Grundlast MWq';
-Positive variable QaffM(ua,mo)             'Modtryksvarme på affaldsanlaeg MWq';
-Positive variable Qrgk(u,mo)               'RGK produktion MWq';
-Positive variable Qafv(mo)                 'Varme paalagt affaldvarmeafgift';
-Positive variable QRgkMiss(mo)             'Slack variabel til beregning om RGK-rabat kan opnaas';
-Binary   variable bOnU(u,mo)               'Anlaeg on-off';
-Binary   variable bOnRgk(ua,mo)            'Affaldsanlaeg RGK on-off';
-Binary   variable bOnRgkRabat(mo)          'Indikator for om der i paagaeldende maaned kan opnaas RGK rabat';
 
 # Fiksering af ikke-aktive anlaeg og ikke-aktive drivmidler.
 loop (u $(NOT OnU(u)), 
@@ -359,6 +361,7 @@ Equation  ZQ_AffMin(f,mo)    'Mindste  drivmiddelforbrug paa maanedsniveau';
 Equation  ZQ_BioUseYear(f)   'Biomasseforbrug på aarsniveau';
 Equation  ZQ_OVUseYear(f)    'Overskudsvarmeforbrug på aarsniveau';
 
+#TODO Introducere 'lagerbart' angivelse fra DataFuel til at styre om et brændsel skal bruges fuldstændigt paa aarsniveau.
 ZQ_AffUseYear(fa) $OnF(fa) ..  sum(mo, sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo)))  =E=  sum(mo, FuelBounds(fa,'max',mo));
 ZQ_AffMin(fa,mo)  $OnF(fa) ..          sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))   =G=  FuelBounds(fa,'min',mo);
 ZQ_BioUseYear(fb) $OnF(fb) ..  sum(mo, sum(ub $(OnU(ub) AND u2f(ub,fb)), FuelDemand(ub,fb,mo)))  =L=  sum(mo, FuelBounds(fb,'max',mo));
