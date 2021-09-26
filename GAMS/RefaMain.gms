@@ -347,23 +347,22 @@ ZQ_Qbio(ub,mo)    $OnU(ub)  ..  Q(ub,mo)     =E=  [sum(fb $(OnF(fb) AND u2f(ub,f
 ZQ_Qvarme(uc,mo)  $OnU(uc)  ..  Q(uc,mo)     =E=  [sum(fc $(OnF(fc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo))] $OnU(uc);  # Varme er i MWhq, mens øvrige drivmidler er i ton.
 ZQ_Qrgk(ua,mo)    $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);  
 ZQ_QrgkMax(ua,mo) $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
-ZQ_QMin(u,mo)     $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);
-
-ZQ_bOnU(u,mo)    $OnU(u)  ..  Q(u,mo)        =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo);   #  Restriktionen på timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
-ZQ_bOnRgk(ua,mo) $OnU(ua) ..  Qrgk(ua,mo)    =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
+#--- ZQ_bOnRgk(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
+ZQ_QMin(u,mo)     $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen på timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
+#--- ZQ_bOnU(u,mo)     $OnU(u)   ..  Q(u,mo)      =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo);  
 
 
 # Restriktioner på affaldsforbrug på aars- hhv. maanedsniveau.
 # Dagrenovation skal bortskaffes hurtigt, hvilket sikres ved at angive mindstegraenser for affaldsforbrug på maanedsniveau.
 # Andre drivmidler er lagerbarer og kan derfor disponeres over hele året, men skal også bortskaffes.
 Equation  ZQ_AffUseYear(f)   'Affaldsforbrug på aarsniveau';
-Equation  ZQ_AffMin(f,mo)    'Mindste  drivmiddelforbrug paa maanedsniveau';
+Equation  ZQ_FuelMin(f,mo)    'Mindste  drivmiddelforbrug paa maanedsniveau';
 Equation  ZQ_BioUseYear(f)   'Biomasseforbrug på aarsniveau';
 Equation  ZQ_OVUseYear(f)    'Overskudsvarmeforbrug på aarsniveau';
 
 #TODO Introducere 'lagerbart' angivelse fra DataFuel til at styre om et brændsel skal bruges fuldstændigt paa aarsniveau.
 ZQ_AffUseYear(fa) $OnF(fa) ..  sum(mo, sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo)))  =E=  sum(mo, FuelBounds(fa,'max',mo));
-ZQ_AffMin(fa,mo)  $OnF(fa) ..          sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))   =G=  FuelBounds(fa,'min',mo);
+ZQ_FuelMin(f,mo) $OnF(f) ..            sum(u  $(OnU(u)  AND u2f(u,f)),   FuelDemand(u,f,mo))     =G=  FuelBounds(f,'min',mo);
 ZQ_BioUseYear(fb) $OnF(fb) ..  sum(mo, sum(ub $(OnU(ub) AND u2f(ub,fb)), FuelDemand(ub,fb,mo)))  =L=  sum(mo, FuelBounds(fb,'max',mo));
 ZQ_OVUseYear(fc)  $OnF(fc) ..  sum(mo, sum(uc $(OnU(uc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo)))  =E=  sum(mo, FuelBounds(fc,'max',mo));
 
