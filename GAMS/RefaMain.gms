@@ -24,11 +24,12 @@ set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, n
 # ¤¤¤¤¤  TODO: INDFØR fkind FOR BIOGENT AFFALD   ¤¤¤¤¤¤¤¤¤
 # ¤¤¤¤¤  TODO: INDFØR fkind FOR BIOGENT AFFALD   ¤¤¤¤¤¤¤¤¤
 
-set fkind 'Drivm.-typer'  / 1 'affald', 2 'biomasse', 3 'varme' /;
+set fkind 'Drivm.-typer'  / 1 'affald', 2 'biomasse', 3 'varme', 4 'peakfuel' /;
 
 Set f     'Drivmidler'    / DepoSort, DepoSmaat, DepoNedd, Dagren, AndetBrand, Trae, 
                             DagrenRast, DagrenInst, DagrenHandel, DagrenRestau, Erhverv, DagrenErhverv, 
-                            HandelKontor, Privat, TyskRest, PolskRest, PcbTrae, FlisAffald, TraeRekv, Halm, Pulver, Flis, NSvarme /;
+                            HandelKontor, Privat, TyskRest, PolskRest, PcbTrae, FlisAffald, TraeRekv, Halm, Pulver, 
+							Flis, NSvarme, PeakFuel /;
 #--- Set f     'Drivmidler'    / Dagren, 
 #---                             Flis, NSvarme /;
 set fa(f) 'Affaldstyper';
@@ -79,8 +80,8 @@ $onecho > REFAinput.txt
 par=DataU               rng=DataU!B4:K10             rdim=1 cdim=1
 par=Prognoses           rng=DataU!B15:J27            rdim=1 cdim=1
 par=AvailDaysU          rng=DataU!B31:H43            rdim=1 cdim=1
-par=DataFuel            rng=Fuel!C4:K27              rdim=1 cdim=1
-par=FuelBounds          rng=Fuel!O4:AB50             rdim=2 cdim=1
+par=DataFuel            rng=Fuel!C4:K28              rdim=1 cdim=1
+par=FuelBounds          rng=Fuel!O4:AB52             rdim=2 cdim=1
 $offecho
 
 $call "ERASE  REFAinput.gdx"

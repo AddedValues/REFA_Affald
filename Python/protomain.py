@@ -40,7 +40,7 @@ dfFuelBounds = sh.range('O4').options(pd.DataFrame, index=True, header=True, exp
 print('Input data imported.')
 
 # Example: extracting certain rows
-#--- [x for x in dfFuelBounds['Fraktion'] if x.startswith('Dag')]
+#--- [x for x in dfFuelBounds['Fraktion'] if x.startswith('Dagren')]
 # rowsdag = [x.startswith('Dag') for x in dfFuelBounds['Fraktion'] ]
 # dfDummy = dfFuelBounds[rowsdag]
 
@@ -49,15 +49,15 @@ print('Input data imported.')
 
 # Define lookup list and dicts.
 months = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
+# Shortlisting months for debugging purposes.
 months = ['jan','feb']
 nmo = len(months)
 
 ukinds = {'affald':1, 'biomasse':2, 'varme':3, 'peak':4, 'cooler':5}
-fkinds = {'affald':1, 'biomasse':2, 'varme':3}
+fkinds = {'affald':1, 'biomasse':2, 'varme':3, 'peak':4}
 
 # Priority scheme of production units.
 uprio = ['ovn3', 'NS']
-
 
 # Plant units
 units = dfDataU.index
@@ -68,11 +68,8 @@ naunit = len(aunits)
 uReverse = [i for i,on in enumerate(onU) if on]  # Absolute index of active units.
 auprod = [u for u in units if onU[u] and dfDataU.loc[u,'ukind'] != ukinds['cooler']]
 nauprod = len(auprod)
-
-aulookup = dict()  # key is unit name, value is active index
-aulookup = [{au,i} for i, au in enumerate(aunits)]
      
-# All parameters shall refer to active entities.
+# All parameters will  refer to active entities only.
 kapTon = dfDataU['kapTon'][onU == True]
 kapNom = dfDataU['kapNom'][onU == True]
 kapRgk = dfDataU['kapRgk'][onU == True]
@@ -89,7 +86,8 @@ power = dfProgn['ELprod']
 taxEts = dfProgn['ets']
 taxAfvMWh = dfProgn['afv'] / 3.6
 taxAtlMWh = dfProgn['atl'] / 3.6
-
+if not onU['ovn3']:
+    power = np.zeros((nmo), dtype=float)
 
 # Fuels
 fuels = dfDataFuel.index
@@ -117,6 +115,15 @@ shareCo2 = dfDataFuel['co2andel'][onF == True]
 
 #%% TEST end
 
+# Lookup by name.
+iaunit  = [{au,i} for i, au in enumerate(aunits)]
+iafuel  = [{af,i} for i, af in enumerate(afuels)]
+
+# Lookup by compact index
+aubyidx = [{i:u} for i,u in enumerate(aunits)]
+afbyidx = [{i:f} for i,f in enumerate(afuels)]
+
+# Entities to be removed from dataframes.
 dropunits = [u for u in units if u not in aunits]
 dropfuels = [f for f in fuels if f not in afuels]
 
@@ -143,15 +150,12 @@ for u in auprod:
     for f in afuels:
         u2f.at[u,f] = (u in ua and f in fa) or (u in ub and f in fb) or (u in uc and f in fc)
 
-# Convert data frames to arrays and include only active entities.
-aunit = [{i:u} for i,u in enumerate(aunits)]
-afuel = [{i:f} for i,f in enumerate(afuels)]
 print(u2f)
 u2f = u2f.to_numpy()
 
-ibegu = {'ua':0, 'ub':nua, 'uc':nua + nub, 'up':nua + nub + nuc}
+ibegu = {'ua':0, 'ub':nua, 'uc':nua + nub, 'up':nua + nub + nuc, 'uv': nua + nub + nuc + nup}
 ibegf = {'fa':0, 'fb':nfa, 'fc':nfa + nfb}
-iendu = {'ua':nua, 'ub':nua + nub, 'uc':nua + nub + nuc, 'up': nua + nub + nuc + nup} 
+iendu = {'ua':nua, 'ub':nua + nub, 'uc':nua + nub + nuc, 'up': nua + nub + nuc + nup, 'uv': nua + nub + nuc + nup+ nuv} 
 iendf = {'fa':nfa, 'fb':nfa + nfb, 'fc':nfa + nfb + nfc} 
 
 # Availabilities
@@ -289,7 +293,10 @@ for imo in range(nmo):
     vCostsTotalF[imo] = m.Intermediate( vCostsAFV[imo] + vCostsATL[imo] + vCostsETS[imo], 'CostsTotalF_' + months[imo])
     vCostsAFV[imo]    = m.Intermediate(vQafv[imo] * taxAfvMWh[imo], 'CostsTotalF_' + months[imo])
     eqIncomeTotal = vRgkRabat[imo]
-    eqQAfv = 0.0 if not onU['cooler'] else -vQ[imo,aulookup['cooler']]
+    eqQAfv = 0.0
+    if onU['cooler']:
+        eqQAfv = -vQ[imo,iaunit['cooler']] 
+
     for iff in range(nafuel):
         eqIncomeTotal += vIncomeF[imo,iff]
         eqCostsETS    += vCO2emis[imo,iff] * taxEts[imo]
@@ -299,8 +306,8 @@ for imo in range(nmo):
         for iu in range(ibegu['ua'], iendu['uc']):   # All production units
             eqCO2emis += vFuelDemand[imo,iu,iff] * shareCo2[iff]
             eqIncomeF += vFuelDemand[imo,iu,iff] * fuelprice[iff]
-        vCO2emis[imo,iff] = m.Intermediate(eqCO2emis, 'CO2emis_' + afuel[iff] + '_' + months[imo])
-        vIncomeF[imo,iff] = m.Intermediate(eqIncomeF, 'IncomeF_' + afuel[iff] + '_' + months[imo])
+        vCO2emis[imo,iff] = m.Intermediate(eqCO2emis, 'CO2emis_' + afbyidx[iff] + '_' + months[imo])
+        vIncomeF[imo,iff] = m.Intermediate(eqIncomeF, 'IncomeF_' + afbyidx[iff] + '_' + months[imo])
     
     eqCostsETS = 0.0
     eqCostsATL = 0.0
@@ -382,7 +389,9 @@ eqQrgkMax = np.empty((nmo,nua), dtype=object)
 eqQMin    = np.empty((nmo,naunit), dtype=object)
 
 for imo in nmo:
-    eqQdem = -vQ[imo,indexau['cooler']] if onU['cooler'] else 0.0
+    eqQdem = 0.0
+    if onU['cooler']:
+        eqQdem = -vQ[imo,iaunit['cooler']]
     for iu in range(nauprod):
         eqQdem += vQ[imo,iu]
     eqQdemand[imo] = m.Equation( eqQdem )
