@@ -12,9 +12,9 @@ $OffText
 # ------------------------------------------------------------------------------------------------
 # Erklaering af sets
 # ------------------------------------------------------------------------------------------------
-set bound 'Bounds'        / min, max /;
+set bound 'Bounds'         / min, max /;
 set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
-#--- set mo    'Aarsmaaneder'   / jan, feb, mar/; #--- , apr, maj, jun, jul, aug, sep, okt, nov, dec /;
+#--- set mo    'Aarsmaaneder'   / jan, feb /;
 
 
 # ¤¤¤¤¤  TODO: INDFØR fkind FOR BIOGENT AFFALD   ¤¤¤¤¤¤¤¤¤
@@ -29,7 +29,7 @@ set fkind 'Drivm.-typer'  / 1 'affald', 2 'biomasse', 3 'varme', 4 'peakfuel' /;
 Set f     'Drivmidler'    / DepoSort, DepoSmaat, DepoNedd, Dagren, AndetBrand, Trae, 
                             DagrenRast, DagrenInst, DagrenHandel, DagrenRestau, Erhverv, DagrenErhverv, 
                             HandelKontor, Privat, TyskRest, PolskRest, PcbTrae, FlisAffald, TraeRekv, Halm, Pulver, 
-							Flis, NSvarme, PeakFuel /;
+                            Flis, NSvarme, PeakFuel /;
 #--- Set f     'Drivmidler'    / Dagren, 
 #---                             Flis, NSvarme /;
 set fa(f) 'Affaldstyper';
@@ -37,7 +37,7 @@ set fb(f) 'Biobraendsler';
 set fc(f) 'Overskudsvarme';
 
 set ukind 'Anlaegstyper'   / 1 'affald', 2 'biomasse', 3 'varme', 4 'peak', 5 'koeler' /;
-set u     'Anlaeg'         / ovn2, ovn3, flisk, peak, cooler, NS /;
+set u     'Anlaeg'         / ovn2, ovn3, flisk, peak, ns, cooler /;
 set up(u) 'Prod-anlaeg'    / ovn2, ovn3, flisk, peak, NS /;
 set ua(u) 'Affaldsanlaeg'  / ovn2, ovn3 /;
 set ub(u) 'Bioanlaeg'      / flisk /;
@@ -77,7 +77,7 @@ $If not errorfree $exit
 # Indlaesning af input parametre
 
 $onecho > REFAinput.txt
-par=DataU               rng=DataU!B4:K10             rdim=1 cdim=1
+par=DataU               rng=DataU!B4:L10             rdim=1 cdim=1
 par=Prognoses           rng=DataU!B15:J27            rdim=1 cdim=1
 par=AvailDaysU          rng=DataU!B31:H43            rdim=1 cdim=1
 par=DataFuel            rng=Fuel!C4:K28              rdim=1 cdim=1
@@ -85,7 +85,7 @@ par=FuelBounds          rng=Fuel!O4:AB52             rdim=2 cdim=1
 $offecho
 
 $call "ERASE  REFAinput.gdx"
-$call "GDXXRW REFAinput.xlsb RWait=1 Trace=3 @REFAinput.txt"
+$call "GDXXRW REFAinput.xlsm RWait=1 Trace=3 @REFAinput.txt"
 
 # Indlaesning fra GDX-fil genereret af GDXXRW.
 # $LoadDC bruges for at sikre, at der ikke findes elementer, som ikke er gyldige for den aktuelle parameter.
@@ -250,8 +250,6 @@ Equation  ZQ_CostsATL(mo)             'Affaldstillaegsafgift foer evt. rabat DKK
 Equation  ZQ_CostsETS(mo)             'CO2-kvoteomkostning DKK';
 Equation  ZQ_Qafv(mo)                 'Varme hvoraf der skal svares AFV [MWhq]';
 Equation  ZQ_CO2emis(f,mo)            'CO2-maengde hvoraf der skal svares ETS [ton]';
-Equation  ZQ_bOnU(u,mo)               'Aktiv status begraenset af total raadighed';
-Equation  ZQ_bOnRgk(ua,mo)            'Angiver om RGK er aktiv';
 Equation  ZQ_PrioUp(uprio,up,mo)      'Prioritet af uprio over visse up anlaeg';
 
 
@@ -339,18 +337,24 @@ Equation  ZQ_Qbio(ub,mo)              'Samlet varmeprod. biomasseanlaeg';
 Equation  ZQ_Qvarme(uc,mo)            'Samlet varmeprod. overskudsvarme';
 Equation  ZQ_Qrgk(ua,mo)              'RGK produktion paa affaldsanlaeg';
 Equation  ZQ_QrgkMax(ua,mo)           'RGK produktion oevre graense';
+Equation  ZQ_QaffMmax(ua,mo)          'Max. modtryksvarmeproduktion';
 Equation  ZQ_Qmin(u,mo)               'Sikring af nedre graense paa varmeproduktion';
+Equation  ZQ_bOnU(u,mo)               'Aktiv status begraenset af total raadighed';
+Equation  ZQ_bOnRgk(ua,mo)            'Angiver om RGK er aktiv';
 
-ZQ_Qdemand(mo)              ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - Q('cooler',mo) $OnU('cooler');
-ZQ_Qaff(ua,mo)    $OnU(ua)  ..  Q(ua,mo)     =E=  [QaffM(ua,mo) + Qrgk(ua,mo)];
-ZQ_QaffM(ua,mo)   $OnU(ua)  ..  QaffM(ua,mo) =E=  [sum(fa $(OnFF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * EtaQ(ua) * LhvMWh(fa))] $OnU(ua);
-ZQ_Qbio(ub,mo)    $OnU(ub)  ..  Q(ub,mo)     =E=  [sum(fb $(OnF(fb) AND u2f(ub,fb)), FuelDemand(ub,fb,mo) * EtaQ(ub) * LhvMWh(fb))]  $OnU(ub);
-ZQ_Qvarme(uc,mo)  $OnU(uc)  ..  Q(uc,mo)     =E=  [sum(fc $(OnF(fc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo))] $OnU(uc);  # Varme er i MWhq, mens øvrige drivmidler er i ton.
-ZQ_Qrgk(ua,mo)    $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);  
-ZQ_QrgkMax(ua,mo) $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
-#--- ZQ_bOnRgk(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
-ZQ_QMin(u,mo)     $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen på timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
-#--- ZQ_bOnU(u,mo)     $OnU(u)   ..  Q(u,mo)      =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo);  
+ZQ_Qdemand(mo)               ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - Q('cooler',mo) $OnU('cooler');
+ZQ_Qaff(ua,mo)     $OnU(ua)  ..  Q(ua,mo)     =E=  [QaffM(ua,mo) + Qrgk(ua,mo)];
+ZQ_QaffM(ua,mo)    $OnU(ua)  ..  QaffM(ua,mo) =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * EtaQ(ua) * LhvMWh(fa))] $OnU(ua);
+ZQ_Qbio(ub,mo)     $OnU(ub)  ..  Q(ub,mo)     =E=  [sum(fb $(OnF(fb) AND u2f(ub,fb)), FuelDemand(ub,fb,mo) * EtaQ(ub) * LhvMWh(fb))]  $OnU(ub);
+ZQ_Qvarme(uc,mo)   $OnU(uc)  ..  Q(uc,mo)     =E=  [sum(fc $(OnF(fc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo))] $OnU(uc);  # Varme er i MWhq, mens øvrige drivmidler er i ton.
+ZQ_Qrgk(ua,mo)     $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);  
+ZQ_QrgkMax(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
+                   
+ZQ_QaffMmax(ua,mo) $OnU(ua)  ..  QAffM(ua,mo) =L=  QaffMmax(ua,mo);
+                   
+ZQ_QMin(u,mo)      $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen på timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
+ZQ_bOnU(u,mo)      $OnU(u)   ..  Q(u,mo)      =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo);  
+ZQ_bOnRgk(ua,mo)   $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
 
 
 # Restriktioner på affaldsforbrug på aars- hhv. maanedsniveau.
@@ -481,8 +485,8 @@ text="Prognoser"      rng=Inputs!B14:B14
 par=AvailDaysU        rng=Inputs!B30      cdim=1  rdim=1
 text="AvailDaysU"     rng=Inputs!B30:B30
 
-par=DataFuel          rng=Inputs!O3       cdim=1  rdim=1
-text="DataFuel"       rng=Inputs!O3:O3
+par=DataFuel          rng=Inputs!N3       cdim=1  rdim=1
+text="DataFuel"       rng=Inputs!N3:N3
 par=FuelBounds        rng=Inputs!N30      cdim=1  rdim=2
 text="FuelBounds"     rng=Inputs!N30:N30
 

@@ -1,0 +1,161 @@
+
+--- Job RefaMain.gms Start 09/27/21 09:55:59 36.1.0 r2c0a44a WEX-WEI x86 64bit/MS Windows
+--- Applying:
+    C:\GAMS\36\gmsprmNT.txt
+--- GAMS Parameters defined
+    Input "C:\GitHub\REFA Affald\GAMS\RefaMain.gms"
+    PageWidth 80
+    PageSize 0
+    PageContr 3
+    Action CE
+    ScrDir "C:\GitHub\REFA Affald\GAMS\225a\"
+    SysDir C:\GAMS\36\
+    WorkDir "C:\GitHub\REFA Affald\GAMS\"
+    LogOption 3
+    DFormat 0
+    TFormat 0
+    ErrorLog 99
+    IDE 1
+Licensee: Mogens Bech Laursen, Single User License       S200914/0001CN-WIN
+          Added Values, Plant Modeling                              DC10662
+          C:\Users\MogensBechLaursen\OneDrive - Added Values P S\Dokumenter\GAMS\gamslice.txt
+Processor information: 1 socket(s), 4 core(s), and 8 thread(s) available
+GAMS 36.1.0   Copyright (C) 1987-2021 GAMS Development. All rights reserved
+--- Starting compilation
+Entering file: C:\GitHub\REFA Affald\GAMS\RefaMain.gms
+--- RefaMain.gms(79) 3 Mb
+--- $echo File C:\GitHub\REFA Affald\GAMS\REFAinput.txt
+--- RefaMain.gms(87) 3 Mb
+--- call ERASE  REFAinput.gdx
+--- RefaMain.gms(88) 3 Mb
+--- call GDXXRW REFAinput.xlsm RWait=1 Trace=3 @REFAinput.txt
+
+GDXXRW           36.1.0 r2c0a44a Released Aug 02, 2021 WEI x86 64bit/MS Window
+Excel version 16.0
+Input file : C:\GitHub\REFA Affald\GAMS\REFAinput.xlsm
+Output file: C:\GitHub\REFA Affald\GAMS\REFAinput.gdx
+Type Symbol       Dim      Sheet                Data          RowHeader     ColHeader     
+Loading sheet DataU
+Reading data from Excel; Rng = A1:V45
+Reading Slice: A1:V45
+Par  DataU          2      DataU                C5:L10        B5:B10        C4:L4         
+Par  Prognoses      2      DataU                C16:J27       B16:B27       C15:J15       
+Par  AvailDaysU     2      DataU                C32:H43       B32:B43       C31:H31       
+Loading sheet Fuel
+Reading data from Excel; Rng = B2:AF52
+Reading Slice: B2:AF52
+Par  DataFuel       2      Fuel                 D5:K28        C5:C28        D4:K4         
+Par  FuelBounds     3      Fuel                 Q5:AB52       O5:P52        Q4:AB4        
+Total time = 578 Ms
+--- RefaMain.gms(95) 3 Mb
+--- GDXin=C:\GitHub\REFA Affald\GAMS\REFAinput.gdx
+--- GDX File ($gdxIn) C:\GitHub\REFA Affald\GAMS\REFAinput.gdx
+Finished loading input data from GDXIN.
+--- RefaMain.gms(471) 3 Mb
+--- $echo File C:\GitHub\REFA Affald\GAMS\REFAoutput.txt
+--- RefaMain.gms(511) 3 Mb
+--- Starting execution: elapsed 0:00:00.690
+--- RefaMain.gms(379) 4 Mb
+--- Generating MIP model modelREFA
+--- RefaMain.gms(382) 4 Mb
+---   1,110 rows  1,081 columns  3,538 non-zeroes
+---   108 discrete-columns
+--- Executing GUROBI (Solvelink=2): elapsed 0:00:00.720
+
+Gurobi           36.1.0 r2c0a44a Released Aug 02, 2021 WEI x86 64bit/MS Window
+
+Gurobi full license.
+Gurobi library version 9.1.2
+*** Error Cannot open parameter file "C:\GitHub\REFA Affald\GAMS\gurobi.opt"
+*** Error Error code = 2; No such file or directory
+Space for names approximately 0.06 Mb
+Use option 'names no' to turn use of names off
+Starting Gurobi...
+Gurobi Optimizer version 9.1.2 build v9.1.2rc0 (win64)
+Thread count: 4 physical cores, 8 logical processors, using up to 1 threads
+Optimize a model with 1109 rows, 1080 columns and 3357 nonzeros
+Model fingerprint: 0x41d3e7e5
+Variable types: 972 continuous, 108 integer (108 binary)
+Coefficient statistics:
+  Matrix range     [7e-02, 3e+05]
+  Objective range  [1e+00, 1e+03]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [4e+01, 3e+05]
+Presolve removed 874 rows and 664 columns
+Presolve time: 0.00s
+Presolved: 235 rows, 416 columns, 1036 nonzeros
+Variable types: 356 continuous, 60 integer (60 binary)
+
+Root relaxation: objective -2.638312e+07, 217 iterations, 0.00 seconds
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 -2.638e+07    0    8          - -2.638e+07      -     -    0s
+H    0     0                    -2.66908e+07 -2.638e+07  1.15%     -    0s
+H    0     0                    -2.64070e+07 -2.638e+07  0.09%     -    0s
+     0     0 -2.641e+07    0    1 -2.641e+07 -2.641e+07  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 2
+  Implied bound: 7
+  MIR: 3
+  Flow cover: 8
+  Relax-and-lift: 3
+
+Explored 1 nodes (234 simplex iterations) in 0.08 seconds
+Thread count was 1 (of 8 available processors)
+
+Solution count 2: -2.6407e+07 -2.66908e+07 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective -2.640695467901e+07, best bound -2.640649951313e+07, gap 0.0017%
+
+User-callback calls 95, time in user-callback 0.00 sec
+MIP status(2): Model was solved to optimality (subject to tolerances).
+
+Solving fixed MIP.
+Gurobi Optimizer version 9.1.2 build v9.1.2rc0 (win64)
+Thread count: 4 physical cores, 8 logical processors, using up to 1 threads
+Optimize a model with 1109 rows, 1080 columns and 3357 nonzeros
+Model fingerprint: 0xebd90de8
+Coefficient statistics:
+  Matrix range     [7e-02, 3e+05]
+  Objective range  [1e+00, 1e+03]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [4e+01, 3e+05]
+Presolve removed 1051 rows and 891 columns
+Presolve time: 0.01s
+Presolved: 58 rows, 189 columns, 429 nonzeros
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0   -1.5715106e+07   4.368762e+04   0.000000e+00      0s
+      92   -2.6406955e+07   0.000000e+00   0.000000e+00      0s
+
+Solved in 92 iterations and 0.01 seconds
+Optimal objective -2.640695468e+07
+
+User-callback calls 228, time in user-callback 0.00 sec
+Fixed MIP status(2): Model was solved to optimality (subject to tolerances).
+
+MIP   Solution:  -26406954.679012    (234 iterations, 1 nodes)
+Final Solve:     -26406954.679012    (92 iterations)
+
+Best possible:   -26406499.513132
+Absolute gap:          455.165880
+Relative gap:            0.000017
+
+--- Reading solution for model modelREFA
+--- Executing after solve: elapsed 0:00:00.839
+--- RefaMain.gms(443) 4 Mb
+--- GDX File (execute_unload) C:\GitHub\REFA Affald\GAMS\REFAoutput.gdx
+--- RefaMain.gms(509) 4 Mb
+
+GDXXRW           36.1.0 r2c0a44a Released Aug 02, 2021 WEI x86 64bit/MS Window
+Input file : C:\GitHub\REFA Affald\GAMS\REFAoutput.gdx
+Output file: C:\GitHub\REFA Affald\GAMS\REFAoutput.xlsm
+Total time = 1656 Ms
+--- RefaMain.gms(511) 4 Mb
+--- GDX File (execute_unload) C:\GitHub\REFA Affald\GAMS\RefaMain.gdx
+*** Status: Normal completion
+--- Job RefaMain.gms Stop 09/27/21 09:56:02 elapsed 0:00:02.544
