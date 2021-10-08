@@ -1,0 +1,31 @@
+iis=1
+rerun=1
+
+feasopt=0
+feasoptmode=1
+
+* Max. constraint violation exceeds tolerance <optimalitytol>
+*default: optimalitytol=1E-6 
+*default: feasibilitytol=1E-6
+*default: intfeastol=1E-5
+optimalitytol=1E-5 
+feasibilitytol=1.0E-5
+intfeastol=1.0E-5
+
+freegamsmodel=0
+heuristics=0.30
+mipgap=0.00
+*-mipgapabs=96.0E-4
+mipstart=0
+numericfocus=1
+*-numericfocus=2
+scaleflag=3
+seed=0
+sensitivity=1
+threads=2
+*- concurrentmip=3
+*- timelimit=10800
+timelimit=999999
+varhint=1
+* barhomogeneous: -1 = Auto, 0 = Off, 1 = On
+barhomogeneous = -1

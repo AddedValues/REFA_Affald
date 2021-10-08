@@ -21,7 +21,7 @@ PlaneRownr=-1
 [GDXDISP: DataFuel Par 2]
 PlaneDim=0
 RowDim=1
-Squeeze=1
+Squeeze=0
 SqTrail0=0
 Order=1,2
 Decim=7
@@ -39,7 +39,7 @@ PlaneRownr=-1
 [GDXDISP: FuelBounds Par 3]
 PlaneDim=1
 RowDim=1
-Squeeze=1
+Squeeze=0
 SqTrail0=0
 Order=2,3,1
 Decim=7
@@ -488,11 +488,11 @@ Decim=7
 PlaneRownr=-1
 
 [GDXDISP: bOnRgkRabat Var 1]
-PlaneDim=0
+PlaneDim=1
 RowDim=1
 Squeeze=1
 SqTrail0=0
-Order=1,2
+Order=2,1
 Decim=7
 PlaneRownr=-1
 
@@ -512,8 +512,8 @@ Squeeze=0
 SqTrail0=1
 Order=1,4,3,2
 Decim=7
-PlaneRownr=-1
-PlaneFilter1=ovn3
+PlaneRownr=10
+PlaneFilter1=flisk
 PlaneFilter2=Level
 
 [GDXDISP: IncomeF Var 2]
@@ -952,7 +952,7 @@ PlaneRownr=-1
 
 [GDXDISP: Qrgk_V Par 2]
 PlaneDim=0
-RowDim=2
+RowDim=1
 Squeeze=1
 SqTrail0=0
 Order=1,2
@@ -997,7 +997,7 @@ PlaneRownr=-1
 
 [GDXDISP: FuelDemand_V Par 2]
 PlaneDim=0
-RowDim=2
+RowDim=1
 Squeeze=1
 SqTrail0=0
 Order=1,2
@@ -1187,26 +1187,98 @@ Order=1
 Decim=7
 PlaneRownr=-1
 
+[GDXDISP: KapNom Par 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: KapTon Par 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: TonnageAar Par 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: fsto Set 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: fr Set 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: fdis Set 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: Usage Par 2]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=2,1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: uv Set 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
 [RP:REFAMAIN]
 1=
 
 [MRUFILES]
-1=C:\AddedValues Dropbox\Mogens Laursen\AV Projekter\REFA\Affaldsdisponering\REFA Affald GAMS Backup\2021 SEP 18 1804\RefaMain.gms
-2=C:\AddedValues Dropbox\GAMS\DIN\Version14b\Master\DayExtracts.gms
-3=C:\GitHub\REFA Affald\RefaMain.Varmepris.gch
-4=C:\GitHub\REFA Affald\RefaMain.Qdemand.gch
-5=C:\GitHub\REFA Affald\RefaMain.Q.gch
-6=C:\GitHub\REFA Affald\RefaMain.CostsATL.gch
-7=C:\GitHub\REFA Affald\RefaMain.CostsAFV.gch
-8=C:\GitHub\REFA Affald\REFAinput.gdx
+1=C:\GitHub\REFA Affald\GAMS\RefaMain - Copy.gdx
+2=C:\GitHub\REFA Affald OLD\RefaMain.gdx
+3=C:\AddedValues Dropbox\Mogens Laursen\AV Projekter\REFA\Affaldsdisponering\REFA Affald GAMS Backup\2021 SEP 18 1804\RefaMain.gms
+4=C:\AddedValues Dropbox\GAMS\DIN\Version14b\Master\DayExtracts.gms
+5=C:\GitHub\REFA Affald\RefaMain.Varmepris.gch
+6=C:\GitHub\REFA Affald\RefaMain.Qdemand.gch
+7=C:\GitHub\REFA Affald\RefaMain.Q.gch
+8=C:\GitHub\REFA Affald\RefaMain.CostsATL.gch
 
 [OPENWINDOW_1]
-FILE0=C:\GitHub\REFA Affald\RefaMain.gdx
-FILE1=C:\GitHub\REFA Affald\RefaMain.gms
-FILE2=C:\GitHub\REFA Affald\RefaMain.lst
-FILE3=C:\GitHub\REFA Affald\RefaMain.lst
+FILE0=C:\GitHub\REFA Affald\GAMS\RefaMain.gdx
+FILE1=C:\GitHub\REFA Affald\GAMS\RefaMain.gms
+FILE2=C:\GitHub\REFA Affald\GAMS\RefaMain.lst
+FILE3=C:\GitHub\REFA Affald\GAMS\RefaMain.lst
 MAXIM=0
 TOP=-2
 LEFT=-4
-HEIGHT=1095
-WIDTH=957
+HEIGHT=1098
+WIDTH=961
