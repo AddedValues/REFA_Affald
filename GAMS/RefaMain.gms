@@ -459,7 +459,7 @@ display Penalty_bOnUTotal, NPV.L;
 # ------------------------------------------------------------------------------------------------
 # Udskriv resultager til Excel output fil.
 # ------------------------------------------------------------------------------------------------
-set topics / Varmepris, Indkomst, AnlaegsOmk, BraendselOmk, CO2emis, FJV-behov, VarmeProd, RGKvarme, RGKandel, RGKrabat, Bortkoeling /;
+set topics / Varmepris, Indkomst, AnlaegsOmk, BraendselOmk, CO2-emission, FJV-behov, VarmeProd, RGKvarme, RGKandel, RGKrabat, Bortkoeling /;
 
 Scalar tiny / 1E-14/;
 Scalar tmp1, tmp2, tmp3;
@@ -492,6 +492,7 @@ loop (mo,
   OverView('Varmepris',mo)    = ifthen(Varmepris(mo) EQ 0.0, tiny, Varmepris(mo));
   OverView('Indkomst',mo)     = max(tiny, IncomeTotal.L(mo));
   OverView('BraendselOmk',mo) = max(tiny, CostsTotalF.L(mo));
+  OverView('CO2-emission',mo) = max(tiny, sum(f $OnF(f), CO2emis.L(f,mo)) );
   OverView('AnlaegsOmk',mo)   = max(tiny, sum(u $OnU(u), CostsU.L(u,mo)));
   OverView('VarmeProd',mo)    = max(tiny, sum(up $OnU(up), Q.L(up,mo)));
   Overview('FJV-behov',mo)    = max(tiny, Qdemand(mo));
@@ -508,6 +509,9 @@ loop (mo,
     tmp1 = sum(u $OnU(u), FuelDemand.L(u,f,mo));
     FuelDemand_V(f,mo) = max(tiny, tmp1);
     IncomeF_V(f,mo)    = ifthen(IncomeAff.L(f,mo) EQ 0.0, tiny, IncomeAff.L(f,mo));
+  );
+  loop (faux,
+    IncomeF_V(faux,mo) = ifthen(CostsAuxF.L(faux,mo) EQ 0.0, tiny, -CostsAuxF.L(faux,mo));
   );
 
   Q_V(u,mo)        = ifthen (Q.L(u,mo) EQ 0.0, tiny, Q.L(u,mo));
@@ -554,40 +558,42 @@ $OffText
 $onecho > REFAoutput.txt
 filter=0
 
+* OBS: Vaerdier udskrives i basale enheder, men formatteres i Excel til visning af fx. tusinder fremfor enere.
+
 *begin Individuelle dataark
 
 * sheet Inputs
-par=DataU             rng=Inputs!B3       cdim=1  rdim=1
-text="DataU"          rng=Inputs!B3:B3
-par=Prognoses         rng=Inputs!B14      cdim=1  rdim=1
-text="Prognoser"      rng=Inputs!B14:B14
-par=AvailDaysU        rng=Inputs!B30      cdim=1  rdim=1
-text="AvailDaysU"     rng=Inputs!B30:B30
-
-par=DataFuel          rng=Inputs!N3       cdim=1  rdim=1
-text="DataFuel"       rng=Inputs!N3:N3
-par=FuelBounds_V      rng=Inputs!N35      cdim=1  rdim=2
-text="FuelBounds"     rng=Inputs!N35:N35
+par=DataU               rng=Inputs!B3       cdim=1  rdim=1
+text="DataU"            rng=Inputs!B3:B3
+par=Prognoses           rng=Inputs!B14      cdim=1  rdim=1
+text="Prognoser"        rng=Inputs!B14:B14
+par=AvailDaysU          rng=Inputs!B30      cdim=1  rdim=1
+text="AvailDaysU"       rng=Inputs!B30:B30
+                        
+par=DataFuel            rng=Inputs!N3       cdim=1  rdim=1
+text="DataFuel"         rng=Inputs!N3:N3
+par=FuelBounds_V        rng=Inputs!N35      cdim=1  rdim=2
+text="FuelBounds [ton]" rng=Inputs!N35:N35
 
 *end   Individuelle dataark
 
-* Overview as the last sheet to be written hence the actual sheet when opening Excel file.
+* Overview is the last sheet to be written hence becomes the actual sheet when opening Excel file.
 
 *begin sheet Overblik 
-par=TimeOfWritingMasterResults      rng=Overblik!B1:B1
+par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
 text="Tidsstempel"                  rng=Overblik!A1:A1
-par=NPV_V                           rng=Overblik!C4:C4
-text="NPV [DKK]"                    rng=Overblik!B4:B4
-par=OverView                        rng=Overblik!B6         cdim=1  rdim=1
-text="Overblik"                     rng=Overblik!B6:B6
-par=Q_V                             rng=Overblik!B18        cdim=1  rdim=1
-text="Varmemaengder [MWhq]"         rng=Overblik!B18:B18
-par=FuelDemand_V                    rng=Overblik!B26        cdim=1  rdim=1
-text="Braendselsforbrug [ton]"      rng=Overblik!B26:B26
-par=IncomeF_V                       rng=Overblik!B55        cdim=1  rdim=1
-text="Braendselsindkomst [DKK]"     rng=Overblik!B55:B55
-par=Usage                           rng=Overblik!B83        cdim=1  rdim=1
-text="Kapacitetsudnyttelse"         rng=Overblik!B83:B83
+par=NPV_V                           rng=Overblik!A4:A4
+text="NPV"                          rng=Overblik!A3:A3
+par=OverView                        rng=Overblik!C6         cdim=1  rdim=1
+text="Overblik"                     rng=Overblik!C6:C6
+par=Q_V                             rng=Overblik!C19        cdim=1  rdim=1
+text="Varmemaengder"                rng=Overblik!C19:C19
+par=FuelDemand_V                    rng=Overblik!C27        cdim=1  rdim=1
+text="Braendselsforbrug"            rng=Overblik!C27:C27
+par=IncomeF_V                       rng=Overblik!C56        cdim=1  rdim=1
+text="Braendselsindkomst"           rng=Overblik!C56:C56
+par=Usage                           rng=Overblik!C84        cdim=1  rdim=1
+text="Kapacitetsudnyttelse"         rng=Overblik!C84:C84
 *end
 
 $offecho
