@@ -15,12 +15,16 @@ from gekko import GEKKO
 # %% Read input from Excel fil REFAinput.xlsb  
 
 pathfolder = r'C:\\GitHub\\REFA Affald\\Excel'
-filename = r'REFAinput.xlsm'
+filename = r'REFAinputX.xlsm'
 path = os.path.join(pathfolder, filename)
 
 #--- dfDataU = pd.read_excel(path, sheet_name='DataU', header=4, index_col=2, nrows=10-4)
 
 wb = xw.Book(path)
+
+sh = wb.sheets['ModelParms']
+dfModelParms: pd.DataFrame
+dfModelParms = sh.range('B4').options(pd.DataFrame, index=True, header=True, expand='table').value
 
 sh = wb.sheets['DataU']
 dfDataU : pd.DataFrame
@@ -35,7 +39,7 @@ sh = wb.sheets['Fuel']
 dfDataFuel   : pd.DataFrame
 dfFuelBounds : pd.DataFrame
 dfDataFuel   = sh.range('C4').options(pd.DataFrame, index=True, header=True, expand='table').value
-dfFuelBounds = sh.range('O4').options(pd.DataFrame, index=True, header=True, expand='table').value
+dfFuelBounds = sh.range('R4').options(pd.DataFrame, index=True, header=True, expand='table').value
 
 print('Input data imported.')
 
@@ -47,6 +51,11 @@ print('Input data imported.')
 #---------------------------------------------------------------------------
 #%% Extract comfortable arrays from dataframes.
 
+# Model parms
+penalty_QrgkMiss = dfModelParms.loc['Penalty_QRgkMiss','Værdi']
+rgkRabatMinShare =  dfModelParms.loc['RgkRabatMinShare','Værdi']
+rgkRabatSats = dfModelParms.loc['RgkRabatSats','Værdi']
+
 # Define lookup list and dicts.
 months = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
 # Shortlisting months for debugging purposes.
@@ -57,7 +66,7 @@ ukinds = {'affald':1, 'biomasse':2, 'varme':3, 'peak':4, 'cooler':5}
 fkinds = {'affald':1, 'biomasse':2, 'varme':3, 'peak':4}
 
 # Priority scheme of production units.
-uprio = ['ovn3', 'NS']
+uprio = ['Ovn3', 'NS']
 
 # Plant units
 units = dfDataU.index
@@ -86,7 +95,7 @@ power = dfProgn['ELprod']
 taxEts = dfProgn['ets']
 taxAfvMWh = dfProgn['afv'] / 3.6
 taxAtlMWh = dfProgn['atl'] / 3.6
-if not onU['ovn3']:
+if not onU['Ovn3']:
     power = np.zeros((nmo), dtype=float)
 
 # Fuels
@@ -98,8 +107,9 @@ nafuel = len(afuels)
 fReverse = [i for i,on in enumerate(onF) if on]  # Absolute index of active fuels.
 
 fkind = dfDataFuel['fkind'][onF == True]
-storable = (dfDataFuel['lagerbart'] != 0)[onF == True]
-tonnage = dfDataFuel['tonnage'][onF == True]
+storable = (dfDataFuel['lagerbar'] != 0)[onF == True]
+minTonnage = dfDataFuel['minTonnage'][onF == True]
+maxTonnage = dfDataFuel['maxTonnage'][onF == True]
 fuelprice = dfDataFuel['pris'][onF == True]
 lhvMWf = dfDataFuel['brandv'][onF == True] / 3.6
 shareCo2 = dfDataFuel['co2andel'][onF == True]
@@ -150,7 +160,7 @@ for u in auprod:
     for f in afuels:
         u2f.at[u,f] = (u in ua and f in fa) or (u in ub and f in fb) or (u in uc and f in fc)
 
-print(u2f)
+# print(u2f)
 u2f = u2f.to_numpy()
 
 ibegu = {'ua':0, 'ub':nua, 'uc':nua + nub, 'up':nua + nub + nuc, 'uv': nua + nub + nuc + nup}
@@ -169,9 +179,6 @@ for imo, mo in enumerate(months):
 print('Counters and lookups are defined.')
 #--------------------------------------------------------------------------------------
 #%% Compute parameters
-
-rgkRabatMinShare = 0.07
-rgkRabatSats = 0.10
 
 # QaffMmax(ua,mo)  = min(ShareAvailU(ua,mo) * Hours(mo) * KapNom(ua), 
 #                       [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelBounds(fa,'max',mo) * EtaQ(ua) * LhvMWh(fa))]) $OnU(ua);
@@ -377,6 +384,10 @@ allEqns['RgkRabatMax2'] = eqRgkRabatMax2
 # ZQ_Qrgk(ua,mo)    $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);  
 # ZQ_QrgkMax(ua,mo) $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
 # ZQ_QMin(u,mo)     $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);
+
+# ¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤
+#     REDUNDANTE LIGNINGER SKAL MED. SE GAMS-FIL
+# ¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤
 
 # Heat balance equations.
 eqQdemand = np.empty((nmo), dtype=object)
