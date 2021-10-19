@@ -96,8 +96,8 @@ uprio = priority.drop(labels=dropunits, inplace=False)
 uprio2up = np.zeros((nauprod, nauprod), dtype=bool)
 for up1 in uprio:
     for up2 in aunits:
-		if priority[up1] > priority[up2]:
-			uprio2up[up1,up2] = True
+        if priority[up1] > priority[up2]:
+            uprio2up[up1,up2] = True
 
 # Prognoses.
 days = dfProgn['ndage']
@@ -174,11 +174,16 @@ for u in auprod:
 # print(u2f)
 u2f = u2f.to_numpy()
 
-ibegu = {'ua':0, 'ub':nua, 'uc':nua + nub, 'ur':nua + nub + nuc, 'uv': nua + nub + nuc + nup, 'uaux': nua}
-iendu = {'ua':nua, 'ub':nua + nub, 'uc':nua + nub + nuc, 'ur': nua + nub + nuc + nup, 'uv': nua + nub + nuc + nup + nuv, 'uaux': nua + nub + nuc + nup} 
+ibegu = {'ua':0,     'ub':nua,           'uc':nua + nub,           'ur':nua + nub + nuc,           'uv': nua + nub + nuc + nup,           'uaux': nua}
+iendu = {'ua':nua-1, 'ub':nua + nub - 1, 'uc':nua + nub + nuc - 1, 'ur':nua + nub + nuc + nup - 1, 'uv': nua + nub + nuc + nup + nuv - 1, 'uaux': nua + nub + nuc + nup - 1} 
 
-ibegf = {'fa':0, 'fb':nfa, 'fc':nfa + nfb, 'faux': nfa}
-iendf = {'fa':nfa, 'fb':nfa + nfb, 'fc':nfa + nfb + nfc, 'faux': nfa + nfb + nfc + nfaux} 
+ibegf = {'fa':0,     'fb':nfa,           'fc':nfa + nfb,           'faux': nfa}
+iendf = {'fa':nfa-1, 'fb':nfa + nfb - 1, 'fc':nfa + nfb + nfc - 1, 'faux': nfa + nfb + nfc + nfaux - 1} 
+
+# Specific indices
+iacooler = -1
+if nuv > 0:
+	iacooler = ibegu['uv']
 
 # Availabilities
 hours = days * 24
@@ -385,19 +390,19 @@ for imo in range(nmo):
 eqPrioUp = list()
 for imo in range(nmo):
     for up1 in uprio:
-		eqn = None
+        eqn = None
         for up2 in auprod:
-			if uprio2up[up1,up2]:
+            if uprio2up[up1,up2]:
                 eqn = m.Equation(vbOnU[up1] <= vbOnU[up2]) 
-		if eqn is not None:
-			eqPrioUp.append(eqn)
+        if eqn is not None:
+            eqPrioUp.append(eqn)
 
 if len(eqPrioUp) > 0:
-	allEqns['PrioUp'] = eqPrioUp
+    allEqns['PrioUp'] = eqPrioUp
 
 # ZQ_TotalAffEprod(mo)  ..  TotalAffEProd(mo)  =E=  Power(mo) + sum(ua $OnU(ua), Q(ua,mo));       # Samlet energioutput fra affaldsanlæg. Bruges til beregning af RGK-rabat.
 vTotalAffEProd = np.empty((nmo), dtype=object)
-for imo in range(nmo)::
+for imo in range(nmo):
     eqTotalAffEprod = power[imo]
     for iu in ua:
         eqTotalAffEprod += vQ[imo,iu]
@@ -408,15 +413,15 @@ for imo in range(nmo)::
 eqQRgkMiss    = np.empty((nmo), dtype=object)
 eqbOnRgkRabat = np.empty((nmo), dtype=object)
 
-for imo in range(nmo)::
+for imo in range(nmo):
     eqLhsQrgkMiss = 0.0
     for iu in ua:
         eqLhsQrgkMiss += vQ[imo,iu] + vQrgk[imo,iu]
-	vQrgkMiss[imo] = m.Intermediate(eqLhsQrgkMiss, name='QrgkMiss_' + months[imo])
-	
+    vQrgkMiss[imo] = m.Intermediate(eqLhsQrgkMiss, name='QrgkMiss_' + months[imo])
+    
     eqQRgkMiss[imo]    = m.Equation(vTotalAffEProd[imo] >= rgkRabatMinShare * vTotalAffEProd[imo])
     eqbOnRgkRabat[imo] = m.Equation(vQrgkMiss[imo] <= (1.0 - vbOnRgkRabat[imo]) * QRgkMissMax)
-	
+    
 allEqns['QRgkMiss'] = eqQRgkMiss
 allEqns['bOnRgkRabat'] = eqbOnRgkRabat
 
@@ -427,7 +432,7 @@ allEqns['bOnRgkRabat'] = eqbOnRgkRabat
 eqRgkRabatMax1 = np.empty((nmo), dtype=object)
 eqRgkRabatMin2 = np.empty((nmo), dtype=object)
 eqRgkRabatMax2 = np.empty((nmo), dtype=object)
-for imo in range(nmo)::
+for imo in range(nmo):
     eqRgkRabatMax1[imo] = m.Equation( vRgkRabat[imo] <= RgkRabatMax[imo] * vbOnRgkRabat[imo] )
     eqRgkRabatMin2[imo] = m.Equation( 0.0 <= rgkRabatSats * vCostsATL[imo] - vRgkRabat[imo] )
     eqRgkRabatMax2[imo] = m.Equation( rgkRabatSats * vCostsATL[imo] - vRgkRabat[imo]  <=  RgkRabatMax[imo] * (1 - vbOnRgkRabat[imo]) )
@@ -445,8 +450,8 @@ for imo in range(nmo):
     for iu in range(nauprod):
         eqQdem += vQ[imo,iu]
     
-	eqQdemand[imo] = m.Equation( eqQdem )
-	
+    eqQdemand[imo] = m.Equation( eqQdem )
+    
 allEqns['Qdemand'] = eqQdemand
 
 # ZQ_Qaff(ua,mo)    $OnU(ua)  ..  Q(ua,mo)     =E=  [QaffM(ua,mo) + Qrgk(ua,mo)];
@@ -467,7 +472,7 @@ for imo in range(nmo):
         for ifa in range(ibegf['fa'], iendf['fa']):
             if u2f[iua,ifa]:
                 rhsEqQaffM += vFuelDemand[imo,iua,ifa] * etaq[iua] * lhvMWf[ifa]
-				
+                
         eqQaffM[imo,iua] = m.Equation( vQaffM[imo,iua] == rhsEqQaffM )
 
 allEqns['Qaff']    = eqQaff
@@ -477,7 +482,7 @@ allEqns['QrgkMax'] = eqQrgkMax
 
 # ZQ_Qbio(ub,mo)    $OnU(ub)  ..  Q(ub,mo)     =E=  [sum(fb $(OnF(fb) AND u2f(ub,fb)), FuelDemand(ub,fb,mo) * EtaQ(ub) * LhvMWh(fb))]  $OnU(ub);
 eqQbio     = np.empty((nmo,nub),    dtype=object)
-for imo in range(nmo)::
+for imo in range(nmo):
     # Biomass plant heat balances
     for iub in range(ibegu['ub'], iendu['ub']):
         rhsEqQbio = 0.0
@@ -491,30 +496,30 @@ allEqns['Qbio'] = eqQbio
 
 # ZQ_Qvarme(uc,mo)  $OnU(uc)  ..  Q(uc,mo)     =E=  [sum(fc $(OnF(fc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo))] $OnU(uc);  # Varme er i MWhq, mens øvrige drivmidler er i ton.
 eqQvarme   = np.empty((nmo,nuc),    dtype=object)
-for imo in range(nmo)::
+for imo in range(nmo):
     # External excess heat balances
     for iuc in range(ibegu['uc'], iendu['uc']):
         rhsEqQvarme = 0.0
         for ifc in range(ibegf['fc'], iendf['fc']):
             if u2f[iuc,ifc]:
                 rhsEqQvarme += vFuelDemand[imo,iuc,ifc]
-				
+                
         eqQvarme[imo,iuc] = m.Equation( vQ[imo,iuc] == rhsEqQvarme )
-		
+        
 allEqns['Qvarme']   = eqQvarme
 
 # # ZQ_Qpeak(ur,mo) $OnU(ur)  ..  Q(ur,mo)     =E=  [sum(fr $(OnF(fr) AND u2f(ur,fr)), FuelDemand(ur,fr,mo) * EtaQ(ur) * LhvMWh(fr))] $OnU(ur); 
 eqQpeak    = np.empty((nmo,nup),    dtype=object)
-for imo in range(nmo)::
-    # External excess heat balances
-    for iuc in range(ibegu['ur'], iendu['ur']):
+for imo in range(nmo):
+    # Peak boiler heat balances
+    for iur in range(ibegu['ur'], iendu['ur']):
         rhsEqQpeak = 0.0
         for ifr in range(ibegf['fr'], iendf['fr']):
             if u2f[iur,ifr]:
                 rhsEqQpeak += vFuelDemand[imo,iur,ifr]
-				
+                
         eqQpeak[imo,iur] = m.Equation( vQ[imo,iur] == rhsEqQpeak)
-		
+        
 allEqns['Qpeak']    = eqQpeak    
 
 # ZQ_QMin(u,mo)      $OnU(u)  ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen paa timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
@@ -522,7 +527,7 @@ allEqns['Qpeak']    = eqQpeak
 eqQMin = np.empty((nmo,naunit), dtype=object)
 eqQMax = np.empty((nmo,naunit), dtype=object)
 for imo in range(nmo):
-	for iu in range(naunit):
+    for iu in range(naunit):
         eqQMin[imo,iu] = m.Equation( vQ[imo,iua] >= shareAvailU[imo,iu] * hours[imo] * kapMin[iu] * vbOnU[imo,iu] )
         eqQMax[imo,iu] = m.Equation( vQ[imo,iua] <= shareAvailU[imo,iu] * hours[imo] * kapMax[iu] * vbOnU[imo,iu] )
 allEqns['QMin'] = eqQMin
@@ -535,17 +540,18 @@ eqQaffMmax = np.empty((nmo,nua), dtype=object)
 eqQCoolMax = np.empty((nmo),     dtype=object)
 eqbOnRgk   = np.empty((nmo,nua), dtype=object)
 for imo in range(nmo):
-	eqLhsCoolMax = 0.0
-	for iu in range(ibegu['ua'], iendu['ua']):
-		eqQaffMmax[imo,iu] = m.Equation( vQrgk[imo,iu]  <= QrgkMax[imo,iu] * vbOnRgk[imo,iu] )
-		eqbOnRgk[imo,iu]   = m.Equation( vQaffM[imo,iu] <= QaffMMax[imo,iu] )
- 	    eqLhsCoolMax       += vQ[imo,iacooler]
-		
-	eqQCoolMax[imo] = m.Equation( vQ[imo,iacooler] <= shareAvailU[imo,iacooler] * hours[imo] * kapMax[iacooler] )
-	
+    eqLhsCoolMax = 0.0
+    for iu in range(ibegu['ua'], iendu['ua']):
+        eqQaffMmax[imo,iu] = m.Equation( vQrgk[imo,iu]  <= QrgkMax[imo,iu] * vbOnRgk[imo,iu] )
+        eqbOnRgk[imo,iu]   = m.Equation( vQaffM[imo,iu] <= QaffMmax[imo,iu] )
+        eqLhsCoolMax       += vQ[imo,iacooler]
+    if onU['cooler']:
+        eqQCoolMax[imo] = m.Equation( vQ[imo,iacooler] <= shareAvailU[imo,iacooler] * hours[imo] * kapMax[iacooler] )
+    
 allEqns['QaffMMax'] = eqQaffMmax 
 allEqns['bOnRgk']   = eqbOnRgk
-allEqns['QCoolMax'] = eqQCoolMax 
+if onU['cooler']:
+	allEqns['QCoolMax'] = eqQCoolMax 
 
 
 # ZQ_FuelMin(f,mo) $(OnF(f) AND NOT fsto(f) AND NOT ffri(f) AND fdis(f))  ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDemand(u,f,mo))   =G=  FuelBounds(f,'min',mo);
@@ -553,16 +559,16 @@ eqFuelMin = np.empty((nmo,nua), dtype=object)
 for imo in range(nmo):
     rhsMin = 0.0
     lhsMin = 0.0
-	for ifa in range(ibegf['fa'], iendf['fa']):
-		f = afuels[f]
-		if f not in fsto and f not in ffri and f in fdis:
-			rhsMin += dfFuelMin.iloc[ifa,imo] 
-			for iua in range(ibegu['ua'], iendu['ua']):
-				if u2f[iua,ifa];
-					lhsMin += vFuelDemand[imo,iua,ifa] 
-		if lhsMin != 0.0:
-			eqFuelMin[imo,ifa] = m.Equation( lhsMin == rhsMin )
-			
+    for ifa in range(ibegf['fa'], iendf['fa']):
+        f = afuels[f]
+        if f not in fsto and f not in ffri and f in fdis:
+            rhsMin += dfFuelMin.iloc[ifa,imo] 
+            for iua in range(ibegu['ua'], iendu['ua']):
+                if u2f[iua,ifa]:
+                    lhsMin += vFuelDemand[imo,iua,ifa] 
+        if lhsMin != 0.0:
+            eqFuelMin[imo,ifa] = m.Equation( lhsMin == rhsMin )
+            
 allEqns['FuelMin'] = eqFuelMin
 
 # ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f)) ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDemand(u,f,mo))   =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
@@ -570,160 +576,96 @@ eqFuelMax = np.empty((nmo,nua), dtype=object)
 for imo in range(nmo):
     rhsMax = 0.0
     lhsMax = 0.0
-	for ifa in range(ibegf['fa'], iendf['fa']):
-		f = afuels[f]
-		if f in fdis:
-			rhsMax += dfFuelMax.iloc[ifa,imo] * (1.0001) 
-			for iua in range(ibegu['ua'], iendu['ua']):
-				if u2f[iua,ifa];
-					lhsMax += vFuelDemand[imo,iua,ifa] 
-		if lhsMax != 0.0:
-			eqFuelMax[imo,ifa] = m.Equation( lhsMax == rhsMax )
-			
+    for ifa in range(ibegf['fa'], iendf['fa']):
+        f = afuels[f]
+        if f in fdis:
+            rhsMax += dfFuelMax.iloc[ifa,imo] * (1.0001) 
+            for iua in range(ibegu['ua'], iendu['ua']):
+                if u2f[iua,ifa]:
+                    lhsMax += vFuelDemand[imo,iua,ifa] 
+        if lhsMax != 0.0:
+            eqFuelMax[imo,ifa] = m.Equation( lhsMax == rhsMax )
+            
 allEqns['FuelMax'] = eqFuelMax
 
 # ZQ_FuelMinYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDemand(u,fdis,mo)))  =G=  MinTonnageAar(fdis) * card(mo) / 12;
 # ZQ_FuelMaxYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDemand(u,fdis,mo)))  =L=  MaxTonnageAar(fdis) * card(mo) / 12;
 nfdis = len(fdis)
 if nfdis > 0:
-	eqFuelMinYear = np.empty((nfdis, dtype=object) 
-	eqFuelMaxYear = np.empty((nfdis, dtype=object) 
-	ifdis = -1
-	for iff in range(nafuel):
-		f = afuels[iff]
-		if f in fdis:
-			ifdis += 1 
-			lhs = 0.0
-			for imo in range(nmo):
-				for iua in range(nauprod):
-					if u2f(iu,iff):
-						lhs += vFuelDemand[imo,ifdis,iu]
-						
-			eqFuelMinYear[ifdis] = m.Equation( lhs >= minTonnage[ifdis] * nmo / 12 )
-			eqFuelMaxYear[ifdis] = m.Equation( lhs <= maxTonnage[ifdis] * nmo / 12 )
-				
+    eqFuelMinYear = np.empty(nfdis, dtype=object) 
+    eqFuelMaxYear = np.empty(nfdis, dtype=object) 
+    ifdis = -1
+    for iff in range(nafuel):
+        f = afuels[iff]
+        if f in fdis:
+            ifdis += 1 
+            lhs = 0.0
+            for imo in range(nmo):
+                for iua in range(nauprod):
+                    if u2f(iu,iff):
+                        lhs += vFuelDemand[imo,ifdis,iu]
+                        
+            eqFuelMinYear[ifdis] = m.Equation( lhs >= minTonnage[ifdis] * nmo / 12 )
+            eqFuelMaxYear[ifdis] = m.Equation( lhs <= maxTonnage[ifdis] * nmo / 12 )
+                
 allEqns['FuelMinYear'] = eqFuelMinYear
 allEqns['FuelMaxYear'] = eqFuelMaxYear
-		
+        
 
 # ZQ_FuelDemandFreeSum(ffri) $(OnF(ffri) AND card(mo) GT 1)  .. FuelDemandFreeSum(ffri)  =E=  sum(mo, sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDemand(ua,ffri,mo) ) );
 # ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri) AND card(mo) GT 1) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDemand(ua,ffri,mo))  =E=  FuelDemandFreeSum(ffri) / card(mo);
 nffri = len(ffri) 
 eqFuelDemandFreeSum = np.empty((nffri), dtype=object)
-for iffri, f enumerate(ffri):
-	if nmo >= 2:
-		rhs = 0.0
-		rhsSto = 0.0
-		for iua in range(ibegu['ua'], iendu['ua']):
-			if u2f[iua,iffri]:
-				for imo in range(nmo):
-					rhs += vFuelDemand[imo,iua,iffri] 
-					
-					
-		if rhs != 0.0:
-			eqFuelDemandFreeSum[iffri] = m.Equation( vFuelDemandFreeSum[iffri] == rhs)
-			
-if len(eqFuelDemandSum) > 0:
-	allEqns['FuelDemandFreeSum'] = eqFuelDemandFreeSum
+for iffri, f in enumerate(ffri):
+    if nmo >= 2:
+        rhs = 0.0
+        rhsSto = 0.0
+        for iua in range(ibegu['ua'], iendu['ua']):
+            if u2f[iua,iffri]:
+                for imo in range(nmo):
+                    rhs += vFuelDemand[imo,iua,iffri] 
+
+        if rhs != 0.0:
+            eqFuelDemandFreeSum[iffri] = m.Equation( vFuelDemandFreeSum[iffri] == rhs)
+            
+if len(eqFuelDemandFreeSum) > 0:
+    allEqns['FuelDemandFreeSum'] = eqFuelDemandFreeSum
 
 vFuelDemandFreeSum = m.Array(m.Var, (nmo), lb=0.0)
-
-
 
 # ZQ_MaxTonnage(ua,mo) $OnU(ua) .. sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * KapTon(ua);
 eqMaxTonnage = np.empty((nmo,nua), dtype=object)
 for imo in range(nmo):
-	for iua in range(ibegu['ua'], iendu['ua']):
-		lhs = 0.0
-		for ifa in range(ibegf['fa'], iendf['fa']):
-			if u2f[iua,ifa];
-				lhs += vFuelDemand[imo,iua,ifa] 
-		if lhs != 0.0:
-			rhs = ShareAvailU[imo,iua] * hours[imo] * kapTon[iua]
-			eqMaxTonnage[imo,iua] = m.Equation( lhs <= rhs )
+    for iua in range(ibegu['ua'], iendu['ua']):
+        lhs = 0.0
+        for ifa in range(ibegf['fa'], iendf['fa']):
+            if u2f[iua,ifa]:
+                lhs += vFuelDemand[imo,iua,ifa] 
+        if lhs != 0.0:
+            rhs = shareAvailU[imo,iua] * hours[imo] * kapTon[iua]
+            eqMaxTonnage[imo,iua] = m.Equation( lhs <= rhs )
 
-if len(eqMaxTonnage) > 0:			
-	allEqns['MaxTonnage'] = eqMaxTonnage
+if len(eqMaxTonnage) > 0:            
+    allEqns['MaxTonnage'] = eqMaxTonnage
 
 # ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))  =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * LhvMWh(fa));
 eqMinLhvAffald = np.empty((nmo,nua), dtype=object)
 for imo in range(nmo):
-	for iua in range(ibegu['ua'], iendu['ua']):
-		lhs = 0.0
-		rhs = 0.0
-		for ifa in range(ibegf['fa'], iendf['fa']):
-			if u2f[iua,ifa];
-				lhs += vFuelDemand[imo,iua,ifa] 
-				rhs += vFuelDemand[imo,iua,ifa] * LhvMWh[ifa]
-		if lhs != 0.0:
-			lhs *= MinLhvMWh[iua]
-			rhs = ShareAvailU[imo,iua] * hours[imo] * kapTon[iua]
-			eqMinLhvAffald[imo,iua] = m.Equation( lhs <= rhs )
+    for iua in range(ibegu['ua'], iendu['ua']):
+        lhs = 0.0
+        rhs = 0.0
+        for ifa in range(ibegf['fa'], iendf['fa']):
+            if u2f[iua,ifa]:
+                lhs += vFuelDemand[imo,iua,ifa] 
+                rhs += vFuelDemand[imo,iua,ifa] * lhvMWf[ifa]
+        if lhs != 0.0:
+            lhs *= MinLhvMWh[iua]
+            rhs = shareAvailU[imo,iua] * hours[imo] * kapTon[iua]
+            eqMinLhvAffald[imo,iua] = m.Equation( lhs <= rhs )
 
-if len(eqMinLhvAffald) > 0:			
-	allEqns['MinLhvAffald'] = eqMinLhvAffald
+if len(eqMinLhvAffald) > 0:            
+    allEqns['MinLhvAffald'] = eqMinLhvAffald
 
-
-# All waste must be removed within a year.
-# ZQ_AffUseYear(fa) $OnF(fa) ..  sum(mo, sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo)))  =E=  sum(mo, FuelBounds(fa,'max',mo));
-eqAffUseYear = list()
-for ifa in range(ibegf['fa'], iendf['fa']):
-    rhs = 0.0
-    lhs = 0.0
-    for imo in range(nmo):
-        rhs += dfFuelMax.iloc[ifa,imo] 
-        for iua in range(ibegu['ua'], iendu['ua']):
-            lhs += vFuelDemand[imo,iua,ifa] 
-    eqn = m.Equation(lhs == rhs)
-    eqAffUseYear.append(eqn)
-if len(eqAffUseYear) > 0:
-    allEqns['AffUseYear'] = eqAffUseYear
-
-# Any fuel may have limits within each month.
-# ZQ_FuelMin(f,mo) $OnF(f) .. sum(u  $(OnU(u)  AND u2f(u,f)),   FuelDemand(u,f,mo))     =G=  FuelBounds(f,'min',mo);
-for iff in range(0, nafuel):
-    eqFuelMin = list()
-    for imo in range(nmo):
-        rhs = dfFuelMin.iloc[iff,imo]
-        if rhs > 0.0:  # Only lower bounds GT zero are relevant as vFuelDemand is non-negative.
-            lhs = 0.0
-            for iu in range(0, iendu['uc']):
-                if u2f[iu,iff]: 
-                    lhs += vFuelDemand[imo,iu,iff] 
-            eqn = m.Equation(lhs >= rhs)
-            eqFuelMin.append(eqn)
-    if len(eqFuelMin) > 0:
-        allEqns['FuelMin_' + afuels[iff]] = eqFuelMin
-
-# All biomass consumption may be subject to an annual upper bound.
-# ZQ_BioUseYear(fb) $OnF(fb) ..  sum(mo, sum(ub $(OnU(ub) AND u2f(ub,fb)), FuelDemand(ub,fb,mo)))  =L=  sum(mo, FuelBounds(fb,'max',mo));
-eqBioUseYear = list()
-for ifb in range(ibegf['fb'], iendf['fb']):
-    rhs = 0.0
-    lhs = 0.0
-    for imo in range(nmo):
-        rhs += dfFuelMax.iloc[ifb,imo] 
-        for iub in range(ibegu['ub'], iendu['ub']):
-            lhs += vFuelDemand[imo,iub,ifb] 
-    eqn = m.Equation(lhs <= rhs)
-    eqBioUseYear.append(eqn)
-if len(eqBioUseYear) > 0:
-    allEqns['BioUseYear'] = eqBioUseYear
-
-# All externally supplied heat must be consumed within a year.
-# ZQ_OVUseYear(fc)  $OnF(fc) ..  sum(mo, sum(uc $(OnU(uc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo)))  =E=  sum(mo, FuelBounds(fc,'max',mo));
-eqOVUseYear = list()
-for ifc in range(ibegf['fc'], iendf['fc']):
-    rhs = 0.0
-    lhs = 0.0
-    for imo in range(nmo):
-        rhs += dfFuelMax.iloc[ifc,imo] 
-        for iuc in range(ibegu['uc'], iendu['uc']):
-            lhs += vFuelDemand[imo,iuc,ifc] 
-    eqn = m.Equation(lhs == rhs)
-    eqOVUseYear.append(eqn)
-if len(eqOVUseYear) > 0:
-    allEqns['OVUseYear'] = eqOVUseYear
 
 #----------------------------------------------------------------------------------------------------
 #%% Solving the model
