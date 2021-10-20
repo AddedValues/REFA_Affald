@@ -26,3 +26,12 @@ print(np.dot(A,X))
 print(np.dot(A,X) - b)
 
 #%%
+
+uprio2up = np.zeros((2,6), dtype=bool)
+print (uprio2up)
+# %%
+dic = {'a':1, 'c':2}
+n = 2
+x = dic['b'] if n == 2 else 'not found'
+print(x)
+# %%

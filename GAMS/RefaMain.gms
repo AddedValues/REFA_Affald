@@ -13,8 +13,8 @@ $OffText
 # Erklaering af sets
 # ------------------------------------------------------------------------------------------------
 set bound 'Bounds'         / min, max /;
-set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
-#--- set mo    'Aarsmaaneder'   / jun, jul, aug, sep, okt, nov, dec /;
+#--- set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
+set mo    'Aarsmaaneder'   / jan /;
 
 set fkind 'Drivm.-typer'  / 1 'affald', 2 'biomasse', 3 'varme', 4 'peakfuel' /;
 
