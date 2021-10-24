@@ -387,11 +387,9 @@ ZQ_RgkRabatMax2(mo) ..  RgkRabatSats * CostsATL(mo) - RGKrabat(mo)  =L=  RgkRaba
 Equation  ZQ_Qdemand(mo)              'Opfyldelse af fjv-behov';
 Equation  ZQ_Qaff(ua,mo)              'Samlet varmeprod. affaldsanlaeg';
 Equation  ZQ_QaffM(ua,mo)             'Samlet modtryks-varmeprod. affaldsanlaeg';
-Equation  ZQ_Qbio(ub,mo)              'Samlet varmeprod. biomasseanlaeg';
-Equation  ZQ_Qvarme(uc,mo)            'Samlet varmeprod. overskudsvarme';
-Equation  ZQ_Qpeak(ur,mo)             'Samlet varmeprod. SR-kedler (peak)';
 Equation  ZQ_Qrgk(ua,mo)              'RGK produktion paa affaldsanlaeg';
 Equation  ZQ_QrgkMax(ua,mo)           'RGK produktion oevre graense';
+Equation  ZQ_Qaux(u,mo)               'Samlet varmeprod. oeavrige anlaeg end affald';
 Equation  ZQ_QaffMmax(ua,mo)          'Max. modtryksvarmeproduktion';
 Equation  ZQ_CoolMax(mo)              'Loft over bortkoeling';
 Equation  ZQ_Qmin(u,mo)               'Sikring af nedre graense paa varmeproduktion';
@@ -401,11 +399,11 @@ Equation  ZQ_bOnRgk(ua,mo)            'Angiver om RGK er aktiv';
 ZQ_Qdemand(mo)               ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - Q('cooler',mo) $OnU('cooler');
 ZQ_Qaff(ua,mo)     $OnU(ua)  ..  Q(ua,mo)     =E=  [QaffM(ua,mo) + Qrgk(ua,mo)];
 ZQ_QaffM(ua,mo)    $OnU(ua)  ..  QaffM(ua,mo) =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * EtaQ(ua) * LhvMWh(fa))] $OnU(ua);
-ZQ_Qbio(ub,mo)     $OnU(ub)  ..  Q(ub,mo)     =E=  [sum(fb $(OnF(fb) AND u2f(ub,fb)), FuelDemand(ub,fb,mo) * EtaQ(ub) * LhvMWh(fb))] $OnU(ub);
-ZQ_Qvarme(uc,mo)   $OnU(uc)  ..  Q(uc,mo)     =E=  [sum(fc $(OnF(fc) AND u2f(uc,fc)), FuelDemand(uc,fc,mo))] $OnU(uc);  # Varme er i MWhq, mens øvrige drivmidler er i ton.
-ZQ_Qpeak(ur,mo)    $OnU(ur)  ..  Q(ur,mo)     =E=  [sum(fr $(OnF(fr) AND u2f(ur,fr)), FuelDemand(ur,fr,mo) * EtaQ(ur) * LhvMWh(fr))] $OnU(ur); 
 ZQ_Qrgk(ua,mo)     $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);  
 ZQ_QrgkMax(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
+
+ZQ_Qaux(uaux,mo) $OnU(uaux)  ..  Q(uaux,mo)   =E=  [sum(faux $(OnF(faux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo) * EtaQ(uaux) * LhvMWh(faux))] $OnU(uaux);
+
                    
 ZQ_QaffMmax(ua,mo) $OnU(ua)  ..  QAffM(ua,mo)    =L=  QaffMmax(ua,mo);
 ZQ_CoolMax(mo)               ..  Q('cooler',mo)  =L=  sum(ua $OnU(ua), Q(ua,mo));
@@ -426,7 +424,7 @@ ZQ_bOnRgk(ua,mo)   $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo
 # Alle ikke-bortskafbare affaldsfraktioner skal respektere et jævn
 # Ikke-bortskafbare braendsler (fdis(f)) skal kun respektere mindste- og størsteforbruget paa maanedsniveau.
 # Alle braendsler markeret som bortskaffes, skal bortskaffes indenfor et løbende aar (lovkrav for affald).
-# Braendvaerde af indfyret affaldsmix skal overholde mindstevaerdi.
+# Braendvaerdi af indfyret affaldsmix skal overholde mindstevaerdi.
 # Kapaciteten af affaldsanlaeg er både bundet af tonnage [ton/h] og varmeeffekt.
 
 # Disponering af affaldsfraktioner
@@ -666,4 +664,3 @@ embeddedCode Python:
 
 endEmbeddedCode 
 # ======================================================================================================================
-
