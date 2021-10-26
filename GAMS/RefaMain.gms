@@ -13,17 +13,17 @@ $OffText
 # Erklaering af sets
 # ------------------------------------------------------------------------------------------------
 set bound 'Bounds'         / min, max /;
-#--- set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
-set mo    'Aarsmaaneder'   / jan /;
+set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
+#--- set mo    'Aarsmaaneder'   / jan /;
 
 set fkind 'Drivm.-typer'  / 1 'affald', 2 'biomasse', 3 'varme', 4 'peakfuel' /;
 
-Set f     'Drivmidler'    / DepoSort, DepoSmaat, DepoNedd, Dagren, AndetBrand, Trae, 
-                            DagrenRast, DagrenInst, DagrenHandel, DagrenRestau, Erhverv, DagrenErhverv, 
-                            HandelKontor, Privat, TyskRest, PolskRest, PcbTrae, FlisAffald, TraeRekv, Halm, Pulver, 
+Set f     'Drivmidler'    / DepoSort, DepoSmaat, DepoNedd, Dagren, AndetBrand, Trae,
+                            DagrenRast, DagrenInst, DagrenHandel, DagrenRestau, Erhverv, DagrenErhverv,
+                            HandelKontor, Privat, TyskRest, PolskRest, PcbTrae, FlisAffald, TraeRekv, Halm, Pulver,
                             NyAff1, NyAff2,
                             Flis, NSvarme, PeakFuel /;
-#--- Set f     'Drivmidler'    / Dagren, 
+#--- Set f     'Drivmidler'    / Dagren,
 #---                             Flis, NSvarme /;
 set fa(f)   'Affaldstyper';
 set fb(f)   'Biobraendsler';
@@ -99,10 +99,10 @@ $call "GDXXRW REFAinput.xlsm RWait=1 Trace=3 @REFAinput.txt"
 
 $GDXIN REFAinput.gdx
 
-$LOAD   DataU     
-$LOAD   Prognoses 
+$LOAD   DataU
+$LOAD   Prognoses
 $LOAD   AvailDaysU
-$LOAD   DataFuel  
+$LOAD   DataFuel
 $LOAD   FuelBounds
 *--- $LOAD   FuelParms
 
@@ -263,7 +263,7 @@ Positive variable TotalAffEProd(mo)        'Samlet energiproduktion affaldsanlae
 
 # @@@@@@@@@@@@@@@@@@@@@@@@  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG
 IncomeTotal.up(mo) = 1E+8;
-IncomeAff.up(f,mo) = 1E+8; 
+IncomeAff.up(f,mo) = 1E+8;
 RgkRabat.up(mo)    = 1E+8;
 
 # @@@@@@@@@@@@@@@@@@@@@@@@  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG
@@ -271,13 +271,13 @@ RgkRabat.up(mo)    = 1E+8;
 
 
 # Fiksering af ikke-aktive anlaeg og ikke-aktive drivmidler.
-loop (u $(NOT OnU(u)), 
-  bOnU.fx(u,mo)   = 0.0; 
+loop (u $(NOT OnU(u)),
+  bOnU.fx(u,mo)   = 0.0;
   Q.fx(u,mo)      = 0.0;
   CostsU.fx(u,mo) = 0.0;
-  loop (f $(NOT OnF(f) OR NOT u2f(u,f)), 
-    FuelDemand.fx(u,f,mo) = 0.0; 
-  ); 
+  loop (f $(NOT OnF(f) OR NOT u2f(u,f)),
+    FuelDemand.fx(u,f,mo) = 0.0;
+  );
 );
 
 loop (f $(NOT OnF(f)),
@@ -289,7 +289,7 @@ IncomeAff.fx(faux,mo) = 0.0;
 CostsAuxF.fx(fa,mo)   = 0.0;
 loop (u,
   loop (f $(NOT u2f(u,f)),
-    FuelDemand.fx(u,f,mo) = 0.0; 
+    FuelDemand.fx(u,f,mo) = 0.0;
   );
 );
 
@@ -322,11 +322,11 @@ Equation  ZQ_CO2emis(f,mo)            'CO2-maengde hvoraf der skal svares ETS [t
 Equation  ZQ_PrioUp(up,up,mo)         'Prioritet af uprio over visse up anlaeg';
 
 
-ZQ_Obj  ..  NPV  =E=  sum(mo, IncomeTotal(mo) 
+ZQ_Obj  ..  NPV  =E=  sum(mo, IncomeTotal(mo)
                       - [
-                           sum(u $OnU(u), CostsU(u,mo)) 
-                         + CostsTotalF(mo) 
-                         + Penalty_bOnU * sum(u, bOnU(u,mo)) 
+                           sum(u $OnU(u), CostsU(u,mo))
+                         + CostsTotalF(mo)
+                         + Penalty_bOnU * sum(u, bOnU(u,mo))
                          + Penalty_QRgkMiss * QRgkMiss(mo)
                         ] );
 
@@ -347,9 +347,9 @@ ZQ_CostsTotalAuxF(mo)    .. CostsTotalAuxF(mo)  =E=  sum(faux, CostsAuxF(faux,mo
 ZQ_CostsAuxF(faux,mo)    .. CostsAuxF(faux,mo)  =E=  sum(uaux $(OnU(uaux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo) * DataFuel(faux,'pris') );
 
 ZQ_Qafv(mo)              .. Qafv(mo)         =E=  sum(ua $OnU(ua), Q(ua,mo)) - Q('cooler',mo);   # Antagelse: Kun affaldsanlaeg giver anledning til bortkoeling.
-ZQ_CO2emis(f,mo) $OnF(f) .. CO2emis(f,mo)    =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelDemand(up,f,mo)) * DataFuel(f,'co2andel');  
+ZQ_CO2emis(f,mo) $OnF(f) .. CO2emis(f,mo)    =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelDemand(up,f,mo)) * DataFuel(f,'co2andel');
 
-ZQ_PrioUp(uprio,up,mo) $(OnU(uprio) AND OnU(up) AND AvailDaysU(mo,uprio) AND AvailDaysU(mo,up)) ..  bOnU(up,mo)  =L=  bOnU(uprio,mo); 
+ZQ_PrioUp(uprio,up,mo) $(OnU(uprio) AND OnU(up) AND AvailDaysU(mo,uprio) AND AvailDaysU(mo,up)) ..  bOnU(up,mo)  =L=  bOnU(uprio,mo);
 
 
 #begin Beregning af RGK-rabat
@@ -399,18 +399,18 @@ Equation  ZQ_bOnRgk(ua,mo)            'Angiver om RGK er aktiv';
 ZQ_Qdemand(mo)               ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - Q('cooler',mo) $OnU('cooler');
 ZQ_Qaff(ua,mo)     $OnU(ua)  ..  Q(ua,mo)     =E=  [QaffM(ua,mo) + Qrgk(ua,mo)];
 ZQ_QaffM(ua,mo)    $OnU(ua)  ..  QaffM(ua,mo) =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * EtaQ(ua) * LhvMWh(fa))] $OnU(ua);
-ZQ_Qrgk(ua,mo)     $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);  
-ZQ_QrgkMax(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
+ZQ_Qrgk(ua,mo)     $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);
+ZQ_QrgkMax(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);
 
 ZQ_Qaux(uaux,mo) $OnU(uaux)  ..  Q(uaux,mo)   =E=  [sum(faux $(OnF(faux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo) * EtaQ(uaux) * LhvMWh(faux))] $OnU(uaux);
 
-                   
+
 ZQ_QaffMmax(ua,mo) $OnU(ua)  ..  QAffM(ua,mo)    =L=  QaffMmax(ua,mo);
 ZQ_CoolMax(mo)               ..  Q('cooler',mo)  =L=  sum(ua $OnU(ua), Q(ua,mo));
-                   
+
 ZQ_QMin(u,mo)      $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen paa timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
-ZQ_QMax(u,mo)      $OnU(u)   ..  Q(u,mo)      =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo);  
-ZQ_bOnRgk(ua,mo)   $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
+ZQ_QMax(u,mo)      $OnU(u)   ..  Q(u,mo)      =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo);
+ZQ_bOnRgk(ua,mo)   $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);
 
 #end Varmebalancer
 
@@ -457,7 +457,7 @@ Equation ZQ_MaxTonnage(u,mo)    'Stoerste tonnage for affaldsanlaeg';
 Equation ZQ_MinLhvAffald(u,mo)  'Mindste braendvaerdi for affaldsblanding';
 
 ZQ_MaxTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * KapTon(ua);
-ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))  
+ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))
                                       =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * LhvMWh(fa));
 
 $If not errorfree $exit
@@ -466,8 +466,9 @@ $If not errorfree $exit
 # Loesning af modellen.
 # ------------------------------------------------------------------------------------------------
 model modelREFA / all /;
-option MIP=gurobi;
-modelREFA.optFile = 1;
+#---- option MIP=gurobi;
+#---- modelREFA.optFile = 1;
+option MIP=CBC
 
 option LIMROW=250, LIMCOL=250;
 #--- option LIMROW=0, LIMCOL=0;
@@ -480,8 +481,8 @@ solve modelREFA maximizing NPV using MIP;
 
 # Penalty_bOnU skal tilbagebetales til NPV.
 Scalar Penalty_bOnUTotal;
-Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo))); 
-display Penalty_bOnUTotal, NPV.L; 
+Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
+display Penalty_bOnUTotal, NPV.L;
 
 
 # ------------------------------------------------------------------------------------------------
@@ -512,9 +513,9 @@ TimeOfWritingMasterResults = jnow;
 
 # Penalty_bOnU skal tilbagebetales til NPV.
 Scalar Penalty_bOnUTotal;
-Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo))); 
+Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
 NPV_V = NPV.L + Penalty_bOnUTotal;
-display Penalty_bOnUTotal, NPV.L, NPV_V; 
+display Penalty_bOnUTotal, NPV.L, NPV_V;
 
 loop (mo,
   OverView('Varmepris',mo)    = ifthen(Varmepris(mo) EQ 0.0, tiny, Varmepris(mo));
@@ -532,8 +533,8 @@ loop (mo,
   FuelDemand_V(f,mo) = tiny;
   IncomeF_V(f,mo) = tiny;
   FuelBounds_V(f,bound,mo) = ifthen(FuelBounds(f,bound,mo) EQ 0.0, tiny, FuelBounds(f,bound,mo));
-  
-  loop (f $OnF(f), 
+
+  loop (f $OnF(f),
     tmp1 = sum(u $OnU(u), FuelDemand.L(u,f,mo));
     FuelDemand_V(f,mo) = max(tiny, tmp1);
     IncomeF_V(f,mo)    = ifthen(IncomeAff.L(f,mo) EQ 0.0, tiny, IncomeAff.L(f,mo));
@@ -545,10 +546,10 @@ loop (mo,
   Q_V(u,mo)        = ifthen (Q.L(u,mo) EQ 0.0, tiny, Q.L(u,mo));
   Q_V('cooler',mo) = -Q_V('cooler',mo);  # Negation aht. afbildning i sheet Overblik.
   Qrgk_V(ua,mo)    = ifthen (Qrgk.L(ua,mo) EQ 0.0, tiny, Qrgk.L(ua,mo));
-  loop (u $OnU(u), 
-    if (Q.L(u,mo) GT 0.0, 
+  loop (u $OnU(u),
+    if (Q.L(u,mo) GT 0.0,
       Usage(u,mo) = Q.L(u,mo) / (KapMax(u) * ShareAvailU(u,mo) * Hours(mo));
-    else 
+    else
       Usage(u,mo) = tiny;
     );
   );
@@ -558,8 +559,8 @@ loop (mo,
 execute_unload 'REFAoutput.gdx',
 TimeOfWritingMasterResults,
 bound, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, lblDataU, lblDataFuel, lblProgn, taxkind, topics,
-DataU, Prognoses, AvailDaysU, DataFuel, FuelBounds,        
-OnU, OnF, Hours, ShareAvailU, EtaQ, KapMin, KapNom, KapRgk, KapMax, Qdemand, Power, LhvMWh, TaxAfvMWh, TaxAtlMWh, 
+DataU, Prognoses, AvailDaysU, DataFuel, FuelBounds,
+OnU, OnF, Hours, ShareAvailU, EtaQ, KapMin, KapNom, KapRgk, KapMax, Qdemand, Power, LhvMWh, TaxAfvMWh, TaxAtlMWh,
 EaffGross, QaffMmax, QrgkMax, QaffTotalMax, CostsATLMax, RgkRabatMax,
 NPV_V, FuelDemand_V, FuelBounds_V, IncomeF_V, Q_V, Qrgk_V, Usage,
 OverView
@@ -597,7 +598,7 @@ par=Prognoses           rng=Inputs!B14      cdim=1  rdim=1
 text="Prognoser"        rng=Inputs!B14:B14
 par=AvailDaysU          rng=Inputs!B30      cdim=1  rdim=1
 text="AvailDaysU"       rng=Inputs!B30:B30
-                        
+
 par=DataFuel            rng=Inputs!N3       cdim=1  rdim=1
 text="DataFuel"         rng=Inputs!N3:N3
 par=FuelBounds_V        rng=Inputs!N35      cdim=1  rdim=2
@@ -607,7 +608,7 @@ text="FuelBounds [ton]" rng=Inputs!N35:N35
 
 * Overview is the last sheet to be written hence becomes the actual sheet when opening Excel file.
 
-*begin sheet Overblik 
+*begin sheet Overblik
 par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
 text="Tidsstempel"                  rng=Overblik!A1:A1
 par=NPV_V                           rng=Overblik!A4:A4
@@ -662,5 +663,5 @@ embeddedCode Python:
   shutil.copyfile(fpathOld, fpathNew)
   gams.printLog('GDX file "' + os.path.split(fpathNew)[1] + '" written to folder: ' + wkdir)
 
-endEmbeddedCode 
+endEmbeddedCode
 # ======================================================================================================================
