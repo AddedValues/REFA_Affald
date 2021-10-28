@@ -13,6 +13,7 @@ import pandas as pd
 import xlwings as xw
 import matplotlib.pyplot as plt
 import mip as mp
+from sys   import stdout
 from mip   import Model, xsum, maximize, BINARY
 from array import array
 
@@ -89,8 +90,8 @@ dfFuelBounds:pd.DataFrame = dfAllFuelBounds.drop(index=dropFuels, columns=dropMo
 dfFuelMin:pd.DataFrame = (dfFuelBounds[dfFuelBounds['Bound']=='min']).drop(columns=['Bound'])
 dfFuelMax:pd.DataFrame = (dfFuelBounds[dfFuelBounds['Bound']=='max']).drop(columns=['Bound'])
 
-FuelMin = dfFuelMin.to_numpy()
-FuelMax = dfFuelMax.to_numpy()
+FuelMin = np.transpose(dfFuelMin.to_numpy())
+FuelMax = np.transpose(dfFuelMax.to_numpy())
 
 #endregion 
 
@@ -237,6 +238,7 @@ kapMax  = kapNom + kapRgk
 etaq    = dfDataUnit['etaq']
 costDV  = dfDataUnit['DV']
 costAux = dfDataUnit['aux']
+MinLhvMWh = dfDataUnit['MinLhv'] / 3.6
 #endregion
 
 #region Prognoses parms.
@@ -256,9 +258,8 @@ storable   = (dfDataFuel['lagerbar'] != 0)
 minTonnage = dfDataFuel['minTonnage']
 maxTonnage = dfDataFuel['maxTonnage']
 fuelprice  = dfDataFuel['pris']
-lhvMWf     = dfDataFuel['brandv'] / 3.6
+lhvMWh     = dfDataFuel['brandv'] / 3.6
 shareCo2   = dfDataFuel['co2andel']
-MinLhvMWh  = dfDataUnit['MinLhv'] / 3.6
 #endregion 
 
 #region Availabilities
@@ -307,7 +308,7 @@ for imo in range(nmo):
         f2 = 0.0
         for iff in ixfa:
             if u2f[iua,iff]:
-                f2 += FuelMax[iff,imo] * lhvMWf[iff]
+                f2 += FuelMax[imo,iff] * lhvMWh[iff]
         f2 *= etaq[iua]
         QaffMmax[imo,iua] = min(f1, f2)
         QrgkMax[imo,iua]  = kapRgk[iua] / kapNom[iua] * QaffMmax[imo,iua]
@@ -358,7 +359,7 @@ m = Model(name='REFA Waste Optimizer', sense=mp.MAXIMIZE, solver_name='CBC')
 
 # Variables are only defined on active entities hence results for non-active entities default to zero.
 
-NPV = m.add_var(name='NPV', var_type=mp.CONTINUOUS)  # Objective variable.
+# NPV = m.add_var(name='NPV', var_type=mp.CONTINUOUS)  # Objective variable.
 
 # Fundamental decision variables. Python variables prefixed with 'v' as compared to GAMS variables.
 # An instance of class mip.Var defaults to a positive and continuous variable.
@@ -444,12 +445,9 @@ objective = xsum(vIncomeTotal) - (
                 + penalty_bOnU * xsum(vbOnU[imo][iu] for imo in ixmo for iu in ixu) 
                 + penalty_QrgkMiss * xsum(vQrgkMiss)
             )
-
 m.objective = maximize(objective)
-# m.Obj(objective)
-logn.debug('objective ={0}'.format(repr(objective)) )
+logn.debug('objective ={0}'.format(str(objective)) )
 allEqns['Objective'] = objective
-
 
 # ZQ_IncomeTotal(mo) .. IncomeTotal(mo)  =E=  sum(fa $OnF(fa), IncomeAff(fa,mo)) + RgkRabat(mo) + VarmeSalgspris * sum(up $OnU(up), Q(up,mo));
 # Heat sales price excluded as it merely is an offset not affecting the optimization unless close to zero where absolute tolerance should be used.
@@ -457,14 +455,6 @@ allEqns['Objective'] = objective
 allEqns['IncomeTotal'] = [m.add_constr(
     vIncomeTotal[imo] == vRgkRabat[imo] + xsum(vIncomeAff[imo][ifa] for ifa in ixfa),
     name='IncomeTotal[{0}]'.format(months[imo]), ) for imo in ixmo]
-
-# for imo in range(nmo):
-#     # Pythonic way: exIncomeTotal = vIncomeAff[imo,ixf].sum() + vRgkRabat[imo]
-#     exIncomeTotal = vRgkRabat[imo]
-#     for iff in range(nfuel):
-#         exIncomeTotal += vIncomeAff[imo,iff]
-#     vIncomeTotal[imo] = m.Intermediate(exIncomeTotal, 'IncomeTotal_' + months[imo])
-#     logn.debug('vIncomeTotal[{0}] = {1}]'.format(months[imo], repr(vIncomeTotal[imo])) )
 
 # ZQ_IncomeAff(fa,mo) .. IncomeAff(fa,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * DataFuel(fa,'pris')) $OnF(fa);
 eqns = list()
@@ -475,14 +465,6 @@ for imo in range(nmo):
         eqns.append(m.add_constr(eq, name=eqName))
 allEqns['IncomeAff'] = eqns
 
-# for imo in range(nmo):
-#     for ifk,iff in enumerate(ixfa):
-#         exIncomeF = 0.0
-#         for iua in ixua: 
-#             # Pythonic way: exIncomeF = vFuelDemand[imo,ixua,iff].sum() * fuelprice[iff]
-#             exIncomeF += vFuelDemand[imo,iua,iff] * fuelprice[iff]
-#         vIncomeAff[imo,ifk] = m.Intermediate(exIncomeF, 'vIncomeF_' + idx2f[iff] + '_' + months[imo])
-
 # ZQ_CostsU(u,mo) .. CostsU(u,mo)  =E=  Q(u,mo) * (DataU(u,'dv') + DataU(u,'aux') ) $OnU(u);
 eqns = list()
 for imo in range(nmo):
@@ -490,24 +472,11 @@ for imo in range(nmo):
                  name='CostsU[{0}][{1}]'.format(months[imo],idx2u[iu])) for iu in ixu])
 allEqns['CostsU'] = eqns
 
-# for imo in range(nmo):
-#     for iu in ixu:
-#         vCostsU[imo,iu] = m.Intermediate(vQ[imo,iu] * (costDV[iu] + costAux[iu]), 'vCostsU_' + idx2u[iu] + '_' + months[imo])
-
 # ZQ_Qafv(mo) .. Qafv(mo)  =E=  sum(ua $OnU(ua), Q(ua,mo)) - Q('cooler',mo);   # Antagelse: Kun affaldsanlaeg giver anledning til bortkoeling.
 eqns = list()
 eqns = [m.add_constr(vQafv[imo] == xsum(vQ[imo][iua] for iua in ixua) - xsum(vQ[imo][iuv] for iuv in ixuv),
         name='Qafv[{0}]'.format(months[imo])) for imo in ixmo]
 allEqns['Qafv'] = eqns
-
-# for imo in range(nmo):
-#     exQafv = 0.0
-#     for iuv in ixuv:
-#         exQafv += -vQ[imo,iuv] 
-#     for iua in ixua:
-#         exQafv += vQ[imo,iua] 
-#     # Pythonic way: vQafv[imo] = vQ[imo,ixua].sum() - vQ[imo,ixuv].sum()
-#     vQafv[imo] = m.Intermediate(exQafv, 'vQafv_' + months[imo])
 
 # ZQ_CO2emis(f,mo) $OnF(f) .. CO2emis(f,mo)  =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelDemand(up,f,mo)) * DataFuel(f,'co2andel');  
 eqns = list()
@@ -555,13 +524,6 @@ allEqns['PrioUp'] = eqns
 allEqns['TotalAffEProd'] = [m.add_constr(vTotalAffEProd[imo] == power[imo] + xsum(vQ[imo][iua] for iua in ixua), 
                             name='TotalAffEProd[{0}]'.format(months[imo])) for imo in ixmo]
 
-# vTotalAffEProd = np.empty((nmo), dtype=object)
-# for imo in range(nmo):
-#     eqTotalAffEprod = power[imo]
-#     for iua in ixua:
-#         eqTotalAffEprod += vQ[imo,iua]
-#     vTotalAffEProd[imo] = m.Intermediate(eqTotalAffEprod, name='vTotalAffEProd_' + months[imo])
-
 # ZQ_QRgkMiss(mo)       ..  sum(ua $OnU(ua), Qrgk(ua,mo)) + QRgkMiss(mo)  =G=  RgkRabatMinShare * TotalAffEProd(mo);
 allEqns['QRgkMiss'] = [m.add_constr(xsum(vQrgk[imo][iua] for iua in ixua) + vQrgkMiss[imo] >= rgkRabatMinShare * vTotalAffEProd[imo], 
                        name='QrgkMiss[{0}]'.format(months[imo])) for imo in ixmo]
@@ -569,20 +531,6 @@ allEqns['QRgkMiss'] = [m.add_constr(xsum(vQrgk[imo][iua] for iua in ixua) + vQrg
 # ZQ_bOnRgkRabat(mo)    ..  QRgkMiss(mo)  =L=  (1 - bOnRgkRabat(mo)) * QRgkMissMax;
 allEqns['bOnRgkRabat'] = [m.add_constr(vQrgkMiss[imo] <= (1 - vbOnRgkRabat[imo]) * QRgkMissMax, 
                             name='bOnRgkRabat[{0}]'.format(months[imo])) for imo in ixmo]
-
-# if nua > 0:
-# 	eqQRgkMiss    = np.empty((nmo), dtype=object)
-# 	eqbOnRgkRabat = np.empty((nmo), dtype=object)
-# 	for imo in range(nmo):
-# 		eqLhsQrgkMiss = 0.0
-# 		for iua in ixua:  
-# 			eqLhsQrgkMiss += vQ[imo,iua] + vQrgk[imo,iua]
-# 		vQrgkMiss[imo]     = m.Intermediate(eqLhsQrgkMiss, name='vQrgkMiss_' + months[imo])
-# 		eqQRgkMiss[imo]    = m.Equation(vTotalAffEProd[imo]  >=  rgkRabatMinShare * vTotalAffEProd[imo])
-# 		eqbOnRgkRabat[imo] = m.Equation(vQrgkMiss[imo]       <=  (1.0 - vbOnRgkRabat[imo]) * QRgkMissMax)
-		
-# 	allEqns['QRgkMiss']    = eqQRgkMiss
-# 	allEqns['bOnRgkRabat'] = eqbOnRgkRabat
 
 # ZQ_RgkRabatMax1(mo) ..  RgkRabat(mo)                                =L=  RgkRabatMax(mo) * bOnRgkRabat(mo);
 # ZQ_RgkRabatMin2(mo) ..  0 * (1 - bOnRgkRabat(mo))                   =L=  RgkRabatSats * CostsATL(mo) - RgkRabat(mo);
@@ -600,13 +548,6 @@ if nua > 0:
 
 # ZQ_Qdemand(mo) ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - Q('cooler',mo) $OnU('cooler');
 
-# # for imo in ixmo:
-# #     ex1 = qdem[imo]
-# #     ex2 = xsum(vQ[imo][iup] for iup in ixuprod)
-# #     ex3 = xsum(vQ[imo][iuv] for iuv in ixuv)
-# #     m+= (ex2 - ex3 == ex1)
-# #     # eq = ex1 == ex2 - ex3
-
 allEqns['Qdemand'] = [m.add_constr(xsum(vQ[imo][iup] for iup in ixuprod) - xsum(vQ[imo][iuv] for iuv in ixuv) == qdem[imo], 
                       name='Qdemand[{0}]'.format(months[imo])) for imo in ixmo]
 
@@ -620,7 +561,7 @@ if len(ua) > 0:
     allEqns['Qaff'] = [[m.add_constr(vQ[imo][iua] == vQaffM[imo][iua] + vQrgk[imo][iua], 
                         name='Qaff[{0}][{1}]'.format(months[imo],idx2u[iua])) for iua in ixua] for imo in ixmo]
 
-    allEqns['QaffM'] = [[m.add_constr(vQaffM[imo][iua] == xsum(vFuelDemand[imo][iua][ifa] * lhvMWf[ifa] for ifa in ixfa) * etaq[iua], 
+    allEqns['QaffM'] = [[m.add_constr(vQaffM[imo][iua] == xsum(vFuelDemand[imo][iua][ifa] * lhvMWh[ifa] for ifa in ixfa) * etaq[iua], 
                          name='QaffM[{0}][{1}]'.format(months[imo],idx2u[iua])) for iua in ixua] for imo in ixmo]
 
     allEqns['Qrgk'] = [[m.add_constr(vQrgk[imo][iua] <= kapRgk[iua] / kapNom[iua] * vQaffM[imo][iua], 
@@ -632,7 +573,7 @@ if len(ua) > 0:
 # ZQ_Qaux(uaux,mo) $OnU(uo) ..  Q(uaux,mo)  =E=  [sum(faux $(OnF(faux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo) * EtaQ(uaux) * LhvMWh(faux))] $OnU(uaux);
 if nuaux > 0:
     # Other than waste plant heat balances.
-    allEqns['Qaux'] = [[m.add_constr(vQ[imo][iuaux] == xsum(vFuelDemand[imo][iuaux][ifa] * lhvMWf[ifa] for ifa in ixfa) * etaq[iuaux], 
+    allEqns['Qaux'] = [[m.add_constr(vQ[imo][iuaux] == xsum(vFuelDemand[imo][iuaux][ifa] * lhvMWh[ifa] for ifa in ixfa) * etaq[iuaux], 
                        name='Qaux[{0}][{1}]]'.format(months[imo],idx2u[iuaux])) for iuaux in ixuaux] for imo in ixmo]
 
 # ZQ_QMin(u,mo) $OnU(u) ..  Q(u,mo)  =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen paa timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
@@ -645,18 +586,10 @@ allEqns['QMax'] = [[m.add_constr(vQ[imo][iu] <= shareAvailU[imo,iu] * hours[imo]
                     name='QMax[{0}][{1}]]'.format(months[imo],idx2u[iu])) for iu in ixu] for imo in ixmo]
 
 # ZQ_QaffMmax(ua,mo) $OnU(ua) ..  QAffM(ua,mo)  =L=  QaffMmax(ua,mo);
-# ZQ_bOnRgk(ua,mo)   $OnU(ua) ..  Qrgk(ua,mo)   =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
-if nua > 0:
-    eqQaffMmax = np.empty((nmo,nua), dtype=object)
-    eqbOnRgk   = np.empty((nmo,nua), dtype=object)
-    for imo in range(nmo):
-        for iuk,iua in enumerate(ixua): 
-            eqQaffMmax[imo,iuk] = m.Equation( vQaffM[imo,iuk] <= QaffMmax[imo,iua] )
-            eqbOnRgk[imo,iuk]   = m.Equation( vQrgk[imo,iuk]  <= QrgkMax[imo,iua] * vbOnRgk[imo,iua] )
-    allEqns['QaffMMax'] = eqQaffMmax 
-    allEqns['bOnRgk']   = eqbOnRgk
+allEqns['QaffMax'] = [[m.add_constr( vQaffM[imo][iua] <= QaffMmax[imo,iua], name='QaffMax[{0}][{1}]'.format(months[imo],idx2u[iua])) for iua in ixua]]
 
-#%% ??????????????????????
+# ZQ_bOnRgk(ua,mo)   $OnU(ua) ..  Qrgk(ua,mo)   =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);  
+allEqns['QaffMax'] = [[m.add_constr( vQrgk[imo][iua] <= QrgkMax[imo,iua] * vbOnRgk[imo][iua], name='bOnRgk[{0}][{1}]'.format(months[imo],idx2u[iua])) for iua in ixua]]
 
 # ZQ_CoolMax(mo)  ..  Q('cooler',mo)  =L=  sum(ua $OnU(ua), Q(ua,mo));
 # Only waste plant heat may be diverted to coolers.
@@ -664,129 +597,116 @@ if nuv > 0:
     allEqns['CoolMax'] = [m.add_constr(xsum(vQ[imo][iv] for iv in ixuv) <= xsum(vQ[imo][iua] for iua in ixua),
                           name='CoolMax[{0}'.format(months[imo])) for imo in ixmo]
 
-# ZQ_FuelMin(f,mo) $(OnF(f) AND NOT fsto(f) AND NOT ffri(f) AND fdis(f))  
-#   ..  sum(u $(OnU(u)  AND u2f(u,f)), FuelDemand(u,f,mo))  =G=  FuelBounds(f,'min',mo);
-# Non-storable, non-free disposable waste fuels must conform to a lower bound of fuel demand within each period (month).
-
-
-if nua > 0:
-    ff = [iff for iff in ixf if (iff not in ixfsto) and (iff not in ixffri) and (iff in ixfdis) ]
-
-    allEqns['FuelMin'] = [[m.add_constr(xsum(vFuelDemand[imo][iu][iff] for iu in [i for i in ixu if u2f[i,iff]]) >= FuelMin[imo,iff], 
-                           name='FuelMin[{0}][{1}]'.format(months[imo],idx2f[iff])) for iff in ff] for imo in ixmo]
+# ZQ_FuelMin(f,mo) $(OnF(f) AND NOT fsto(f) AND NOT ffri(f) AND fdis(f)) .. sum(u $(OnU(u)  AND u2f(u,f)), FuelDemand(u,f,mo))  =G=  FuelBounds(f,'min',mo);
+# Non-storable, non-free, disposable waste fuels must conform to a lower bound of fuel demand within each period (month).
+ff = [iff for iff in ixf if (iff not in ixfsto) and (iff not in ixffri) and (iff in ixfdis) ]
+allEqns['FuelMin'] = [[m.add_constr(xsum(vFuelDemand[imo][iup][iff] for iup in [iu for iu in ixuprod if u2f[iu,iff]]) >= FuelMin[imo,iff], 
+                       name='FuelMin[{0}][{1}]'.format(months[imo],idx2f[iff])) for iff in ff] for imo in ixmo]
 
 # ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f)) ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDemand(u,f,mo))   =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 # All disposable waste fuels must conform to the upper bound.
+ff = [ifa for ifa in ixf if (ifa in ixfdis)]
+allEqns['FuelMax'] = [[m.add_constr(xsum(vFuelDemand[imo][iup][iff] for iup in [iu for iu in ixuprod if u2f[iu,iff]]) <= FuelMax[imo,iff], 
+                       name='FuelMax[{0}][{1}]'.format(months[imo],idx2f[iff])) for iff in ff] for imo in ixmo]
 
-if nua > 0:
-    ff = [ifa for ifa in ixf if (ifa in ixfdis)]
-
-    allEqns['FuelMax'] = [[m.add_constr(xsum(vFuelDemand[imo][iu][iff] for iu in [i for i in ixu if u2f[i,iff]]) <= FuelMax[imo,iff], 
-                           name='FuelMax[{0}][{1}]'.format(months[imo],idx2f[iff])) for iff in ff] for imo in ixmo]
-
-
-HERTIL 
-
-
-
-
-#%% ??????????????????????
+# for imo in ixmo:
+#     for iff in ff:
+#         for iu in [i for i in ixuprod if u2f[i,iff]]:
+#             try:
+#                 print('imo={}, iff={}, iu={}, vFuelDemand={}'.format(imo,iff,iu,str(vFuelDemand[imo][iu][iff])))
+#             except Exception as ex:
+#                 print(str(ex))
 
 # ZQ_FuelMinYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDemand(u,fdis,mo)))  =G=  MinTonnageAar(fdis) * card(mo) / 12;
+allEqns['FuelMinYear'] = [m.add_constr(xsum(vFuelDemand[imo][iup][iff] for iup in [iu for iu in ixuprod if u2f[iu,iff]]) >= minTonnage[iff] * nmo/12, 
+                          name='FuelMinYear'.format(idx2f[ifdis])) for ifdis in ixfdis]
+
 # ZQ_FuelMaxYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDemand(u,fdis,mo)))  =L=  MaxTonnageAar(fdis) * card(mo) / 12;
-if nfdis > 0:
-    eqFuelMinYear = np.empty(nfdis, dtype=object) 
-    eqFuelMaxYear = np.empty(nfdis, dtype=object) 
-    iff = -1
-    for ifk,iff in enumerate(ixfdis):
-        lhs = 0.0
-        for iua in range(nuprod):
-            if u2f[iua,iff]:
-                for imo in range(nmo):
-                    lhs += vFuelDemand[imo,iua,iff]
-        eqFuelMinYear[ifk] = m.Equation( lhs >= minTonnage[iff] * nmo / 12 )
-        eqFuelMaxYear[ifk] = m.Equation( lhs <= maxTonnage[iff] * nmo / 12 )
-    allEqns['FuelMinYear'] = eqFuelMinYear
-    allEqns['FuelMaxYear'] = eqFuelMaxYear
+allEqns['FuelMaxYear'] = [m.add_constr(xsum(vFuelDemand[imo][iup][iff] for iup in [iu for iu in ixuprod if u2f[iu,iff]]) <= maxTonnage[iff] * nmo/12, 
+                          name='FuelMaxYear'.format(idx2f[ifdis])) for ifdis in ixfdis]
 
 # ZQ_FuelDemandFreeSum(ffri) $(OnF(ffri) AND card(mo) GT 1) .. FuelDemandFreeSum(ffri)  =E=  sum(mo, sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDemand(ua,ffri,mo) ) );
-if nffri > 0 and nmo >= 2:
-    for ifk,iffri in enumerate(ixffri):
-        exFuelDemandFreeSum = 0.0
-        found = False
-        for iua in ixua:
-            if u2f[iua,iffri]:
-                found = True
-                for imo in range(nmo):
-                    exFuelDemandFreeSum += vFuelDemand[imo,iua,iffri] 
-        if found:
-            fuelName = idx2f[iffri]
-            vFuelDemandFreeSum[ifk] = m.Intermediate(exFuelDemandFreeSum, name='vFuelDemandFreeSum_' + fuelName)
+if nmo >= 2:
+    allEqns['FuelDemandFreeSum'] = [m.add_constr(vFuelDemandFreeSum[ifk] == xsum(vFuelDemand[imo][iua][iffri] for iua in ixua if u2f[iua,iffri]),
+                                    name='FuelDemandFreeSum[{0}]'.format(idx2f[iffri])) for ifk,iffri in enumerate(ixffri)]
 
 # ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri) AND card(mo) GT 1) 
 #    .. sum(ua $(OnU(ua) AND u2f(ua,ffri)), FuelDemand(ua,ffri,mo))  =E=  FuelDemandFreeSum(ffri) / card(mo);
-if nffri > 0 and nmo >= 2:
-    eqFuelMinFreeNonStorable = np.empty((nmo,nffri), dtype=object) 
-    iffri = -1
-    for ifk,iffri in enumerate(ixffri):
-        if iffri not in ixfsto:
-            for imo in range(nmo):
-                lhs = 0.0
-                for iua in ixua:
-                    if u2f[iua,iffri]:
-                        lhs += vFuelDemand[imo,iua,iffri] 
-                rhs = vFuelDemandFreeSum[ifk] / nmo
-                eqFuelMinFreeNonStorable[imo,ifk] = m.Equation( lhs == rhs )
-    allEqns['FuelMinFreeNonStorable'] = eqFuelMinFreeNonStorable
+ff = [ifa for ifa in ixfa if (ifa in ixffri) and (ifa not in ixfsto)]
+if nmo >= 2:
+    allEqns['FuelMinFreeNonStorable'] = \
+      [[m.add_constr( xsum(vFuelDemand[imo][iua][iffri] for iua in ixua if u2f[iua,iffri]) == vFuelDemandFreeSum[ifk],
+        name='FuelMinFreeNonStorable[{0}]'.format(idx2f[iffri]) ) for ifk,iffri in enumerate(ixffri) ] for imo in ixmo]
 
 # ZQ_MaxTonnage(ua,mo) $OnU(ua) .. sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * KapTon(ua);
-if nua > 0:
-    eqMaxTonnage = np.empty((nmo,nua), dtype=object)
-    for imo in range(nmo):
-        for iuk,iua in enumerate(ixua): 
-            lhs = 0.0
-            found = False
-            for iff in ixfa:  
-                if u2f[iua,iff]:
-                    found = True
-                    lhs += vFuelDemand[imo,iua,iff] 
-            if found:
-                rhs = shareAvailU[imo,iua] * hours[imo] * kapTon[iua]
-                eqMaxTonnage[imo,iuk] = m.Equation( lhs <= rhs )
-    allEqns['MaxTonnage'] = eqMaxTonnage
+allEqns['MaxTonnage'] = [[m.add_constr( xsum(vFuelDemand[imo][iua][ifa] for ifa in ixfa if u2f[iua,ifa]) <= shareAvailU[imo,iua] * hours[imo] * kapTon[iua] , 
+                          name='MaxTonnage[{0}][{1}]'.format(months[imo],idx2u[iua])) for iua in ixua] for imo in ixmo]
 
 # ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))  =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * LhvMWh(fa));
-if nua > 0:
-    eqMinLhvAffald = np.empty((nmo,nua), dtype=object)
-    for imo in range(nmo):
-        for iuk,iua in enumerate(ixua):
-            lhs = 0.0
-            rhs = 0.0
-            found = False
-            for iff in ixfa: 
-                if u2f[iua,iff]:
-                    found = True
-                    lhs += vFuelDemand[imo,iua,iff] 
-                    rhs += vFuelDemand[imo,iua,iff] * lhvMWf[iff]
-            if found:
-                lhs *= MinLhvMWh[iua]
-                rhs = shareAvailU[imo,iua] * hours[imo] * kapTon[iua]
-                eqMinLhvAffald[imo,iuk] = m.Equation( lhs <= rhs )
-    allEqns['MinLhvAffald'] = eqMinLhvAffald
+allEqns['MinLhvAffald'] = [[m.add_constr(
+                           MinLhvMWh[iua] * xsum(vFuelDemand[imo][iua][ifa] for ifa in ixfa if u2f[iua,ifa]) 
+                           <= xsum(vFuelDemand[imo][iua][ifa] * lhvMWh[ifa] for ifa in ixfa if u2f[iua,ifa]), 
+                           name='MinLhvAffald[{0}][{1}]' ) for iua in ixua] for imo in ixmo]
 
 #end region Equations
+#%%
+m.write('RefaMainMip.lp')
 #----------------------------------------------------------------------------------------------------
 #%% Solving the model
-# Objective 
-m.Maximize(NPV)
 
-m.options.IMODE = 3  # Steady state optimization.
-# solve optimization
-m.solve(disp=True)  # remote=False for local solve
+#region Providing initial feasible solution.
 
-print ('')
-print ('--- Results of the Optimization Problem ---')
-# print ('Height: ' + str(height.value))
-# print ('Diameter: ' + str(diameter.value))
-# print ('Weight: ' + str(weight.value))
+# See: https://docs.python-mip.com/en/latest/custom.html#providing-initial-feasible-solutions
+
+# inits = [(vbOnU[imo][ixur[0]], 1.0) for imo in ixmo]
+# m.start(inits)
+
+#%%
+
+f = io.open('constraints.txt',mode='w')
+# c:mp.entities.Constr 
+for i,c in enumerate(m.constrs):
+    if 2 <= i <=5:
+        f.write('\n{0:4d}\t{1:35}\t{2}'.format(i,c.name,c.expr))
+        print(i,c.name,': ', c.expr) #---, str(c),c)
+f.close()
+
+#%%
+
+#region Displaying the model equations
+
+def printEqn(eqns):
+    print(str(eqns))
+    if type(eqns) != list:
+        print('{0} = {1}'.format(eqns.name.ljust(35), str(eqns)))
+    else:
+        for e in eqns.items:
+            printEqn(e)
+
+for name,eqns in allEqns.items():
+    print('{0}:'.format(name))
+    printEqn(eqns)
+
+#endregion 
+
+#%%
+
+m.sense = mp.MAXIMIZE
+m.start
+
+optStats : mp.OptimizationStatus = m.optimize(max_seconds=30)
+
+if optStats.value == optStats.INFEASIBLE:
+    culprits = m.validate_mip_start()
+
+# Checking if a solution was found.
+if m.num_solutions > 0:
+    print('{0} solutions were found'.format(m.num_solutions))
+    print('NPV={0}\n'.format(objective.x))
+    print('\nFuelDemand:')
+    print('\n')
+    for imo in ixmo:
+        for iff in ixf:
+            print('FuelDemand[{0}][{1}]'.format(months[imo], idx2f[iff], sum([vFuelDemand[imo][i].x for iup in ixuprod if u2f[iup,iff]])) )
+
 # %%
