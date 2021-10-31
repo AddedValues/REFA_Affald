@@ -1,4 +1,4 @@
-# %% Imports 
+idx2f# %% Imports 
 #region Imports and basic setup
 import enum
 import os
@@ -13,7 +13,7 @@ import pandas as pd
 import xlwings as xw
 import matplotlib.pyplot as plt
 import mip as mp
-# from sys   import stdout
+# from sys import stdout
 from array import array
 from ortools.linear_solver import pywraplp
 
@@ -40,14 +40,14 @@ logging.exception("Exception occurred")
 allMonths = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
 months = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
 #TODO Shortlisting months for debugging purposes.
-months = ['jan']
+months = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
 nmo = len(months)
 dropMonths = [mo for mo in allMonths if not mo in months]
 # Create index for active months. ixmo[imo] yields index for an active month in all months.
-ixgmo = np.empty((nmo), dtype=int)
+idx2mo = np.empty((nmo), dtype=int)
 ixmo = [imo for imo in range(nmo)]
-for igmo, mo in enumerate(months):
-    ixgmo[igmo] = allMonths.index(mo)
+for imo, mo in enumerate(months):
+    idx2mo[imo] = allMonths.index(mo)
 
 #endregion 
 
@@ -674,34 +674,77 @@ from time import process_time, sleep
 starttime = process_time()
 status : int = m.Solve()
 endtime = process_time()
+elapsed = (endtime - starttime)
 
 #TODO What happens if a certain fuel is not valid for any plant ? Will it be maximized ?
 
-# [START print_solution]
+#region [START print_solution]
+dfFuelDemand = pd.DataFrame(index=dfAllDataFuel.index, columns=allMonths, dtype='float')
+dfFuelDemand.at[:,:] = 0.0
+dfQ = pd.DataFrame(index=dfAllDataUnit.index, columns=allMonths, dtype='float')
+dfQ.at[:,:] = 0.0
+
 if status == pywraplp.Solver.OPTIMAL:
     print('Solution:')
     print('Objective value =', m.Objective().Value())
-    print('\nFuelDemand:')
-    print('\n')
+    # print('\nFuelDemand:')
+    # print('\n')
     for imo in ixmo:
         for iff in ixf:
             val = sum([vFuelDemand[imo][iup][iff].solution_value() for iup in ixuprod if u2f[iup,iff]]) 
+            if abs(val) < 1E-9:
+                val = 0.0
+            dfFuelDemand.at[idx2f[iff],months[imo]] = val
             # print('mo={0},iff={1}, val={2}'.format(months[imo], idx2f[iff], val))
-            print('FuelDemand[{0}][{1}] = {2:8.3f}'.format(months[imo], idx2f[iff], val)) 
-    print('\nQ:')
-    print('\n')
+            # print('FuelDemand[{0}][{1}] = {2:8.3f}'.format(months[imo], idx2f[iff], val)) 
+    # print('\nQ:')
+    # print('\n')
     for imo in ixmo:
         for iu in ixu:
             val = vQ[imo][iu].solution_value() * (1 if iu in ixuprod else -1)
-            print('FuelDemand[{0}][{1}] = {2:8.3f}'.format(months[imo], idx2u[iu], val)) 
+            if abs(val) < 1E-9:
+                val = 0.0
+            dfQ.at[idx2u[iu],months[imo]] = val
+            # print('Q[{0}][{1}] = {2:8.3f}'.format(months[imo], idx2u[iu], val)) 
 
     print('\nAdvanced usage:')
-    print('Problem solved in %f milliseconds' % (endtime - starttime))
+    print('Problem solved in %f seconds' % elapsed)
     print('Problem solved in %d iterations' % m.iterations())
-    print('Problem solved in %d branch-and-bound nodes' % m.nodes())
+    print('Problem solved in %d branch-and-bound nodes' % m.nodes()) 
+    print('Count of variables %d ' % m.NumVariables()) 
+    print('Count of constraints %d ' % m.NumConstraints()) 
 
 else:
     print('The problem does not have an optimal solution.')
-# [END print_solution]
+
+sh = wb.sheets['PyOut']  
+irowObj = 2
+irowFuel = irowObj + 4
+irowQ = irowFuel + 4 + len(dfFuelDemand)
+cellObj = 'C' + str(irowObj)
+cellFuel = 'B' + str(irowFuel) 
+cellQ = 'B' + str(irowQ)
+sh.range(cellObj).value = m.Objective().Value()
+sh.range(cellFuel).value = dfFuelDemand
+sh.range('B2').value = 'FuelDemand'
+sh.range(cellQ).value = dfQ
+sh.range(cellQ).value = 'Q (heat)'
+print('Results written to Excel sheet: ' + sh.name)
+
+
+#endregion [END print_solution]
 
 # %%
+#region Write results back to Excel.
+
+# pathfolder = r'C:\\GitHub\\REFA Affald\\Excel'
+# filename = r'REFAinputX.xlsm'
+# path = os.path.join(pathfolder, filename)
+# wb = xw.Book(path)
+# sh = wb.sheets['ModelParms']
+# dfModelParms:pd.DataFrame = sh.range('B4').options(pd.DataFrame, index=True, header=True, expand='table').value
+
+#endregion
+
+# stats = pd.DataFrame(data=None, columns=['Year', 'FLH', 'nTotal', 'nMinLoad','nPartLoad', 'nFullLoad'])
+# stats.to_clipboard(excel=True, sep=';')    
