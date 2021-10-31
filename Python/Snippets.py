@@ -1,4 +1,229 @@
-#%%
+#%% 
+#region ORTOOLS example 4: Cloned from the MIP-package: Two-Dimensional Level Packing 
+# See: https://docs.python-mip.com/en/latest/examples.html
+# from mip import Model, BINARY, minimize, xsum
+from ortools.linear_solver import pywraplp
+import ortools
+from ortools.linear_solver.linear_solver_natural_api import VariableExpr
+
+#region Data
+#    0  1  2  3  4  5  6  7
+w = [4, 3, 5, 2, 1, 4, 7, 3]  # widths
+h = [2, 4, 1, 5, 6, 3, 5, 4]  # heights
+n = len(w)
+I = set(range(n))
+S = [[j for j in I if h[j] <= h[i]] for i in I]
+G = [[j for j in I if h[j] >= h[i]] for i in I]
+
+# raw material width
+W = 10
+#endregion 
+
+# m = Model()
+m:pywraplp.Solver = pywraplp.Solver.CreateSolver('SCIP')
+
+x = [{j: m.IntVar(name='x[{0}][{1}]'.format(j,i), lb=0.0, ub=1.0) for j in S[i]} for i in I]
+
+m.Minimize(m.Sum(h[i] * x[i][i] for i in I))
+
+# each item should appear as larger item of the level
+# or as an item which belongs to the level of another item
+for i in I:
+    # m += xsum(x[j][i] for j in G[i]) == 1
+    m.Add(m.Sum(x[j][i] for j in G[i]) == 1, name='OnlyOne[{0}]'.format(i))
+
+# represented items should respect remaining width
+for i in I:
+    # m += xsum(w[j] * x[i][j] for j in S[i] if j != i) <= (W - w[i]) * x[i][i]
+    m.Add(m.Sum(w[j] * x[i][j] for j in S[i] if j != i) <= (W - w[i]) * x[i][i], name='MaxWidth[{0}]'.format(i))
+
+# m.optimize()
+status = m.Solve()
+
+# xx:pywraplp.VariableExpr = x[0][0]
+# print(xx.solution_value())
+
+# [START print_solution]
+if status == pywraplp.Solver.OPTIMAL:
+    print('Solution:')
+    print('Objective value =', m.Objective().Value())
+    for i in [j for j in I if x[j][j].solution_value() >= 0.99]:
+        print(
+            "Items grouped with {} : {}".format(
+                i, [j for j in S[i] if i != j and x[i][j].solution_value() >= 0.99]
+            )
+        )
+    print('\nAdvanced usage:')
+    print('Problem solved in %f milliseconds' % m.wall_time())
+    print('Problem solved in %d iterations' % m.iterations())
+    print('Problem solved in %d branch-and-bound nodes' % m.nodes())
+
+else:
+    print('The problem does not have an optimal solution.')
+# [END print_solution]
+
+#endregion 
+
+
+
+#%% ORTOOLS example 3
+
+from ortools.linear_solver import pywraplp
+
+def create_data_model():
+    """Stores the data for the problem."""
+    data = {}
+    data['constraint_coeffs'] = [
+        [5, 7, 9, 2, 1],
+        [18, 4, -9, 10, 12],
+        [4, 7, 3, 8, 5],
+        [5, 13, 16, 3, -7],
+    ]
+    data['bounds'] = [250, 285, 211, 315]
+    data['obj_coeffs'] = [7, 8, 2, 9, 6]
+    data['num_vars'] = 5
+    data['num_constraints'] = 4
+    return data
+
+def main():
+    data = create_data_model()
+    # Create the mip solver with the SCIP backend.
+    solver = pywraplp.Solver.CreateSolver('SCIP')
+
+    infinity = solver.infinity()
+    x = {}
+    for j in range(data['num_vars']):
+        x[j] = solver.IntVar(0, infinity, 'x[%i]' % j)
+    print('Number of variables =', solver.NumVariables())
+
+    for i in range(data['num_constraints']):
+        constraint = solver.RowConstraint(0, data['bounds'][i], '')
+        for j in range(data['num_vars']):
+            constraint.SetCoefficient(x[j], data['constraint_coeffs'][i][j])
+    print('Number of constraints =', solver.NumConstraints())
+    # In Python, you can also set the constraints as follows.
+    # for i in range(data['num_constraints']):
+    #  constraint_expr = \
+    # [data['constraint_coeffs'][i][j] * x[j] for j in range(data['num_vars'])]
+    #  solver.Add(sum(constraint_expr) <= data['bounds'][i])
+
+    objective = solver.Objective()
+    for j in range(data['num_vars']):
+        objective.SetCoefficient(x[j], data['obj_coeffs'][j])
+    objective.SetMaximization()
+    # In Python, you can also set the objective as follows.
+    # obj_expr = [data['obj_coeffs'][j] * x[j] for j in range(data['num_vars'])]
+    # solver.Maximize(solver.Sum(obj_expr))
+
+    status = solver.Solve()
+
+    if status == pywraplp.Solver.OPTIMAL:
+        print('Objective value =', solver.Objective().Value())
+        for j in range(data['num_vars']):
+            print(x[j].name(), ' = ', x[j].solution_value())
+        print()
+        print('Problem solved in %f milliseconds' % solver.wall_time())
+        print('Problem solved in %d iterations' % solver.iterations())
+        print('Problem solved in %d branch-and-bound nodes' % solver.nodes())
+    else:
+        print('The problem does not have an optimal solution.')
+
+if __name__ == '__main__':
+    main()
+
+#%% ORTOOLS example 2
+#region ORTOOLS Example 2
+from ortools.linear_solver import pywraplp
+
+def main():
+    # Create the mip solver with the SCIP backend.
+    solver = pywraplp.Solver.CreateSolver('SCIP')
+
+    infinity = solver.infinity()
+    # x and y are integer non-negative variables.
+    x = solver.IntVar(0.0, infinity, 'x')
+    y = solver.IntVar(0.0, infinity, 'y')
+
+    print('Number of variables =', solver.NumVariables())
+
+    # x + 7 * y <= 17.5.
+    solver.Add(x + 7 * y <= 17.5)
+
+    # x <= 3.5.
+    solver.Add(x <= 3.5)
+
+    print('Number of constraints =', solver.NumConstraints())
+
+    # Maximize x + 10 * y.
+    solver.Maximize(x + 10 * y)
+
+    status = solver.Solve()
+
+    if status == pywraplp.Solver.OPTIMAL:
+        print('Solution:')
+        print('Objective value =', solver.Objective().Value())
+        print('x =', x.solution_value())
+        print('y =', y.solution_value())
+    else:
+        print('The problem does not have an optimal solution.')
+
+    print('\nAdvanced usage:')
+    print('Problem solved in %f milliseconds' % solver.wall_time())
+    print('Problem solved in %d iterations' % solver.iterations())
+    print('Problem solved in %d branch-and-bound nodes' % solver.nodes())
+
+
+if __name__ == '__main__':
+    main()
+#endregion 
+
+#%% ORTOOLS example 1
+#region ORTOOLS Example 1
+from ortools.linear_solver import pywraplp
+from ortools.init import pywrapinit
+
+def main():
+    # Create the linear solver with the GLOP backend.
+    solver = pywraplp.Solver.CreateSolver('GLOP')
+
+    # Create the variables x and y.
+    x = solver.NumVar(0, 1, 'x')
+    y = solver.NumVar(0, 2, 'y')
+
+    print('Number of variables =', solver.NumVariables())
+
+    # Create a linear constraint, 0 <= x + y <= 2.
+    ct = solver.Constraint(0, 2, 'ct')
+    ct.SetCoefficient(x, 1)
+    ct.SetCoefficient(y, 1)
+
+    print('Number of constraints =', solver.NumConstraints())
+
+    # Create the objective function, 3 * x + y.
+    objective = solver.Objective()
+    objective.SetCoefficient(x, 3)
+    objective.SetCoefficient(y, 1)
+    objective.SetMaximization()
+
+    solver.Solve()
+
+    print('Solution:')
+    print('Objective value =', objective.Value())
+    print('x =', x.solution_value())
+    print('y =', y.solution_value())
+
+
+if __name__ == '__main__':
+    pywrapinit.CppBridge.InitLogging('basic_example.py')
+    cpp_flags = pywrapinit.CppFlags()
+    cpp_flags.logtostderr = True
+    cpp_flags.log_prefix = False
+    pywrapinit.CppBridge.SetFlags(cpp_flags)
+
+    main()
+#endregion 
+
+#%% MIP examples
 #region 
 # See: https://docs.python-mip.com/en/latest/examples.html
 import matplotlib.pyplot as plt
