@@ -3,6 +3,7 @@
 import enum
 import os
 import io
+import datetime as dt
 import clipboard
 import logging as logn
 import math
@@ -18,7 +19,7 @@ import mip as mp
 from array import array
 from ortools.linear_solver import pywraplp
 import ortools.linear_solver.linear_solver_pb2 as pyw
-
+dt.datetime.now
 # Setup logger(s): Levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL. See https://realpython.com/python-logging/
 logn.basicConfig(level=logn.DEBUG, filename='RefaMain.log', filemode='w',
                  format='%(asctime)s : %(levelname)s : %(message)s', datefmt='%y-%b-%d %H.%M.%S')
@@ -479,6 +480,7 @@ allEqns['CostsAFV'] = (vCostsAFV, vQafv), \
                        name='CostsAFV[{0}]'.format(months[imo])) for imo in ixmo]
 
 # ZQ_CostsATL(mo) .. CostsATL(mo)  =E=  sum(ua $OnU(ua), Q(ua,mo)) * TaxAtlMWh(mo);
+#TODO This tax (ATL) is by law levied on fuel energy but as electricity generation cannot be taxed, it will only be levied on the heat generated.
 allEqns['CostsATL'] = (vCostsATL, vQ), \
                       [m.Add(vCostsATL[imo] == m.Sum(vQ[imo][iua] for iua in ixua) * taxAtlMWh[imo], 
                        name='CostsATL[{0}]'.format(months[imo])) for imo in ixmo]
@@ -486,7 +488,7 @@ allEqns['CostsATL'] = (vCostsATL, vQ), \
 # ZQ_CostsTotalF(mo) .. CostsTotalF(mo)  =E=  CostsTotalAuxF(mo) + CostsAFV(mo) + CostsATL(mo) + CostsETS(mo);
 allEqns['CostsTotalF'] = (vCostsTotalF, vCostsTotalAuxF, vCostsAFV, vCostsATL, vCostsETS), \
                          [m.Add(vCostsTotalF[imo] == vCostsTotalAuxF[imo] + vCostsAFV[imo] + vCostsATL[imo] + vCostsETS[imo], 
-                          name='CostsATL[{0}]'.format(months[imo])) for imo in ixmo]
+                          name='CostsTotalF[{0}]'.format(months[imo])) for imo in ixmo]
 
 # ZQ_CostsTotalAuxF(mo) .. CostsTotalAuxF(mo)  =E=  sum(faux, CostsAuxF(faux,mo));
 allEqns['CostsTotalAuxF'] = (vCostsTotalAuxF, vCostsAuxF), \
@@ -496,15 +498,16 @@ allEqns['CostsTotalAuxF'] = (vCostsTotalAuxF, vCostsAuxF), \
 # ZQ_CostsAuxF(faux,mo) .. CostsAuxF(faux,mo)  =E=  sum(uaux $(OnU(uaux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo) * DataFuel(faux,'pris') );
 allEqns['CostsAuxF'] = (vCostsAuxF, vFuelDemand), \
                        [[m.Add(vCostsAuxF[imo][ifk] == m.Sum(vFuelDemand[imo][iuaux][ifaux] for iuaux in [i for i in ixuaux if u2f[i,ifaux]]) * fuelprice[ifaux] ,
-                         name='CostsAuxF[{0}]'.format(months[imo])) for ifk,ifaux in enumerate(ixfaux)] for imo in ixmo]
+                         name='CostsAuxF[{0}][{1}]'.format(months[imo],idx2f[ifaux])) for ifk,ifaux in enumerate(ixfaux)] for imo in ixmo]
 
 # ZQ_PrioUp(uprio,up,mo) $(OnU(uprio) AND OnU(up) AND AvailDaysU(mo,uprio) AND AvailDaysU(mo,up)) ..  bOnU(up,mo)  =L=  bOnU(uprio,mo); 
 eqns = list()
 for imo in range(nmo):
-    for iu1, up1 in enumerate(uprio):
-        for iu2, up2 in enumerate(uprod):
-            if uprio2up[iu1,iu2] and availDays[imo,iu1] and availDays[imo,iu2] > 0:
-                eqns.append(m.Add(vbOnU[imo][iu1] <= vbOnU[imo][iu2], name='PrioUp[{0}][{1}]'.format(months[imo],idx2u[ixuprio[iu1]]))) 
+    for iu1, iup1 in enumerate(ixuprio):
+        for iu2, iup2 in enumerate(ixuprod):
+            if uprio2up[iu1,iu2] and availDays[imo,iup1] > 0 and availDays[imo,iup2] > 0:
+                eqns.append(m.Add(vbOnU[imo][iup2] <= vbOnU[imo][iup1], \
+                            name='PrioUp[{0}][{1}][{2}]'.format(months[imo],idx2u[ixuprio[iu1]],idx2u[iup2]))) 
 allEqns['PrioUp'] = (vbOnU), eqns
 
 # ZQ_TotalAffEprod(mo)  ..  TotalAffEProd(mo)  =E=  Power(mo) + sum(ua $OnU(ua), Q(ua,mo));     # Samlet energioutput fra affaldsanlæg. Bruges til beregning af RGK-rabat.
@@ -564,14 +567,14 @@ if len(ua) > 0:
                         name='Qrgk[{0}][{1}]'.format(months[imo],idx2u[iua])) for iua in ixua] for imo in ixmo]
 
     allEqns['QrgkMax'] = (vQrgk, vbOnRgk), \
-                         [[m.Add(vQrgk[imo][iua] <= QrgkMax[imo][iua] + vbOnRgk[imo][iua], 
+                         [[m.Add(vQrgk[imo][iua] <= QrgkMax[imo][iua] * vbOnRgk[imo][iua], 
                            name='QrgkMax[{0}][{1}]'.format(months[imo],idx2u[iua])) for iua in ixua] for imo in ixmo]
 
 # ZQ_Qaux(uaux,mo) $OnU(uo) ..  Q(uaux,mo)  =E=  [sum(faux $(OnF(faux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo) * EtaQ(uaux) * LhvMWh(faux))] $OnU(uaux);
 if nuaux > 0:
     # Other than waste plant heat balances.
     allEqns['Qaux'] = (vQ, vFuelDemand), \
-                      [[m.Add(vQ[imo][iuaux] == m.Sum(vFuelDemand[imo][iuaux][ifa] * lhvMWh[ifa] for ifa in ixfa) * etaq[iuaux], 
+                      [[m.Add(vQ[imo][iuaux] == m.Sum(vFuelDemand[imo][iuaux][ifaux] * lhvMWh[ifaux] for ifaux in ixfaux) * etaq[iuaux], 
                        name='Qaux[{0}][{1}]]'.format(months[imo],idx2u[iuaux])) for iuaux in ixuaux] for imo in ixmo]
 
 # ZQ_QMin(u,mo) $OnU(u) ..  Q(u,mo)  =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen paa timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
@@ -618,12 +621,12 @@ allEqns['FuelMax'] = (vFuelDemand), \
 
 # ZQ_FuelMinYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDemand(u,fdis,mo)))  =G=  MinTonnageAar(fdis) * card(mo) / 12;
 allEqns['FuelMinYear'] = (vFuelDemand), \
-                         [m.Add(m.Sum(vFuelDemand[imo][iup][iff] for iup in [iu for iu in ixuprod if u2f[iu,iff]] for imo in ixmo) >= minTonnage[iff] * nmo/12, 
+                         [m.Add(m.Sum(vFuelDemand[imo][iup][ifdis] for iup in [iu for iu in ixuprod if u2f[iu,ifdis]] for imo in ixmo) >= minTonnage[ifdis] * nmo/12, 
                           name='FuelMinYear[{0}]]'.format(idx2f[ifdis])) for ifdis in ixfdis]
 
 # ZQ_FuelMaxYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDemand(u,fdis,mo)))  =L=  MaxTonnageAar(fdis) * card(mo) / 12;
 allEqns['FuelMaxYear'] = (vFuelDemand), \
-                         [m.Add(m.Sum(vFuelDemand[imo][iup][iff] for iup in [iu for iu in ixuprod if u2f[iu,iff]] for imo in ixmo) <= maxTonnage[iff] * nmo/12, 
+                         [m.Add(m.Sum(vFuelDemand[imo][iup][ifdis] for iup in [iu for iu in ixuprod if u2f[iu,ifdis]] for imo in ixmo) <= maxTonnage[ifdis] * nmo/12, 
                           name='FuelMaxYear[{0}]]'.format(idx2f[ifdis])) for ifdis in ixfdis]
 
 # ZQ_FuelDemandFreeSum(ffri) $(OnF(ffri) AND card(mo) GT 1) .. FuelDemandFreeSum(ffri)  =E=  sum(mo, sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDemand(ua,ffri,mo) ) );
@@ -757,6 +760,7 @@ else:
     print('The problem does not have an optimal solution.')
 
 sh = wb.sheets['PyOut']  
+sh.range('C1').value = str(dt.datetime.now())
 irowObj = 2
 irowFuel = irowObj + 4
 irowQ = irowFuel + 4 + len(dfFuelDemand)
@@ -765,7 +769,7 @@ cellFuel = 'B' + str(irowFuel)
 cellQ = 'B' + str(irowQ)
 sh.range(cellObj).value = m.Objective().Value()
 sh.range(cellFuel).value = dfFuelDemand
-sh.range('B2').value = 'FuelDemand'
+sh.range(cellFuel).value = 'FuelDemand'
 sh.range(cellQ).value = dfQ
 sh.range(cellQ).value = 'Q (heat)'
 print('Results written to Excel sheet: ' + sh.name)
