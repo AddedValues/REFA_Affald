@@ -351,6 +351,7 @@ for f in fuels:
 #endregion Feasibility checks
 
 
+
 #%% 
 
 #TODO Introduce slack variables to enable analyze infeasibilities.
@@ -364,7 +365,7 @@ m:pywraplp.Solver = pywraplp.Solver.CreateSolver('SCIP')
 
 #region Create model variables.
 
-ubVars = {'FuelDemand': 1E+6, 'Q':1E+6, 'Costs':1E+7}
+ubVars = {'FuelDemand': 1E+6, 'Q':1E+6, 'Costs':5E+7}
 
 # Variables are only defined on active entities hence results for non-active entities default to zero.
 
@@ -574,7 +575,7 @@ if len(ua) > 0:
 if nuaux > 0:
     # Other than waste plant heat balances.
     allEqns['Qaux'] = (vQ, vFuelDemand), \
-                      [[m.Add(vQ[imo][iuaux] == m.Sum(vFuelDemand[imo][iuaux][ifaux] * lhvMWh[ifaux] for ifaux in ixfaux) * etaq[iuaux], 
+                      [[m.Add(vQ[imo][iuaux] == m.Sum(vFuelDemand[imo][iuaux][ifaux] * lhvMWh[ifaux] for ifaux in [iff for iff in ixfaux if u2f[iuaux,iff]]) * etaq[iuaux], 
                        name='Qaux[{0}][{1}]]'.format(months[imo],idx2u[iuaux])) for iuaux in ixuaux] for imo in ixmo]
 
 # ZQ_QMin(u,mo) $OnU(u) ..  Q(u,mo)  =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen paa timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
