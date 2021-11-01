@@ -10,3 +10,7 @@ GAMS/REFAinput.txt
 *.lst
 
 GAMS/REFAoutput.txt
+
+Python/.spyproject/config/
+
+GAMS/Demo/

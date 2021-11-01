@@ -3,8 +3,10 @@
 # See: https://docs.python-mip.com/en/latest/examples.html
 # from mip import Model, BINARY, minimize, xsum
 from ortools.linear_solver import pywraplp
-import ortools
+import ortools.sat as sat
 from ortools.linear_solver.linear_solver_natural_api import VariableExpr
+
+
 
 #region Data
 #    0  1  2  3  4  5  6  7
@@ -64,6 +66,9 @@ else:
 
 #endregion 
 
+#%%
+
+aaa = m.Add(m.Sum(w[j] * x[i][j] for j in S[i] if j != i) <= (W - w[i]) * x[i][i], name='Dummy[{0}]'.format(i))
 
 
 #%% ORTOOLS example 3
