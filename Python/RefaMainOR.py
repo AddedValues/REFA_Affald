@@ -34,7 +34,24 @@ except Exception as e:
 OR simply:
 logging.exception("Exception occurred")
 """
-#endregion -------------------------------------------------------------------
+#endregion 
+
+#region Functions
+
+# def flatten(t:list):
+#     return [item for sublist in t for item in sublist]
+# Generic flattening of multiple nested lists or tuples.
+def flatten(container):
+    for i in container:
+        if isinstance(i, (list,tuple)):
+            for j in flatten(i):
+                yield j
+        else:
+            yield i
+# print(list(flatten(vFuelDemand)))
+
+
+#endregion 
 
 #TODO FuelDemand matcher ikke varmeproduktionen Q for SR-kedler
 #TODO NS-varme aktiveres ikke, men det sker i GAMS-modellen.
@@ -249,8 +266,8 @@ MinLhvMWh = dfDataUnit['MinLhv'] / 3.6
 days      = dfProgn['ndage'].to_numpy()
 qdem      = dfProgn['varmebehov'].to_numpy()
 taxEtsTon = dfProgn['ets'].to_numpy()
-taxAfvMWh = dfProgn['afv'].to_numpy() / 3.6
-taxAtlMWh = dfProgn['atl'].to_numpy() / 3.6
+taxAfvMWh = dfProgn['afv'].to_numpy() * 3.6
+taxAtlMWh = dfProgn['atl'].to_numpy() * 3.6
 power     = dfProgn['ELprod'].to_numpy()
 if not onU['Ovn3']:
     power = np.zeros((nmo), dtype=float)
@@ -750,6 +767,23 @@ if status == pywraplp.Solver.OPTIMAL:
             dfQ.at[idx2u[iu],months[imo]] = val
             # print('Q[{0}][{1}] = {2:8.3f}'.format(months[imo], idx2u[iu], val)) 
 
+    keyFigs = dict()
+    keyFigs['incomeTotal'] = sum(v.solution_value() for v in flatten(vIncomeTotal))
+    keyFigs['incomeAff'  ] = sum(v.solution_value() for v in flatten(vIncomeAff))
+    keyFigs['rgkRabat'   ] = sum(v.solution_value() for v in flatten(vRgkRabat))
+    keyFigs['costsTotalF'] = sum(v.solution_value() for v in flatten(vCostsTotalF))
+    keyFigs['costsU'     ] = sum(v.solution_value() for v in flatten(vCostsU))
+    keyFigs['costAfv'    ] = sum(v.solution_value() for v in flatten(vCostsAFV))
+    keyFigs['costAtl'    ] = sum(v.solution_value() for v in flatten(vCostsATL))
+    keyFigs['costEts'    ] = sum(v.solution_value() for v in flatten(vCostsETS))
+    keyFigs['costAuxF'   ] = sum(v.solution_value() for v in flatten(vCostsAuxF))
+    keyFigs['co2emis'    ] = sum(v.solution_value() for v in flatten(vCO2emis))
+    keyFigs['qAffM'      ] = sum(v.solution_value() for v in flatten(vQaffM))
+    keyFigs['qAfv'       ] = sum(v.solution_value() for v in flatten(vQafv))
+    keyFigs['qRgk'       ] = sum(v.solution_value() for v in flatten(vQrgk))
+    for k,v in keyFigs.items():
+        print(k.ljust(15,' '), '= ', v)
+
     print('\nAdvanced usage:')
     print('Problem solved in %f seconds' % elapsed)
     print('Problem solved in %d iterations' % m.iterations())
@@ -775,7 +809,6 @@ sh.range(cellQ).value = dfQ
 sh.range(cellQ).value = 'Q (heat)'
 print('Results written to Excel sheet: ' + sh.name)
 
-
 #endregion [END print_solution]
 
 #%%  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -791,18 +824,7 @@ print('Results written to Excel sheet: ' + sh.name)
 # allEqns['QMax'] = [[m.Add(vQ[imo][iu] <= shareAvailU[imo,iu] * hours[imo] * kapMax[iu] * vbOnU[imo][iu],
 #                     name='QMax[{0}][{1}]]'.format(months[imo],idx2u[iu])) for iu in ixu] for imo in ixmo]
 
-# def flatten(t:list):
-#     return [item for sublist in t for item in sublist]
-# Generic flattening of multiple nested lists or tuples.
-def flatten(container):
-    for i in container:
-        if isinstance(i, (list,tuple)):
-            for j in flatten(i):
-                yield j
-        else:
-            yield i
-# print(list(flatten(vFuelDemand)))
-
+#%%
 #TODO Create function building the expression. Args = constraint, list of variables.
 eqns = allEqns['QrgkMax']
 vars = list(flatten(eqns[0]))
