@@ -1,26 +1,26 @@
 # %% Imports 
 #region Imports and basic setup
+import sys
 import enum
 import os
 import io
 import datetime as dt
 import clipboard
 import logging as logn
-import math
-import itertools
-import more_itertools
+# import math
+# import itertools
+# import more_itertools
+# from sys import stdout
+from array import array
 import numpy as np
-# from numpy.core.fromnumeric import var
 import pandas as pd 
 import xlwings as xw
 import matplotlib.pyplot as plt
-import mip as mp
-# from sys import stdout
-from array import array
 from ortools.linear_solver import pywraplp
-import ortools.linear_solver.linear_solver_pb2 as pyw
-dt.datetime.now
-# Setup logger(s): Levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL. See https://realpython.com/python-logging/
+
+#endregion 
+
+#region Setup logger(s): Levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL. See https://realpython.com/python-logging/
 logn.basicConfig(level=logn.DEBUG, filename='RefaMain.log', filemode='w',
                  format='%(asctime)s : %(levelname)s : %(message)s', datefmt='%y-%b-%d %H.%M.%S')
 """
@@ -53,18 +53,12 @@ def flatten(container):
 
 #endregion 
 
-#TODO FuelDemand matcher ikke varmeproduktionen Q for SR-kedler
-#TODO NS-varme aktiveres ikke, men det sker i GAMS-modellen.
-#TODO NS-varme begrænses af NS-kapaciteten (8 MWq), men ikke af FuelMax.  (det er OK)
-
-# %% Read input from Excel fil REFAinput.xlsb  
-
 #region Define periods.
 
 allMonths = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
 months = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec']
 #TODO Shortlisting months for debugging purposes.
-months = ['jan']
+#--- months = ['jan']
 nmo = len(months)
 dropMonths = [mo for mo in allMonths if not mo in months]
 # Create index for active months. ixmo[imo] yields index for an active month in all months.
@@ -75,11 +69,15 @@ for imo, mo in enumerate(months):
 
 #endregion 
 
-#region Read input
+#region Read input from Excel fil REFAinputX.xlsb  
 
-pathfolder = r'C:\\GitHub\\REFA Affald\\Excel'
-filename = r'REFAinputX.xlsm'
-path = os.path.join(pathfolder, filename)
+pathBase = 'C:\\GitHub\\REFA Affald'
+pathExcel = os.path.join(pathBase, 'Excel')
+pathPython = os.path.join(pathBase, 'Python')
+os.chdir(pathPython)
+
+fnExcel = r'REFAinputX.xlsm'
+path = os.path.join(pathExcel, fnExcel)
 wb = xw.Book(path)
 sh = wb.sheets['ModelParms']
 dfModelParms:pd.DataFrame = sh.range('B4').options(pd.DataFrame, index=True, header=True, expand='table').value
@@ -92,6 +90,7 @@ dfAllDataFuel:pd.DataFrame   = sh.range('C4').options(pd.DataFrame, index=True, 
 dfAllFuelBounds:pd.DataFrame = sh.range('R4').options(pd.DataFrame, index=True, header=True, expand='table').value
 
 print('Input data imported.')
+#endregion 
 
 #region Filter out inactive entities
 
@@ -123,8 +122,6 @@ FuelMax = np.transpose(dfFuelMax.to_numpy())
 #--- [x for x in dfFuelBounds['Fraktion'] if x.startswith('Dagren')]
 # rowsdag = [x.startswith('Dag') for x in dfFuelBounds['Fraktion'] ]
 # dfDummy = dfFuelBounds[rowsdag]
-#endregion 
-#---------------------------------------------------------------------------
 
 #%% Extract comfortable arrays from dataframes.
 
@@ -414,7 +411,7 @@ vCostsTotalAuxF =  [m.NumVar(name='CostsTotalAuxF[{0}]'.format(months[imo]), lb=
 vCostsAFV       =  [m.NumVar(name='CostsAFV[{0}]'.format(months[imo])      , lb=0.0, ub=ubVars['Costs']) for imo in ixmo]
 vCostsATL       =  [m.NumVar(name='CostsATL[{0}]'.format(months[imo])      , lb=0.0, ub=ubVars['Costs']) for imo in ixmo]
 vCostsETS       =  [m.NumVar(name='CostsETS[{0}]'.format(months[imo])      , lb=0.0, ub=ubVars['Costs']) for imo in ixmo]
-									
+                                    
 vCostsU         = [[m.NumVar(name='CostsU[{0}][{1}]'.format(months[imo],u)            , lb=0.0, ub=ubVars['Costs'])  for u in units]    for imo in ixmo] 
 vIncomeAff      = [[m.NumVar(name='IncomeAff[{0}][{1}]'.format(months[imo],f)         , lb=0.0, ub=ubVars['Costs'])  for f in fa]       for imo in ixmo] 
 vCO2emis        = [[m.NumVar(name='CO2emis[{0}][{1}]'.format(months[imo],f)           , lb=0.0, ub=ubVars['Q'])      for f in fuels]    for imo in ixmo] 
@@ -766,21 +763,33 @@ if status == pywraplp.Solver.OPTIMAL:
                 val = 0.0
             dfQ.at[idx2u[iu],months[imo]] = val
             # print('Q[{0}][{1}] = {2:8.3f}'.format(months[imo], idx2u[iu], val)) 
-
+            
+    # dfKeyFigs = pd.DataFrame(index=dfAllDataFuel.index, columns=['IncomeAff','CostsAFV','CostsATL','CostsETS','CostsAuxF','CO2emis'], dtype=float)
+    # dfKeyFigs.at[:,:] = 0.0
+    # for ifa in ixfa:
+    #     dfKeyFigs.loc['IncomeAff',idx2f[ifa]]    = np.sum([v.solution_value() for v in vIncomeAff[:][ifa]])
+    #     dfKeyFigs.loc['CostsAFV', idx2f[ifa]]    = np.sum([v.solution_value() for v in vCostsAFV[:][ifa]])
+    #     dfKeyFigs.loc['CostsATL', idx2f[ifa]]    = np.sum([v.solution_value() for v in vCostsATL[:][ifa]])
+    # for iff in  ixf:
+    #     dfKeyFigs.loc['CostsETS', idx2f[iff]]    = np.sum([v.solution_value() for v in vCostsETS[:][iff]])
+    # for iff in  ixfaux:
+    #     dfKeyFigs.loc['CostsETS', idx2f[iff]]    = np.sum([v.solution_value() for v in vCostsAuxF[:][iff]])
+        
+        
     keyFigs = dict()
-    keyFigs['incomeTotal'] = sum(v.solution_value() for v in flatten(vIncomeTotal))
-    keyFigs['incomeAff'  ] = sum(v.solution_value() for v in flatten(vIncomeAff))
-    keyFigs['rgkRabat'   ] = sum(v.solution_value() for v in flatten(vRgkRabat))
-    keyFigs['costsTotalF'] = sum(v.solution_value() for v in flatten(vCostsTotalF))
-    keyFigs['costsU'     ] = sum(v.solution_value() for v in flatten(vCostsU))
-    keyFigs['costAfv'    ] = sum(v.solution_value() for v in flatten(vCostsAFV))
-    keyFigs['costAtl'    ] = sum(v.solution_value() for v in flatten(vCostsATL))
-    keyFigs['costEts'    ] = sum(v.solution_value() for v in flatten(vCostsETS))
-    keyFigs['costAuxF'   ] = sum(v.solution_value() for v in flatten(vCostsAuxF))
-    keyFigs['co2emis'    ] = sum(v.solution_value() for v in flatten(vCO2emis))
-    keyFigs['qAffM'      ] = sum(v.solution_value() for v in flatten(vQaffM))
-    keyFigs['qAfv'       ] = sum(v.solution_value() for v in flatten(vQafv))
-    keyFigs['qRgk'       ] = sum(v.solution_value() for v in flatten(vQrgk))
+    keyFigs['IncomeTotal'] = sum(v.solution_value() for v in flatten(vIncomeTotal))
+    keyFigs['IncomeAff'  ] = sum(v.solution_value() for v in flatten(vIncomeAff))
+    keyFigs['RgkRabat'   ] = sum(v.solution_value() for v in flatten(vRgkRabat))
+    keyFigs['CostsU'     ] = sum(v.solution_value() for v in flatten(vCostsU))
+    keyFigs['CostsTotalF'] = sum(v.solution_value() for v in flatten(vCostsTotalF))
+    keyFigs['CostsAfv'   ] = sum(v.solution_value() for v in flatten(vCostsAFV))
+    keyFigs['CostsAtl'   ] = sum(v.solution_value() for v in flatten(vCostsATL))
+    keyFigs['CostsEts'   ] = sum(v.solution_value() for v in flatten(vCostsETS))
+    keyFigs['CostsAuxF'  ] = sum(v.solution_value() for v in flatten(vCostsAuxF))
+    keyFigs['CO2emis'    ] = sum(v.solution_value() for v in flatten(vCO2emis))
+    keyFigs['QaffM'      ] = sum(v.solution_value() for v in flatten(vQaffM))
+    keyFigs['Qafv'       ] = sum(v.solution_value() for v in flatten(vQafv))
+    keyFigs['Qrgk'       ] = sum(v.solution_value() for v in flatten(vQrgk))
     for k,v in keyFigs.items():
         print(k.ljust(15,' '), '= ', v)
 
@@ -794,20 +803,24 @@ if status == pywraplp.Solver.OPTIMAL:
 else:
     print('The problem does not have an optimal solution.')
 
+psKeyFigs = pd.Series(keyFigs)
 sh = wb.sheets['PyOut']  
-sh.range('C1').value = str(dt.datetime.now())
+
 irowObj = 2
 irowFuel = irowObj + 4
 irowQ = irowFuel + 4 + len(dfFuelDemand)
-cellObj = 'C' + str(irowObj)
-cellFuel = 'B' + str(irowFuel) 
-cellQ = 'B' + str(irowQ)
-sh.range(cellObj).value = m.Objective().Value()
-sh.range(cellFuel).value = dfFuelDemand
-sh.range(cellFuel).value = 'FuelDemand'
-sh.range(cellQ).value = dfQ
-sh.range(cellQ).value = 'Q (heat)'
+sh.range((1,3)).value = str(dt.datetime.now())
+sh.range((irowObj,3)).value = m.Objective().Value()
+sh.range((irowFuel,2)).value = dfFuelDemand
+sh.range((irowFuel,2)).value = 'Brændselsforbrug'
+sh.range((irowQ,2)).value = dfQ
+sh.range((irowQ,2)).value = 'Varmeflow'
+icolStats = 2 + 12 + 2
+sh.range((irowFuel,icolStats)).value = 'Årsstatistik'
+sh.range((irowFuel+1,icolStats)).value = psKeyFigs
+
 print('Results written to Excel sheet: ' + sh.name)
+
 
 #endregion [END print_solution]
 
