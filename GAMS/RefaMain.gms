@@ -54,19 +54,20 @@ set uprio2up(up,up) 'Anlaegsprioriteter';
 
 set lblDataU     'DataU labels'     / aktiv, ukind, prioritet, minLhv, kapTon, kapNom, kapRgk, kapMax, minlast, kapMin, etaq, DV, aux /;
 set lblDataFuel  'DataFuel labels'  / aktiv, fkind, lagerbar, fri, bortskaffes, minTonnage, maxTonnage, pris, brandv, co2andel, prisbv /;
-set lblProgn     'Prognose labels'  / ndage, varmebehov, NSvarme, ELprod, ets, afv, atl /;
+set lblProgn     'Prognose labels'  / ndage, varmebehov, NSvarme, ELprod, ets, afv, atl, affco2, auxco2 /;
 set lblFuelparms 'Fuel parms'       / MindsteBVaffald /;
 
-set taxkind(lblProgn) 'Omkostningstyper' / ets, afv, atl /;
+set taxkind(lblProgn) 'Omkostningstyper' / ets, afv, atl, affco2, auxco2 /;
 
 # ------------------------------------------------------------------------------------------------
 # Erklaering af input parametre
 # ------------------------------------------------------------------------------------------------
-Scalar    Penalty_bOnU             'Penalty paa bOnU'         / 00000E+5 /;
-Scalar    Penalty_QRgkMiss         'Penalty paa QRgkMiss'     /   20 /;  # Denne penalty må ikke være højere end tillaegsafgiften.
+Scalar    Penalty_bOnU             'Penalty paa bOnU'        / 00000E+5 /;
+Scalar    Penalty_QRgkMiss         'Penalty paa QRgkMiss'    /   20 /;      # Denne penalty må ikke være højere end tillaegsafgiften.
 Scalar    RgkRabatSats             'Rabatsats paa ATL'       / 0.10 /;
 Scalar    RgkRabatMinShare         'Taerskel for RGK rabat'  / 0.07 /;
 Scalar    VarmeSalgspris           'Varmesalgspris DKK/MWhq' / 0.0 /;
+Scalar    AffaldsOmkAndel          'Affaldssiden omk.andel'  / 0.45 /;
 
 Parameter DataU(u, lblDataU)       'Data for anlaeg';
 Parameter Prognoses(mo, lblProgn)  'Data for prognoser';
@@ -82,7 +83,7 @@ $If not errorfree $exit
 
 $onecho > REFAinput.txt
 par=DataU               rng=DataU!B4:N10             rdim=1 cdim=1
-par=Prognoses           rng=DataU!B15:J27            rdim=1 cdim=1
+par=Prognoses           rng=DataU!B15:K27            rdim=1 cdim=1
 par=AvailDaysU          rng=DataU!B31:H43            rdim=1 cdim=1
 par=DataFuel            rng=Fuel!C4:N30              rdim=1 cdim=1
 par=FuelBounds          rng=Fuel!R4:AE56             rdim=2 cdim=1
@@ -195,7 +196,9 @@ Parameter Qdemand(mo)      'FJV-behov';
 Parameter Power(mo)        'Elproduktion MWhe';
 Parameter TaxAfvMWh(mo)    'Affaldsvarmeafgift [DKK/MWhq]';
 Parameter TaxAtlMWh(mo)    'Affaldstillaegsafgift [DKK/MWhf]';
-Parameter TaxEtsTon(mo)    'CO2 Kvotepris [DKK/tpm]';
+Parameter TaxEtsTon(mo)    'CO2 Kvotepris [DKK/tom]';
+Parameter TaxAffCO2Ton(mo) 'CO2 afgift affald [DKK/tom]';
+Parameter TaxAuxCO2Ton(mo) 'CO2 afgift aux [DKK/tom]';
 MinTonnageAar(f) = DataFuel(f,'minTonnage');
 MaxTonnageAar(f) = DataFuel(f,'maxTonnage');
 LhvMWh(f)        = DataFuel(f,'brandv') / 3.6;
@@ -204,6 +207,8 @@ Power(mo)        = Prognoses(mo,'ELprod');
 TaxAfvMWh(mo)    = Prognoses(mo,'afv') * 3.6;
 TaxAtlMWh(mo)    = Prognoses(mo,'atl') * 3.6;
 TaxEtsTon(mo)    = Prognoses(mo,'ets');
+TaxAffCO2Ton(mo) = Prognoses(mo,'affco2');
+TaxAuxCO2Ton(mo) = Prognoses(mo,'auxco2');
 display MinTonnageAar, MaxTonnageAar, LhvMWh, Qdemand, Power, TaxAfvMWh, TaxAtlMWh, TaxEtsTon;
 
 # Special haandtering af oevre graense for Nordic Sugar varme.
@@ -257,6 +262,7 @@ Positive variable CostsTotalAuxF(mo)       'Omkostninger til braendselsindkoeb D
 Positive variable CostsAFV(mo)             'Omkostninger til affaldvarmeafgift DKK';
 Positive variable CostsATL(mo)             'Omkostninger til affaldstillaegsafgift DKK';
 Positive variable CostsETS(mo)             'Omkostninger til CO2-kvoter DKK';
+Positive variable CostsCO2(mo)             'Omkostninger til CO2-afgift DKK';
 Positive variable CO2emis(f,mo)            'CO2-emission';
 Positive variable TotalAffEProd(mo)        'Samlet energiproduktion affaldsanlaeg';
 #--- Positive variable RgkShare(mo)             'RGK-andel af samlet affalds-energiproduktion';
@@ -307,6 +313,12 @@ loop (ua $(NOT OnU(ua)), bOnRgk.fx(ua,mo) = 0.0; );
 # Erklaering af ligninger.
 # RGK kan moduleres kontinuert: RGK deaktiveres hvis Qdemand < Qmodtryk
 # ------------------------------------------------------------------------------------------------
+# Fordeling af omkostninger mellem affalds- og varmesiden:
+# * AffaldsOmkAndel er andelen, som affaldssiden skal bære.
+# * Til affaldssiden 100 pct: Kvoteomkostning
+# * Til fordeling: Alle afgifter
+# ------------------------------------------------------------------------------------------------
+
 Equation  ZQ_Obj                      'Objective';
 Equation  ZQ_IncomeTotal(mo)          'Indkomst Total';
 Equation  ZQ_IncomeAff(f,mo)          'Indkomst paa affaldsfraktioner';
@@ -317,6 +329,7 @@ Equation  ZQ_CostsAuxF(f,mo)          'Omkostninger til ikke-affaldsfraktioner';
 Equation  ZQ_CostsAFV(mo)             'Affaldsvarmeafgift DKK';
 Equation  ZQ_CostsATL(mo)             'Affaldstillaegsafgift foer evt. rabat DKK';
 Equation  ZQ_CostsETS(mo)             'CO2-kvoteomkostning DKK';
+Equation  ZQ_CostsCO2(mo)             'CO2-afgift DKK';
 Equation  ZQ_Qafv(mo)                 'Varme hvoraf der skal svares AFV [MWhq]';
 Equation  ZQ_CO2emis(f,mo)            'CO2-maengde hvoraf der skal svares ETS [ton]';
 Equation  ZQ_PrioUp(up,up,mo)         'Prioritet af uprio over visse up anlaeg';
@@ -339,10 +352,14 @@ ZQ_CostsU(u,mo)          .. CostsU(u,mo)      =E=  Q(u,mo) * (DataU(u,'dv') + Da
 # ¤¤¤¤¤¤¤¤ TODO Tillægsafgiftsberegningen skal korrigeres, så den matcher Kulafgiftsloven § 5.
 # ¤¤¤¤¤¤¤¤      Det gælder beregning af faktisk energiindhold (som er KV-afhængigt) og hensyntagen til andre brændsler (biogene).
 
-ZQ_CostsTotalF(mo)       .. CostsTotalF(mo)     =E=  CostsTotalAuxF(mo) + CostsAFV(mo) + CostsATL(mo) + CostsETS(mo);
+#TODO Affaldvarmeafgiften skal betales af varmesiden, og skal derfor ikke indgaa i en isoleret optimering for affaldssiden.
+
+ZQ_CostsTotalF(mo)       .. CostsTotalF(mo)     =E=  CostsTotalAuxF(mo) + CostsAFV(mo) + CostsATL(mo) + CostsETS(mo) + CostsCO2(mo);
 ZQ_CostsAFV(mo)          .. CostsAFV(mo)        =E=  Qafv(mo) * TaxAfvMWh(mo);
 ZQ_CostsATL(mo)          .. CostsATL(mo)        =E=  sum(ua $OnU(ua), Q(ua,mo)) * TaxAtlMWh(mo);
 ZQ_CostsETS(mo)          .. CostsETS(mo)        =E=  sum(f $OnF(f), CO2emis(f,mo)) * TaxEtsTon(mo);
+ZQ_CostsCO2(mo)          .. CostsCO2(mo)        =E=  sum(fa $OnF(fa), sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelDemand(ua,fa,mo))) * TaxAffCO2Ton(mo) 
+                                                     + sum(faux $OnF(faux), sum(uaux $(OnU(uaux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo))) * TaxAuxCO2Ton(mo);
 ZQ_CostsTotalAuxF(mo)    .. CostsTotalAuxF(mo)  =E=  sum(faux, CostsAuxF(faux,mo));
 ZQ_CostsAuxF(faux,mo)    .. CostsAuxF(faux,mo)  =E=  sum(uaux $(OnU(uaux) AND u2f(uaux,faux)), FuelDemand(uaux,faux,mo) * DataFuel(faux,'pris') );
 
@@ -466,9 +483,9 @@ $If not errorfree $exit
 # Loesning af modellen.
 # ------------------------------------------------------------------------------------------------
 model modelREFA / all /;
-#---- option MIP=gurobi;
-#---- modelREFA.optFile = 1;
-option MIP=CBC
+option MIP=gurobi;
+modelREFA.optFile = 1;
+#--- option MIP=CBC
 
 option LIMROW=250, LIMCOL=250;
 #--- option LIMROW=0, LIMCOL=0;
@@ -512,10 +529,11 @@ Scalar TimeOfWritingMasterResults;
 TimeOfWritingMasterResults = jnow;
 
 # Penalty_bOnU skal tilbagebetales til NPV.
-Scalar Penalty_bOnUTotal;
+Scalar Penalty_bOnUTotal, Penalty_QRgkMissTotal;
 Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
-NPV_V = NPV.L + Penalty_bOnUTotal;
-display Penalty_bOnUTotal, NPV.L, NPV_V;
+Penalty_QRgkMissTotal = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
+NPV_V = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal;
+display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_V;
 
 loop (mo,
   OverView('Varmepris',mo)    = ifthen(Varmepris(mo) EQ 0.0, tiny, Varmepris(mo));
