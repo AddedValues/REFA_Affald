@@ -9,13 +9,26 @@ Repository: GitHub: <none>
 Dato:       2021-09-15 08:14
 $OffText
 
+# Globale erklaeringer og shorthands.
+
+# Shorthand for boolean constants.
+Scalar FALSE 'Shorthand for false = 0 (zero)' / 0 /;
+Scalar TRUE  'Shorthand for true  = 1 (one)'  / 1 /;
+
+# Arbejdsvariable
+Scalar Found      'Angiver at logisk betingelse er opfyldt';
+Scalar FoundError 'Angiver at fejl er fundet';
+
 # ------------------------------------------------------------------------------------------------
 # Erklaering af sets
 # ------------------------------------------------------------------------------------------------
+
 set bound     'Bounds'         / min, max, lhv, pris, co2andel /;
+set dir       'Flowretning'    / drain, source /;
+
 #--- set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
 #--- set mo    'Aarsmaaneder'   / jan /;
-set moall     'Aarsmaaneder'   / mo0 * mo36 /;  # Daekker op til 3 aar. mo0 anvendes kun for at sikre tom kolonne i udskrivning til Excel.
+set moall     'Aarsmaaneder'   / mo0 * mo36 /;  # Daekker op til 3 aar. Elementet 'mo0' anvendes kun for at sikre tom kolonne i udskrivning til Excel.
 set mo(moall) 'Aktive maaneder';
 
 set owner     'Anlaegsejere'   / refa, gsf /;
@@ -64,7 +77,7 @@ set uprio2up(up,up) 'Anlaegsprioriteter';   # Rækkefølge af prioriteter oprett
 set labDataU        'DataU labels'     / aktiv, ukind, prioritet, minLhv, kapTon, kapNom, kapRgk, kapMax, minlast, kapMin, etaq, DV, aux /;
 set labScheduleCol  'Periodeomfang'    / firstYear, lastYear, firstPeriod, lastPeriod /;
 set labScheduleRow  'Periodeomfang'    / aar, maaned, dato /;
-set labProgn        'Prognose labels'  / aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Peak, Cooler, Varmebehov, NS-prod, ELprod, Elpris,
+set labProgn        'Prognose labels'  / aktiv, Ndage, ovn2, ovn3, flisk, NS, cooler, peak, Varmebehov, NS-prod, ELprod, Elpris,
                                          ETS, AFV, ATL, CO2aff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set labDataFuel     'DataFuel labels'  / aktiv, fkind, lagerbar, fri, bortskaffes, minTonnage, maxTonnage, pris, brandv, co2andel, prisbv /;
 
@@ -75,6 +88,8 @@ set taxkind(labProgn) 'Omkostningstyper' / ETS, AFV, ATL, CO2aff, NOxAff, NOxFli
 # ------------------------------------------------------------------------------------------------
 Scalar    Penalty_bOnU              'Penalty paa bOnU'          / 00000E+5 /;
 Scalar    Penalty_QRgkMiss          'Penalty paa QRgkMiss'      /   20 /;      # Denne penalty må ikke være højere end tillaegsafgiften.
+Scalar    Penalty_QInfeas           'Penalty paa QInfeasDir'    / 5000 /;      # Denne penalty må ikke være højere end tillaegsafgiften.
+Scalar    OnQInfeas                 'On/Off på virtual varme'   / 0    /;
 Scalar    RgkRabatSats              'Rabatsats paa ATL'         / 0.10 /;
 Scalar    RgkRabatMinShare          'Taerskel for RGK rabat'    / 0.07 /;
 Scalar    VarmeSalgspris            'Varmesalgspris DKK/MWhq'   / 0.0 /;
@@ -215,9 +230,9 @@ EtaQ(u)       = DataU(u,'etaq');
 mo(moall) = no;
 mo(moall) = OnM(moall);
 
-loop (u,
+loop (u $OnU(u),
   loop (labProgn $sameas(u,labProgn),
-    AvailDaysU(mo,u)  = Prognoses(mo,labProgn) $OnU(u);
+    AvailDaysU(mo,u)  = Prognoses(mo,labProgn) $(OnU(u) AND OnM(mo));
     ShareAvailU(u,mo) = max(0.0, min(1.0, AvailDaysU(mo,u) / Prognoses(mo,'Ndage') ));
   );
 );
@@ -336,6 +351,8 @@ Positive variable CostsETS(moall)             'Omkostninger til CO2-kvoter DKK';
 Positive variable CO2emis(f,moall)            'CO2-emission';
 Positive variable TotalAffEProd(moall)        'Samlet energiproduktion affaldsanlaeg';
 
+Positive variable QInfeasDir(dir,moall)       'Virtual varmedraen og -kilde [MWhq]';
+
 # @@@@@@@@@@@@@@@@@@@@@@@@  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG
 IncomeTotal.up(moall) = 1E+8;
 IncomeAff.up(f,moall) = 1E+8;
@@ -360,15 +377,16 @@ loop (u $(NOT OnU(u)),
 );
 
 loop (f $(NOT OnF(f)),
+  CostsPurchaseF.fx(f,moall) = 0.0;
   IncomeAff.fx(f,moall) = 0.0;
   CO2emis.fx(f,moall) = 0.0;
 );
 
 loop (f,
   if (fpospris(f),
-    CostsPurchaseF.fx(fa,moall) = 0.0;
+    CostsPurchaseF.fx(f,moall) = 0.0;
   else
-    IncomeAff.fx(faux,moall) = 0.0;
+    IncomeAff.fx(f,moall) = 0.0;
   );
 );
 
@@ -413,6 +431,7 @@ ZQ_Obj  ..  NPV  =E=  sum(mo,
                             + TaxEnr(mo) + TaxAFV(mo) + TaxATL(mo) + CostsETS(mo)
                             + Penalty_bOnU * sum(u $OnU(u), bOnU(u,mo))
                             + Penalty_QRgkMiss * QRgkMiss(mo)
+                            + [Penalty_QInfeas * sum(dir, QInfeasDir(dir,mo))] $OnQInfeas
                            ] );
 
 ZQ_IncomeTotal(mo)   .. IncomeTotal(mo)   =E=  sum(fa $OnF(fa), IncomeAff(fa,mo)) + RgkRabat(mo) + IncomeElec(mo);  #---  + VarmeSalgspris * sum(up $OnU(up), Q(up,mo));
@@ -497,7 +516,7 @@ Equation  ZQ_Qmin(u,moall)               'Sikring af nedre graense paa varmeprod
 Equation  ZQ_QMax(u,moall)               'Aktiv status begraenset af total raadighed';
 Equation  ZQ_bOnRgk(ua,moall)            'Angiver om RGK er aktiv';
 
-ZQ_Qdemand(mo)               ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo));
+ZQ_Qdemand(mo)               ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo)) + [QInfeasDir('source',mo) - QInfeasDir('drain',mo)] $OnQInfeas;
 ZQ_Qaff(ua,mo)     $OnU(ua)  ..  Q(ua,mo)     =E=  [QaffM(ua,mo) + Qrgk(ua,mo)];
 ZQ_QaffM(ua,mo)    $OnU(ua)  ..  QaffM(ua,mo) =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDemand(ua,fa,mo) * EtaQ(ua) * LhvMWh(fa))] $OnU(ua);
 ZQ_Qrgk(ua,mo)     $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);
@@ -532,8 +551,8 @@ ZQ_bOnRgk(ua,mo)   $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo
 Equation  ZQ_FuelMin(f,moall)   'Mindste drivmiddelforbrug paa maanedsniveau';
 Equation  ZQ_FuelMax(f,moall)   'Stoerste drivmiddelforbrug paa maanedsniveau';
 
-ZQ_FuelMin(f,mo) $(OnF(f) AND NOT fsto(f) AND NOT ffri(f) AND fdis(f))  ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDemand(u,f,mo))   =G=  FuelBounds(f,'min',mo);
-ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f)) ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDemand(u,f,mo))   =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fsto(f) AND NOT ffri(f))  ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDemand(u,f,mo))   =G=  FuelBounds(f,'min',mo);
+ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f)) ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDemand(u,f,mo))  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 # Aarskrav til affaldsfraktioner, som skal bortskaffes.
 Equation  ZQ_FuelMinYear(f)  'Mindste braendselsforbrug paa aarsniveau';
@@ -575,6 +594,14 @@ option LIMROW=250, LIMCOL=250;
 #--- option LIMROW=0, LIMCOL=0;
 
 solve modelREFA maximizing NPV using MIP;
+
+
+if (modelREFA.modelStat GE 3 AND modelREFA.modelStat NE 8,
+  display "Ingen løsning fundet.";
+  execute_unload "REFAmain.gdx";
+  abort "Solve af model mislykkedes.";
+);
+
 
 # ------------------------------------------------------------------------------------------------
 # Efterbehandling af resultater.
