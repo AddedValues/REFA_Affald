@@ -79,7 +79,7 @@ set labScheduleCol  'Periodeomfang'    / firstYear, lastYear, firstPeriod, lastP
 set labScheduleRow  'Periodeomfang'    / aar, maaned, dato /;
 set labProgn        'Prognose labels'  / aktiv, Ndage, ovn2, ovn3, flisk, NS, cooler, peak, Varmebehov, NS-prod, ELprod, Elpris,
                                          ETS, AFV, ATL, CO2aff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
-set labDataFuel     'DataFuel labels'  / aktiv, fkind, lagerbar, fri, bortskaffes, minTonnage, maxTonnage, pris, brandv, co2andel, prisbv /;
+set labDataFuel     'DataFuel labels'  / aktiv, fkind, lagerbar, fri, bortskaffes, minTonnage, maxTonnage, pris, brandv, co2andel, co2Potentiale, prisbv /;
 
 set taxkind(labProgn) 'Omkostningstyper' / ETS, AFV, ATL, CO2aff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 
@@ -258,6 +258,7 @@ Parameter IncomeElec(moall)     'El-indkomst [DKK]';
 Parameter MinTonnageAar(f)      'Braendselstonnage min aarsniveau [ton/aar]';
 Parameter MaxTonnageAar(f)      'Braendselstonnage max aarsniveau [ton/aar]';
 Parameter LhvMWh(f)             'Braendvaerdi [MWf]';
+Parameter CO2potenTon(f)        'CO2-emission [ton/ton]';
 Parameter Qdemand(moall)        'FJV-behov';
 Parameter PowerProd(moall)      'Elproduktion MWhe';
 Parameter PowerPrice(moall)     'El-pris DKK/MWhe';
@@ -277,6 +278,7 @@ fnegpris(f)       = NOT fpospris(f);
 MinTonnageAar(f)  = DataFuel(f,'minTonnage');
 MaxTonnageAar(f)  = DataFuel(f,'maxTonnage');
 LhvMWh(f)         = DataFuel(f,'brandv') / 3.6;
+CO2potenTon(f)    = DataFuel(f,'co2Potentiale');
 Qdemand(mo)       = Prognoses(mo,'varmebehov');
 PowerProd(mo)     = Prognoses(mo,'ELprod');
 PowerPrice(mo)    = Prognoses(mo,'ELpris');
@@ -467,7 +469,7 @@ ZQ_TaxCO2F(f,mo) $OnF(f)   .. TaxCO2F(f,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,f)
 ZQ_CostsETS(mo)            .. CostsETS(mo)   =E=  sum(fa $OnF(fa), CO2emis(fa,mo)) * TaxEtsTon(mo);
 
 ZQ_Qafv(mo)                .. Qafv(mo)       =E=  sum(ua $OnU(ua), Q(ua,mo)) - sum(uv $OnU(uv), Q(uv,mo));   # Antagelse: Kun affaldsanlaeg giver anledning til bortkoeling.
-ZQ_CO2emis(f,mo) $OnF(f)   .. CO2emis(f,mo)  =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelDemand(up,f,mo)) * DataFuel(f,'co2andel');
+ZQ_CO2emis(f,mo) $OnF(f)   .. CO2emis(f,mo)  =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelDemand(up,f,mo)) * CO2potenTon(f);
 
 ZQ_PrioUp(uprio,up,mo) $(OnU(uprio) AND OnU(up) AND AvailDaysU(mo,uprio) AND AvailDaysU(mo,up)) ..  bOnU(up,mo)  =L=  bOnU(uprio,mo);
 
@@ -706,15 +708,15 @@ loop (mo $(NOT sameas(mo,'mo0')),
   RefaBraendselsVarOmk_V(mo)               = sum(frefa, CostsPurchaseF.L(frefa,mo));
   RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + sum(frefa, TaxCO2F.L(frefa,mo));
   RefaKvoteOmk_V(mo)                       = CostsETS.L(mo);  # Kun REFA er kvoteomfattet.
-  RefaTotalVarIndkomst_V(mo)               = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo);
   RefaTotalVarOmk_V(mo)                    = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo);
+  RefaDaekningsbidrag_V(mo)                = RefaTotalVarIndkomst_V(mo) - RefaTotalVarOmk_V(mo);
   OverView('REFA-AnlaegsVarOmk',mo)        = max(tiny, RefaAnlaegsVarOmk_V(mo) );
   OverView('REFA-BraendselOmk',mo)         = max(tiny, RefaBraendselsVarOmk_V(mo) );
   OverView('REFA-Afgifter',mo)             = max(tiny, RefaAfgifter_V(mo) );
   OverView('REFA-CO2-Kvoteomk',mo)         = max(tiny, RefaKvoteOmk_V(mo) );
   OverView('REFA-Total-Var-Indkomst',mo)   = max(tiny, RefaTotalVarIndkomst_V(mo) );
-  OverView('REFA-Total-Var-Omkostning',mo) = max(tiny, RefaTotalVarIndkomst_V(mo) );
-  OverView('REFA-Daekningsbidrag',mo)      = max(tiny, RefaTotalVarIndkomst_V(mo) - RefaTotalVarOmk_V(mo) );
+  OverView('REFA-Total-Var-Omkostning',mo) = max(tiny, RefaTotalVarOmk_V(mo) );
+  OverView('REFA-Daekningsbidrag',mo)      = ifthen(RefaDaekningsbidrag_V(mo) EQ 0.0, tiny, RefaDaekningsbidrag_V(mo));
 
   RefaCO2emission_V(mo)                 = max(tiny, sum(frefa $OnF(frefa), CO2emis.L(frefa,mo)) );
   RefaElproduktion_V(mo)                = max(tiny, PowerProd(mo));
@@ -732,7 +734,6 @@ loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-RGK-Andel',mo)              = RefaRgkShare_V(mo);
   OverView('REFA-Bortkoelet-Varme',mo)       = RefaBortkoeletVarme_V(mo);
 
-
   GsfAnlaegsVarOmk_V(mo)                    = sum(ugsf, CostsU.L(ugsf, mo) );
   GsfBraendselsVarOmk_V(mo)                 = sum(fgsf, CostsPurchaseF.L(fgsf,mo) );
   GsfAfgifter_V(mo)                         = sum(fgsf, TaxCO2F.L(fgsf, mo) );
@@ -746,9 +747,10 @@ loop (mo $(NOT sameas(mo,'mo0')),
   OverView('GSF-Total-Varme-Produktion',mo) = max(tiny, GsfTotalVarmeProd_V(mo) );
   OverView('GSF-Total-Var-Omkostning',mo)   = max(tiny, GsfTotalVarOmk_V(mo) );
 
-
-  VarmeVarProdOmkTotal_V(mo) = (sum(u $OnU(u), CostsU.L(u,mo)) + sum(owner, CostsTotalF.L(owner,mo)) - IncomeTotal.L(mo)) / (sum(up, Q.L(up,mo) - sum(uv, Q.L(uv,mo))));
-  VarmeVarProdOmkRefa_V(mo)  = (sum(u $IncludePlant(u), CostsU.L(u,mo)) + CostsTotalF.L('refa',mo) - IncomeTotal.L(mo)) / (sum(up $IncludePlant(up), Q.L(up,mo)) - sum(uv, Q.L(uv,mo)));
+#---  VarmeVarProdOmkTotal_V(mo) = (sum(u $OnU(u), CostsU.L(u,mo)) + sum(owner, CostsTotalF.L(owner,mo)) - IncomeTotal.L(mo)) / (sum(up, Q.L(up,mo) - sum(uv, Q.L(uv,mo))));
+#---  VarmeVarProdOmkRefa_V(mo)  = (sum(urefa, CostsU.L(urefa,mo)) + CostsTotalF.L('refa',mo) - IncomeTotal.L(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
+  VarmeVarProdOmkTotal_V(mo) = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo) + GsfTotalVarOmk_V(mo)) / Qdemand(mo);
+  VarmeVarProdOmkRefa_V(mo)  = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
   Overview('FJV-behov',mo)                      = max(tiny, Qdemand(mo));
   OverView('Var-Varmeproduktions-Omk-Total',mo) = ifthen(VarmeVarProdOmkTotal_V(mo) EQ 0.0, tiny, VarmeVarProdOmkTotal_V(mo));
   OverView('Var-Varmeproduktions-Omk-REFA',mo)  = ifthen(VarmeVarProdOmkRefa_V(mo) EQ 0.0,  tiny, VarmeVarProdOmkRefa_V(mo));
