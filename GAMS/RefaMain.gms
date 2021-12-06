@@ -56,7 +56,7 @@ set fgsf(f)       'GSF braendsler';
 set fpospris(f)   'Braendsler med positiv pris (modtagepris)';
 set fnegpris(f)   'Braendsler med negativ pris (købspris))';
 
-set ukind     'Anlaegstyper'   / 1 'affald', 2 'biomasse', 3 'varme', 4 'peak', 5 'cooler' /;
+set ukind     'Anlaegstyper'   / 1 'affald', 2 'biomasse', 3 'varme', 4 'cooler', 5 'peak' /;
 set u         'Anlaeg'         / ovn2, ovn3, flisk, NS, cooler, peak /;
 set up(u)     'Prod-anlaeg'    / ovn2, ovn3, flisk, NS, peak /;
 set ua(u)     'Affaldsanlaeg'  / ovn2, ovn3 /;
@@ -151,8 +151,8 @@ $If not errorfree $exit
 #--- ua(u)   = DataU(u,'ukind') EQ 1;
 #--- ub(u)   = DataU(u,'ukind') EQ 2;
 #--- uc(u)   = DataU(u,'ukind') EQ 3;
-#--- ur(u)   = DataU(u,'ukind') EQ 4;
-#--- uv(u)   = DataU(u,'ukind') EQ 5;
+#--- uv(u)   = DataU(u,'ukind') EQ 4;
+#--- ur(u)   = DataU(u,'ukind') EQ 5;
 #--- up(u)   = NOT uv(u);
 #--- uaux(u) = NOT ua(u);
 
@@ -460,7 +460,7 @@ ZQ_TaxATL(mo)              .. TaxATL(mo)     =E=  sum(ua $OnU(ua), Q(ua,mo)) * T
 
 ZQ_TaxNOxF(f,mo) $OnF(f)   .. TaxNOxF(f,mo)  =E=  sum(ua $OnU(ua), FuelDemand(ua,f,mo)) * TaxNOxAffTon(mo)  $fa(f)
                                                 + sum(ub $OnU(ub), FuelDemand(ub,f,mo)) * TaxNOxFlisTon(mo) $fb(f)
-                                                                                                + sum(ur $OnU(ur), FuelDemand(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
+                                                + sum(ur $OnU(ur), FuelDemand(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
 ZQ_TaxEnr(mo)              .. TaxEnr(mo)     =E=  sum(ur $OnU(ur), FuelDemand(ur,'peakfuel',mo)) * TaxEnrPeakTon(mo);
 
 ZQ_TaxCO2(mo)              .. TaxCO2(mo)     =E=  sum(f $OnF(f), TaxCO2F(f,mo));
@@ -639,8 +639,8 @@ NPV_Total_V = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal;
 # NPV_REFA_V er REFAs andel af NPV med tilbagefoerte penalties.
 NPV_REFA_V  = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal
               + sum(mo,
-                  + sum(u $(OnU(u) AND NOT IncludePlant(u)), CostsU.L(u,mo))
-                  + sum(f $(OnF(f) AND NOT IncludeFuel(f)),  CostsPurchaseF.L(f,mo) + TaxCO2F.L(f,mo))
+                  + sum(ugsf $(OnU(ugsf)), CostsU.L(ugsf,mo))
+                  + sum(fgsf $(OnF(fgsf)), CostsPurchaseF.L(fgsf,mo) + TaxCO2F.L(fgsf,mo) + TaxNOxF.L(fgsf,mo)) + TaxEnr.L(mo)
                 );
 
 display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
@@ -706,7 +706,7 @@ loop (mo $(NOT sameas(mo,'mo0')),
 
   RefaAnlaegsVarOmk_V(mo)                  = sum(urefa $OnU(urefa), CostsU.L(urefa,mo));
   RefaBraendselsVarOmk_V(mo)               = sum(frefa, CostsPurchaseF.L(frefa,mo));
-  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + sum(frefa, TaxCO2F.L(frefa,mo));
+  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + sum(frefa, TaxCO2F.L(frefa,mo) + TaxNOxF.L(frefa,mo));
   RefaKvoteOmk_V(mo)                       = CostsETS.L(mo);  # Kun REFA er kvoteomfattet.
   RefaTotalVarOmk_V(mo)                    = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo);
   RefaDaekningsbidrag_V(mo)                = RefaTotalVarIndkomst_V(mo) - RefaTotalVarOmk_V(mo);
@@ -736,7 +736,7 @@ loop (mo $(NOT sameas(mo,'mo0')),
 
   GsfAnlaegsVarOmk_V(mo)                    = sum(ugsf, CostsU.L(ugsf, mo) );
   GsfBraendselsVarOmk_V(mo)                 = sum(fgsf, CostsPurchaseF.L(fgsf,mo) );
-  GsfAfgifter_V(mo)                         = sum(fgsf, TaxCO2F.L(fgsf, mo) );
+  GsfAfgifter_V(mo)                         = sum(fgsf, TaxCO2F.L(fgsf, mo) + taxNOxF.L(fgsf,mo)) + TaxEnr.L(mo);
   GsfCO2emission_V(mo)                      = sum(fgsf, CO2emis.L(fgsf,mo) );
   GsfTotalVarmeProd_V(mo)                   = sum(ugsf, Q.L(ugsf,mo) );
   GsfTotalVarOmk_V(mo)                      = GsfAnlaegsVarOmk_V(mo) + GsfBraendselsVarOmk_V(mo) + GsfAfgifter_V(mo);
@@ -869,10 +869,10 @@ par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
 text="Tidsstempel"                  rng=Overblik!A1:A1
 par=PerStart                        rng=Overblik!B2:B2
 par=PerSlut                         rng=Overblik!B2:B2
-par=NPV_REFA_V                      rng=Overblik!B3:B3
-text="NPV_REFA"                     rng=Overblik!A3:A3
-par=NPV_Total_V                     rng=Overblik!B4:B4
-text="NPV Total"                    rng=Overblik!A4:A4
+par=NPV_Total_V                     rng=Overblik!B3:B3
+text="NPV Total"                    rng=Overblik!A3:A3
+par=NPV_REFA_V                      rng=Overblik!B4:B4
+text="NPV_REFA"                     rng=Overblik!A4:A4
 par=OverView                        rng=Overblik!C6         cdim=1  rdim=1
 text="Overblik"                     rng=Overblik!C6:C6
 par=Q_V                             rng=Overblik!C34        cdim=1  rdim=1
