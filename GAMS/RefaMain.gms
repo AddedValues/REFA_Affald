@@ -168,7 +168,7 @@ $LOAD   FuelBounds
 $GDXIN   # Close GDX file.
 $log  Finished loading input data from GDXIN.
 
-display DataCtrl, DataU, Schedule, Prognoses, DataFuel, FuelBounds, DataSto;
+#--- display DataCtrl, DataU, Schedule, Prognoses, DataFuel, FuelBounds, DataSto;
 
 IncludeOwner('gsf') = DataCtrl('IncludeGSF');
 OnQInfeas           = DataCtrl('VirtuelVarme');
@@ -206,7 +206,7 @@ loop (up $(DataU(up,'aktiv') NE 0 AND DataU(up,'prioritet') GT 0),
     uprio2up(up,upa) = yes;
   );
 );
-display uprio, uprio2up;
+#--- display uprio, uprio2up;
 
 # Braendselstyper.
 fa(f) = DataFuel(f,'fkind') EQ 1;
@@ -284,7 +284,7 @@ IncludePlant('NS')  = IncludeOwner('refa');
 IncludeFuel(frefa)  = IncludeOwner('refa');
 IncludeFuel(fgsf)   = IncludeOwner('gsf');
 
-display f, fa, fb, fc, fr, fsto, fdis, ffri, u2f, IncludeOwner, IncludePlant, IncludeFuel;
+#--- display f, fa, fb, fc, fr, fsto, fdis, ffri, u2f, IncludeOwner, IncludePlant, IncludeFuel;
 
 
 Parameter OnU(u)               'Angiver om anlaeg er til raadighed';
@@ -317,7 +317,7 @@ loop (u $OnU(u),
   );
 );
 
-display mo, OnU, OnF, OnM, Hours, AvailDaysU, ShareAvailU, EtaQ;
+#--- display mo, OnU, OnF, OnM, Hours, AvailDaysU, ShareAvailU, EtaQ;
 
 # Rimelighedskontrol af inputtabeller.
 loop (labDataU $(NOT sameas(labDataU,'KapMin') AND NOT sameas(labDataU,'MinLast')),
@@ -386,7 +386,7 @@ KapMin(u)     = DataU(u, 'kapMin');
 KapRgk(ua)    = DataU(ua,'kapRgk');
 KapNom(u)     = DataU(u, 'KapNom');
 KapMax(u)     = KapNom(u) + KapRgk(u);
-display MinLhvMWh, KapTon, KapMin, KapNom, KapRgk, KapMax ;
+#--- display MinLhvMWh, KapTon, KapMin, KapNom, KapRgk, KapMax ;
 
 # Lagre. Parametre gøres alment periodeafhængige, da det giver max. fleksiblitet ift. scenarie-specifikation.
 Parameter StoLoadInitF(s,f)          'Initial lagerbeholdning for hvert brændsel';
@@ -465,7 +465,7 @@ TaxNOxFlisTon(mo) = Prognoses(mo,'NOxFlis') * DataFuel('flis','brandv');
 TaxEnrPeakTon(mo) = Prognoses(mo,'EnrPeak') * DataFuel('peakfuel','brandv');
 TaxCO2peakTon(mo) = Prognoses(mo,'CO2peak');
 TaxNOxPeakTon(mo) = Prognoses(mo,'NOxPeak');
-display MinTonnageYear, MaxTonnageYear, LhvMWh, Qdemand, PowerProd, PowerPrice, IncomeElec, TaxAfvMWh, TaxAtlMWh, TaxEtsTon, TaxCO2AffTon, TaxCO2peakTon;
+#--- display MinTonnageYear, MaxTonnageYear, LhvMWh, Qdemand, PowerProd, PowerPrice, IncomeElec, TaxAfvMWh, TaxAtlMWh, TaxEtsTon, TaxCO2AffTon, TaxCO2peakTon;
 
 # Special-haandtering af oevre graense for Nordic Sugar varme.
 FuelBounds('NSvarme','max',moall) = Prognoses(moall,'NS');
@@ -479,7 +479,7 @@ QaffMmax(ua,moall)  = min(ShareAvailU(ua,moall) * Hours(moall) * KapNom(ua), [su
 QrgkMax(ua,moall)   = KapRgk(ua) / KapNom(ua) * QaffMmax(ua,moall);
 QaffTotalMax(moall) = sum(ua $OnU(ua), ShareAvailU(ua,moall) * (QaffMmax(ua,moall) + QrgkMax(ua,moall)) );
 EaffGross(moall)    = QaffTotalMax(moall) + PowerProd(moall);
-display QaffMmax, QrgkMax, QaffTotalMax, EaffGross;
+#--- display QaffMmax, QrgkMax, QaffTotalMax, EaffGross;
 
 Parameter TaxATLMax(moall) 'Oevre graense for ATL';
 Parameter RgkRabatMax(moall) 'Oevre graense for ATL rabat';
@@ -487,7 +487,7 @@ Parameter QRgkMissMax     'Oevre graense for QRgkMiss';
 TaxATLMax(mo) = sum(ua $OnU(ua), ShareAvailU(ua,mo) * Hours(mo) * KapMax(ua)) * TaxAtlMWh(mo);
 RgkRabatMax(mo) = RgkRabatSats * TaxATLMax(mo);
 QRgkMissMax = 2 * RgkRabatMinShare * sum(ua $OnU(ua), 31 * 24 * KapNom(ua));  # Faktoren 2 er en sikkerhedsfaktor mod inffeasibilitet.
-display TaxATLMax, RgkRabatMax, QRgkMissMax;
+#--- display TaxATLMax, RgkRabatMax, QRgkMissMax;
 
 $If not errorfree $exit
 
@@ -1027,6 +1027,7 @@ $OffText
 
 Scalar    NiterMax / 10 /;
 Scalar    IterNo                       'Iterationsnummer';
+Scalar    ConvergenceFound             'Angiver 0/1 at iterationen er konvergeret';
 Scalar    DeltaConvMetricTol           'Tolerance på relativ konvergensmetrik-afvigelse ift. forrige iteration' / 0.001 /;
 Scalar    DeltaAfgift                  'Afgiftsafvigelse ift. forrige iteration';
 Scalar    DeltaConvMetric              'Relativ konvergensmetrikafvigelse ift. forrige iteration';
@@ -1058,18 +1059,22 @@ Parameter dPhiIter(phiKind,moall,iter)       'Phi-ændring ift. forrige iteration
 Parameter dPhiChangeIter(phiKind,moall,iter) 'Ændring af Phi-ændring ift. forrige iteration';
 
 # Initialisering.
+ConvergenceFound = FALSE;
 Phi(phiKind,mo)             = 0.2;    # Startgæt (bør være positivt).
 PhiIter(phiKind,mo,'iter0') = Phi(phiKind,mo);
 dPhiIter(phiKind,mo,'iter0') = 0.0;
 
 loop (iter $(ord(iter) GE 2),
   IterNo = ord(iter) - 1;
-  display "Iteration no.", IterNo;
+  display "Før SOLVE i Iteration no.", IterNo;
   
-  option MIP=gurobi;          #--- option MIP=CBC
+  option MIP=gurobi;    
   modelREFA.optFile = 1;
+  option MIP=CBC;
+  modelREFA.optFile = 0;
+  
   option LIMROW=250, LIMCOL=250;  
-  if (IterNo GE 3, 
+  if (IterNo GE 2, 
     option LIMROW=0, LIMCOL=0;
     option SOLPRINT=OFF;
   );
@@ -1114,6 +1119,7 @@ loop (iter $(ord(iter) GE 2),
   DeltaAfgiftIter(iter) = deltaAfgift;
 
   # BEREGNING AF METRIK FOR KONVERGENS (DÆKNINGSBIDRAG)
+  # DeltaConvMetric beregnes på månedsniveau som relativ ændring for at sikre at dårligt konvergerende måneder vejer tungt ind i konvergensvurderingen.
   ConvMetric(mo)            = IncomeTotal.L(mo) - CostsTotal.L(mo);
   ConvMetricIter(mo,iter)   = ConvMetric(mo);
   DeltaConvMetric           = 2 * (sum(mo, abs(ConvMetricIter(mo,iter) - ConvMetricIter(mo,iter-1)))) / sum(mo, abs(ConvMetricIter(mo,iter) + ConvMetricIter(mo,iter-1))) / card(mo);
@@ -1121,7 +1127,7 @@ loop (iter $(ord(iter) GE 2),
 
   # Check for oscillationer på månedsbasis.
   Found = FALSE
-  display "Detektering af oscillation af Phi:", IterNo, Phi;
+  #--- display "Detektering af oscillation af Phi:", IterNo, Phi;
   loop (mo,
     dPhi(phiKind)       = PhiIter(phiKind,mo,iter) - PhiIter(phiKind,mo,iter-1);
     dPhiChange(phiKind) = abs(abs(dPhi(phiKind) - abs(dPhiIter(phiKind,mo,iter-1))));
@@ -1141,14 +1147,20 @@ loop (iter $(ord(iter) GE 2),
     );
   );
   if (Found,
-    display "Detektering af oscillation af Phi:", IterNo, PhiScale, Phi;
+    display "Detektering af oscillation af Phi:";
   else
-    display "Ingen oscillation af Phi fundet:", IterNo;
+    display "Ingen oscillation af Phi fundet:";
   );
   
   # Stopkriterier testes.
-  display "Iteration på ulineære afgiftsberegning:", IterNo, DeltaConvMetric, DeltaConvMetricTol;
+  #--- display "Iteration på ulineære afgiftsberegning:", IterNo, DeltaConvMetric, DeltaConvMetricTol;
   
+  #--- # Konvergens opnået i forrige iteration - aktuelle iteration er en finpudsning.
+  #--- if (ConvergenceFound,
+  #---   display "Konvergens opnået og finpudset", IterNo;
+  #---   break;
+  #--- );
+
   # Max. antal iterationer.
   if (IterNo GE NiterMax, 
     display 'Max. antal iterationer anvendt.';
@@ -1156,8 +1168,12 @@ loop (iter $(ord(iter) GE 2),
   );
 
   if (DeltaConvMetric <= DeltaConvMetricTol, 
-    display 'Ændring af afgiftsbetaling opfylder accepttolerancen.';
+    display 'Konvergens opnået. Ændring af afgiftsbetaling opfylder accepttolerancen.', IterNo, DeltaConvMetric, DeltaConvMetricTol;
+    ConvergenceFound = TRUE;
     break;
+    #--- Udfør endnu en iteration, så modelvariable bliver opdateret  med seneste justering af phi.
+  else
+    display "Endnu ingen konvergens opnået.";
   );
 );
 
@@ -1169,7 +1185,7 @@ loop (iter $(ord(iter) GE 2),
 # OBS: Penalty_bOnU skal tilbagebetales til NPV.
 Scalar Penalty_bOnUTotal;
 Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
-display Penalty_bOnUTotal, NPV.L;
+#--- display Penalty_bOnUTotal, NPV.L;
 
 # ------------------------------------------------------------------------------------------------
 # Udskriv resultater til Excel output fil.
@@ -1200,7 +1216,7 @@ NPV_REFA_V  = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal
 #---          + sum(fgsf $(OnF(fgsf)), CostsPurchaseF.L(fgsf,mo) + TaxCO2F.L(fgsf,mo) + TaxNOxF.L(fgsf,mo)) + TaxEnr.L(mo)
 #---        );
 
-display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
+#--- display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
 
 
 # Sammenfatning af aggregerede resultater på maanedsniveau.
