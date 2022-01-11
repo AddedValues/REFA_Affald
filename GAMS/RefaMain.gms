@@ -24,7 +24,7 @@ Scalar TRUE  'Shorthand for true  = 1 (one)'  / 1 /;
 # Arbejdsvariable
 Scalar Found      'Angiver at logisk betingelse er opfyldt';
 Scalar FoundError 'Angiver at fejl er fundet';
-Scalar tiny / 1E-14/;
+Scalar tiny / 1E-14 /;
 Scalar tmp1, tmp2, tmp3;
 
 # ------------------------------------------------------------------------------------------------
@@ -34,11 +34,11 @@ Scalar tmp1, tmp2, tmp3;
 set bound     'Bounds'         / Min, Max, Lhv, ModtPris, CO2tonton/;
 set dir       'Flowretning'    / drain, source /;
 
-set phiKind 'Type af phi-faktor' / 85, 95 /;
-set iter    'iterationer' / iter0 * iter30 /; 
+set phiKind   'Type af phi-faktor' / 85, 95 /;
+set iter      'iterationer' / iter0 * iter30 /; 
 
-#--- set mo    'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
-#--- set mo    'Aarsmaaneder'   / jan /;
+#--- set mo   'Aarsmaaneder'   / jan, feb, mar, apr, maj, jun, jul, aug, sep, okt, nov, dec /;
+#--- set mo   'Aarsmaaneder'   / jan /;
 set moall     'Aarsmaaneder'   / mo0 * mo36 /;  # Daekker op til 3 aar. Elementet 'mo0' anvendes kun for at sikre tom kolonne i udskrivning til Excel.
 set mo(moall) 'Aktive maaneder';
 alias(mo,moa);
@@ -498,71 +498,73 @@ Parameter Phi(phiKind,moall)           'Aktuel værdi af Phi = Fbiogen/F';
 # ------------------------------------------------------------------------------------------------
 # Erklaering af variable.
 # ------------------------------------------------------------------------------------------------
-Free     variable NPV                         'Nutidsvaerdi af affaldsdisponering';
-
-Binary   variable bOnU(u,moall)               'Anlaeg on-off';
-Binary   variable bOnRgk(ua,moall)            'Affaldsanlaeg RGK on-off';
-Binary   variable bOnRgkRabat(moall)          'Indikator for om der i given kan opnaas RGK rabat';
-Binary   variable bOnSto(s,moall)             'Indikator for om et lager bruges i given maaned ';
-
-Positive variable FuelCons(u,f,moall)         'Drivmiddel forbrug på hvert anlaeg';
-Positive variable FuelDeliv(f,moall)          'Drivmiddel leverance på hvert anlaeg';
-Positive variable FuelDelivFreeSum(f)         'Samlet braendselsmængde frie fraktioner';
+Free     variable NPV                          'Nutidsvaerdi af affaldsdisponering';
+                                               
+Binary   variable bOnU(u,moall)                'Anlaeg on-off';
+Binary   variable bOnRgk(ua,moall)             'Affaldsanlaeg RGK on-off';
+Binary   variable bOnRgkRabat(moall)           'Indikator for om der i given kan opnaas RGK rabat';
+Binary   variable bOnSto(s,moall)              'Indikator for om et lager bruges i given maaned ';
+                                               
+Positive variable FuelCons(u,f,moall)          'Drivmiddel forbrug på hvert anlaeg';
+Positive variable FuelDeliv(f,moall)           'Drivmiddel leverance på hvert anlaeg';
+Positive variable FuelDelivFreeSum(f)          'Samlet braendselsmængde frie fraktioner';
 
 Free variable StoDLoadF(s,f,moall)             'Lagerført brændsel (pos. til lager)';
 
-Positive variable StoCostAll(s,moall)         'Samlet lageromkostning';
-Positive variable StoCostLoad(s,moall)        'Lageromkostning på beholdning';
-Positive variable StoCostDLoad(s,moall)       'Transportomk. til/fra lagre';
-Positive variable StoLoad(s,moall)            'Aktuel lagerbeholdning';
-Positive variable StoLoss(s,moall)            'Aktuelt lagertab';
-Free     variable StoDLoad(s,moall)           'Aktuel lagerændring positivt indgående i lager';
-Positive variable StoDLoadAbs(s,moall)        'Absolut værdi af StoDLoad';
-Positive variable StoLoadF(s,f,moall)         'Lagerbeholdning af givet brændsel på givet lager';
-
-Positive variable Q(u,moall)                  'Grundlast MWq';
-Positive variable QaffM(ua,moall)             'Modtryksvarme på affaldsanlaeg MWq';
-Positive variable Qrgk(u,moall)               'RGK produktion MWq';
-Positive variable Qafv(moall)                 'Varme pålagt affaldvarmeafgift';
-Positive variable QRgkMiss(moall)             'Slack variabel til beregning om RGK-rabat kan opnaas';
-
-Positive variable FEBiogen(u,moall)           'Indfyret biogen affaldsenergi [GJ]';
-Positive variable FuelHeatAff(moall)          'Afgiftspligtigt affald medgået til varmeproduktion';
-Positive variable QBiogen(u,moall)            'Biogen affaldsvarme [GJ]';
-
-Positive variable QtotalCool(moall)           'Sum af total bortkølet varme på affaldsanlæg';
-Positive variable QtotalAff(moall)            'Sum af total varmeproduktion på affaldsanlæg';
-Positive variable EtotalAff(moall)            'Sum af varme- og elproduktion på affaldsanlæg';
-Positive variable QtotalAfgift(phiKind,moall) 'Afgiftspligtig varme ATL- hhv. CO2-afgift';
-Positive variable QudenRgk(moall)             'Afgiftspligtig varme (ATL, CO2) uden RGK-rabat';
-Positive variable QmedRgk(moall)              'Afgiftspligtig varme (ATL, CO2) med RGK-rabat';
-Positive variable Quden_X_bOnRgkRabat(moall)  'Produktet bOnRgkRabat * Qtotal';
-Positive variable Qmed_X_bOnRgkRabat(moall)   'Produktet (1 - bOnRgkRabat) * Qtotal';
-
-Positive variable IncomeTotal(moall)          'Indkomst total';
-Positive variable IncomeHeat(moall)           'Indkomnst for varmesalg til GSF';
-Positive variable IncomeAff(f,moall)          'Indkomnst for affaldsmodtagelse DKK';
-Positive variable RgkRabat(moall)             'RGK rabat på tillaegsafgift';
-Positive variable CostsU(u,moall)             'Omkostninger anlægsdrift DKK';
-Positive variable CostsTotalF(owner, moall)   'Omkostninger Total på drivmidler DKK';
-Positive variable CostsPurchaseF(f,moall)     'Omkostninger til braendselsindkoeb DKK';
-
-Positive variable TaxAFV(moall)               'Omkostninger til affaldvarmeafgift DKK';
-Positive variable TaxATL(moall)               'Omkostninger til affaldstillaegsafgift DKK';
-Positive variable TaxCO2total(moall)          'Omkostninger til CO2-afgift DKK';
-Positive variable TaxCO2Aff(moall)            'CO2-afgift på affald';
-Positive variable TaxCO2Aux(moall)            'CO2-afgift på øvrige brændsler';
-Positive variable TaxCO2F(f,moall)            'Omkostninger til CO2-afgift fordelt på braendselstype DKK';
-Positive variable TaxNOxF(f,moall)            'Omkostninger til NOx-afgift fordelt på braendselstype DKK';
-Positive variable TaxEnr(moall)               'Energiafgift (gaelder kun fossiltfyrede anlaeg)';
-
-
-Positive variable CostsETS(moall)             'Omkostninger til CO2-kvoter DKK';
-Positive variable CO2emisF(f,moall,typeCO2)    'CO2-emission fordelt på type';
-Positive variable CO2emisAff(moall,typeCO2) 'Afgifts- hhv. kvotebelagt affaldsemission';
-Positive variable TotalAffEProd(moall)        'Samlet energiproduktion affaldsanlaeg';
-
-Positive variable QInfeasDir(dir,moall)       'Virtual varmedraen og -kilde [MWhq]';
+Positive variable StoCostAll(s,moall)           'Samlet lageromkostning';
+Positive variable StoCostLoad(s,moall)          'Lageromkostning på beholdning';
+Positive variable StoCostDLoad(s,moall)         'Transportomk. til/fra lagre';
+Positive variable StoLoad(s,moall)              'Aktuel lagerbeholdning';
+Positive variable StoLoss(s,moall)              'Aktuelt lagertab';
+Free     variable StoDLoad(s,moall)             'Aktuel lagerændring positivt indgående i lager';
+Positive variable StoDLoadAbs(s,moall)          'Absolut værdi af StoDLoad';
+Positive variable StoLoadF(s,f,moall)           'Lagerbeholdning af givet brændsel på givet lager';
+                                                
+Positive variable Q(u,moall)                    'Grundlast MWq';
+Positive variable QaffM(ua,moall)               'Modtryksvarme på affaldsanlaeg MWq';
+Positive variable Qrgk(u,moall)                 'RGK produktion MWq';
+Positive variable Qafv(moall)                   'Varme pålagt affaldvarmeafgift';
+Positive variable QRgkMiss(moall)               'Slack variabel til beregning om RGK-rabat kan opnaas';
+                                                
+Positive variable FEBiogen(u,moall)             'Indfyret biogen affaldsenergi [GJ]';
+Positive variable FuelHeatAff(moall)            'Afgiftspligtigt affald medgået til varmeproduktion';
+Positive variable QBiogen(u,moall)              'Biogen affaldsvarme [GJ]';
+                                                
+Positive variable QtotalCool(moall)             'Sum af total bortkølet varme på affaldsanlæg';
+Positive variable QtotalAff(moall)              'Sum af total varmeproduktion på affaldsanlæg';
+Positive variable EtotalAff(moall)              'Sum af varme- og elproduktion på affaldsanlæg';
+Positive variable QtotalAfgift(phiKind,moall)   'Afgiftspligtig varme ATL- hhv. CO2-afgift';
+Positive variable QudenRgk(moall)               'Afgiftspligtig varme (ATL, CO2) uden RGK-rabat';
+Positive variable QmedRgk(moall)                'Afgiftspligtig varme (ATL, CO2) med RGK-rabat';
+Positive variable Quden_X_bOnRgkRabat(moall)    'Produktet bOnRgkRabat * Qtotal';
+Positive variable Qmed_X_bOnRgkRabat(moall)     'Produktet (1 - bOnRgkRabat) * Qtotal';
+                                                
+Positive variable IncomeTotal(moall)            'Indkomst total';
+Positive variable IncomeHeat(moall)             'Indkomnst for varmesalg til GSF';
+Positive variable IncomeAff(f,moall)            'Indkomnst for affaldsmodtagelse DKK';
+Positive variable RgkRabat(moall)               'RGK rabat på tillaegsafgift';
+Positive variable CostsTotal(moall)             'Omkostninger Total';
+Positive variable CostsTotalOwner(owner,moall)  'Omkostninger Total fordelt på ejere';
+Positive variable CostsU(u,moall)               'Omkostninger anlægsdrift DKK';
+#--- Positive variable CostsTotalF(owner, moall)   'Omkostninger Total på drivmidler DKK';
+Positive variable CostsPurchaseF(f,moall)       'Omkostninger til braendselsindkoeb DKK';
+                                                
+Positive variable TaxAFV(moall)                 'Omkostninger til affaldvarmeafgift DKK';
+Positive variable TaxATL(moall)                 'Omkostninger til affaldstillaegsafgift DKK';
+Positive variable TaxCO2total(moall)            'Omkostninger til CO2-afgift DKK';
+Positive variable TaxCO2Aff(moall)              'CO2-afgift på affald';
+Positive variable TaxCO2Aux(moall)              'CO2-afgift på øvrige brændsler';
+Positive variable TaxCO2F(f,moall)              'Omkostninger til CO2-afgift fordelt på braendselstype DKK';
+Positive variable TaxNOxF(f,moall)              'Omkostninger til NOx-afgift fordelt på braendselstype DKK';
+Positive variable TaxEnr(moall)                 'Energiafgift (gaelder kun fossiltfyrede anlaeg)';
+                                                
+                                                
+Positive variable CostsETS(moall)               'Omkostninger til CO2-kvoter DKK';
+Positive variable CO2emisF(f,moall,typeCO2)     'CO2-emission fordelt på type';
+Positive variable CO2emisAff(moall,typeCO2)     'Afgifts- hhv. kvotebelagt affaldsemission';
+Positive variable TotalAffEProd(moall)          'Samlet energiproduktion affaldsanlaeg';
+                                                
+Positive variable QInfeasDir(dir,moall)         'Virtual varmedraen og -kilde [MWhq]';
 
 # @@@@@@@@@@@@@@@@@@@@@@@@  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG  DEBUG
 IncomeTotal.up(moall) = 1E+8;
@@ -634,17 +636,19 @@ loop (ua $(NOT OnU(ua)), bOnRgk.fx(ua,mo) = 0.0; );
 # * Til fordeling: Alle afgifter
 # ------------------------------------------------------------------------------------------------
 
-Equation  ZQ_Obj                         'Objective';
-Equation  ZQ_IncomeTotal(moall)          'Indkomst Total';
-Equation  ZQ_IncomeHeat(moall)           'Indkomst Varmesalg til GSF';
-Equation  ZQ_IncomeAff(f,moall)          'Indkomst på affaldsfraktioner';
-Equation  ZQ_CostsU(u,moall)             'Omkostninger på anlaeg';
-Equation  ZQ_CostsTotalF(owner,moall)    'Omkostninger totalt på drivmidler';
-Equation  ZQ_CostsPurchaseF(f,moall)     'Omkostninger til køb af affald fordelt på affaldstyper';
-Equation  ZQ_TaxAFV(moall)               'Affaldsvarmeafgift DKK';
-Equation  ZQ_TaxATL(moall)               'Affaldstillaegsafgift foer evt. rabat DKK';
-Equation  ZQ_TaxNOxF(f,moall)            'NOx-afgift på brændsler';
-Equation  ZQ_TaxEnr(moall)               'Energiafgift på fossil varme';
+Equation  ZQ_Obj                           'Objective';
+Equation  ZQ_IncomeTotal(moall)            'Indkomst Total';
+Equation  ZQ_IncomeHeat(moall)             'Indkomst Varmesalg til GSF';
+Equation  ZQ_IncomeAff(f,moall)            'Indkomst på affaldsfraktioner';
+Equation  ZQ_CostsTotal(moall)             'Omkostninger Total';
+Equation  ZQ_CostsTotalOwner(owner,moall)  'Omkostninger fordelt på ejer';
+Equation  ZQ_CostsU(u,moall)               'Omkostninger på anlaeg';
+#--- Equation  ZQ_CostsTotalF(owner,moall)    'Omkostninger totalt på drivmidler';
+Equation  ZQ_CostsPurchaseF(f,moall)       'Omkostninger til køb af affald fordelt på affaldstyper';
+Equation  ZQ_TaxAFV(moall)                 'Affaldsvarmeafgift DKK';
+Equation  ZQ_TaxATL(moall)                 'Affaldstillaegsafgift foer evt. rabat DKK';
+Equation  ZQ_TaxNOxF(f,moall)              'NOx-afgift på brændsler';
+Equation  ZQ_TaxEnr(moall)                 'Energiafgift på fossil varme';
 
 Equation ZQ_FEBiogen(ua,moall);
 Equation ZQ_QtotalCool(moall);
@@ -675,17 +679,20 @@ Equation  ZQ_PrioUp(up,up,moall)         'Prioritet af uprio over visse up anlae
 
 
 # OBS: GSF-omkostninger skal medtages i Obj for at sikre at varme leveres fra REFAs anlæg.
+#      REFA's økonomi vil blive optimeret selvom GSF-omkostningerne er medtaget, netop fordi
+#      GSF's varmeproduktionspris er (betydeligt) højere end REFA's.
+# Hvordan med Nordic Sugars varmeleverance?
+#   Den pålægges en overskudsvarmeafgift, som kan resultere i en lavere VPO end REFA kan præstere med indkøbt affald hhv. flis.
+#   Dermed er det ikke umiddelbart let at afgøre, om NS-varmen indebærer en omkostning for REFA.
+#   NS-varmen leveres højst i månederne okt-feb med tyngden i nov-jan, en periode hvor REFAs affaldsanlæg er udlastede.
 
 ZQ_Obj  ..  NPV  =E=  sum(mo,
                          IncomeTotal(mo)
-                         - [
-                              sum(u $OnU(u), CostsU(u,mo))
-                            + sum(s $OnS(s), StoCostAll(s,mo))
-                            + sum(f $OnF(f), CostsPurchaseF(f,mo) + TaxNOxF(f,mo))
-                            + (TaxAFV(mo) + TaxATL(mo) + TaxCO2total(mo) + CostsETS(mo) + TaxEnr(mo))
-                            + Penalty_bOnU * sum(u $OnU(u), bOnU(u,mo))
-                            + Penalty_QRgkMiss * QRgkMiss(mo)
-                            + [Penalty_QInfeas * sum(dir, QInfeasDir(dir,mo))] $OnQInfeas
+                         - CostsTotal(mo)
+                         - [ 
+                             + Penalty_bOnU * sum(u $OnU(u), bOnU(u,mo))
+                             + Penalty_QRgkMiss * QRgkMiss(mo)
+                             + [Penalty_QInfeas * sum(dir, QInfeasDir(dir,mo))] $OnQInfeas
                            ] );
 
 ZQ_IncomeTotal(mo)   .. IncomeTotal(mo)   =E=  sum(fa $OnF(fa), IncomeAff(fa,mo)) + RgkRabat(mo) + IncomeElec(mo) + IncomeHeat(mo);
@@ -694,13 +701,31 @@ ZQ_IncomeHeat(mo)   ..  IncomeHeat(mo)    =E=  VarmeSalgspris * sum(u $(OnU(u) A
 
 ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDeliv(fa,mo) * DataFuel(fa,'pris') $(OnF(fa) AND fpospris(fa));
 
+ZQ_CostsTotal(mo)    .. CostsTotal(mo)    =E= sum(owner, CostsTotalOwner(owner,mo));
+
+#--- ZQ_CostsTotal(mo)    .. CostsTotal(mo)  =E=   sum(u $OnU(u), CostsU(u,mo))
+#---                                             + sum(s $OnS(s), StoCostAll(s,mo))
+#---                                             + sum(f $OnF(f), CostsPurchaseF(f,mo) + TaxNOxF(f,mo))
+#---                                             + (TaxAFV(mo) + TaxATL(mo) + TaxCO2total(mo) + CostsETS(mo) + TaxEnr(mo));
+                                            
+ZQ_CostsTotalOwner(owner,mo) .. CostsTotalOwner(owner,mo)  =E= 
+                                [  sum(urefa $OnU(urefa), CostsU(urefa,mo)) 
+                                 + sum(s $OnS(s), StoCostAll(s,mo))
+                                 + sum(frefa $OnF(frefa), CostsPurchaseF(frefa,mo) + TaxNOxF(frefa,mo))
+                                 + TaxAFV(mo) + TaxATL(mo) + TaxCO2Aff(mo) + CostsETS(mo) 
+                                ] $sameas(owner,'refa')
+                              + [  sum(ugsf $OnU(ugsf), CostsU(ugsf,mo)) 
+                                 + sum(fgsf $OnF(fgsf), CostsPurchaseF(fgsf,mo) + TaxNOxF(fgsf,mo))
+                                 + TaxCO2Aux(mo) + TaxEnr(mo)
+                                ] $sameas(owner,'gsf');
+                            
 ZQ_CostsU(u,mo)      .. CostsU(u,mo)      =E=  Q(u,mo) * DataU(u,'dv') $OnU(u);
 
-ZQ_CostsTotalF(owner,mo)   .. CostsTotalF(owner,mo) =E=
-                                 sum(f $(OnF(f) AND fown(f,owner) AND fnegpris(f)), CostsPurchaseF(f,mo))
-                                 + sum(f $(OnF(f) AND fown(f,owner)), TaxCO2F(f,mo) + TaxNOxF(f,mo))
-                                 + TaxEnr(mo) $sameas(owner,'gsf')
-                                 + (TaxAFV(mo) + TaxATL(mo) + CostsETS(mo)) $sameas(owner,'refa');
+#--- ZQ_CostsTotalF(owner,mo)   .. CostsTotalF(owner,mo) =E=
+#---                                  sum(f $(OnF(f) AND fown(f,owner) AND fnegpris(f)), CostsPurchaseF(f,mo))
+#---                                  + sum(f $(OnF(f) AND fown(f,owner)), TaxCO2F(f,mo) + TaxNOxF(f,mo))
+#---                                  + TaxEnr(mo) $sameas(owner,'gsf')
+#---                                  + (TaxAFV(mo) + TaxATL(mo) + CostsETS(mo)) $sameas(owner,'refa');
 
 
 ZQ_CostsPurchaseF(f,mo) $(OnF(f) AND fnegpris(f)) .. CostsPurchaseF(f,mo)  =E=  FuelDeliv(f,mo) * (-DataFuel(f,'pris'));
@@ -995,15 +1020,17 @@ $OnText
  Dernæst gentages optimeringen og phi genberegnes, indtil et stopkriterium er opfyldt.
  Stopkriteriet er den første af: 
    1:  Max. antal iterationer 
-   2:  Afvigelsen: deviat = (Afgift[i] - Afgift[i-1]) / (Afgift[i] - Afgift[i-1])
+   2:  Afvigelsen: Delta = (Metric[i] - Metric[i-1]) / (Metric[i] + Metric[i-1])
   
  Iterationshistorien opsamles i en parameter indekseret med set iter. 
 $OffText
 
-Scalar NiterMax / 5 /;
-Scalar IterNo 'Iterationsnummer';
-Scalar    DeltaAfgiftTol               'Tolerance på relativ afgiftsafvigelse ift. forrige iteration' / 0.10 /;
+Scalar    NiterMax / 10 /;
+Scalar    IterNo                       'Iterationsnummer';
+Scalar    DeltaConvMetricTol           'Tolerance på relativ konvergensmetrik-afvigelse ift. forrige iteration' / 0.001 /;
 Scalar    DeltaAfgift                  'Afgiftsafvigelse ift. forrige iteration';
+Scalar    DeltaConvMetric              'Relativ konvergensmetrikafvigelse ift. forrige iteration';
+Scalar    PhiScale                     'Nedskaleringsfaktor på phi' / 0.70 /;
 
 Parameter eE(phiKind)                  'Energivirkningsgrad'   / '85' 0.85,  '95' 0.95 /;
 Parameter Fenergi(phiKind,moall)       'Aktuel værdi af Fenergi = (Qtotal + P)/e';
@@ -1021,10 +1048,19 @@ Parameter FEBiogenTotal(moall)         'Total biogen indfyret effekt affaldsanlæ
 Parameter PhiIter(phiKind,moall,iter)  'Iterationshistorie for phi';
 Parameter AfgiftTotalIter(moall,iter)  'Afgiftssum';
 Parameter DeltaAfgiftIter(iter)        'Iterationshistorie på afgiftsafvigelse';
+Parameter ConvMetric(moall)            'Konvergensmetrikbasis for afgiftsiteration';
+Parameter ConvMetricIter(moall,iter)   'Konvergensmetrikbasis-historik for afgiftsiteration';
+Parameter DeltaConvMetricIter(iter)    'Konvergensmetrik-historik for afgiftsiteration';
+
+Parameter dPhi(phiKind)                      'Phi-ændring ift. forrige iteration';
+Parameter dPhiChange(phiKind)                'Ændring af Phi-ændring ift. forrige iteration';
+Parameter dPhiIter(phiKind,moall,iter)       'Phi-ændring ift. forrige iteration';
+Parameter dPhiChangeIter(phiKind,moall,iter) 'Ændring af Phi-ændring ift. forrige iteration';
 
 # Initialisering.
 Phi(phiKind,mo)             = 0.2;    # Startgæt (bør være positivt).
 PhiIter(phiKind,mo,'iter0') = Phi(phiKind,mo);
+dPhiIter(phiKind,mo,'iter0') = 0.0;
 
 loop (iter $(ord(iter) GE 2),
   IterNo = ord(iter) - 1;
@@ -1032,7 +1068,11 @@ loop (iter $(ord(iter) GE 2),
   
   option MIP=gurobi;          #--- option MIP=CBC
   modelREFA.optFile = 1;
-  option LIMROW=250, LIMCOL=250;  #--- option LIMROW=0, LIMCOL=0;
+  option LIMROW=250, LIMCOL=250;  
+  if (IterNo GE 3, 
+    option LIMROW=0, LIMCOL=0;
+    option SOLPRINT=OFF;
+  );
   
   solve modelREFA maximizing NPV using MIP;
   
@@ -1042,16 +1082,13 @@ loop (iter $(ord(iter) GE 2),
     abort "Solve af model mislykkedes.";
   );
   
-  # Phi opdateres.
+  # Phi opdateres på basis af seneste optimeringsløsning.
   QcoolTotal(mo)      = sum(uv $OnU(uv), Q.L(uv,mo));
   Qtotal(mo)          = sum(ua $OnU(ua), Q.L(ua,mo));
   EnergiTotal(mo)     = Qtotal(mo) + PowerProd(mo);
   FEBiogenTotal(mo)   = sum(ua $OnU(ua), FEBiogen.L(ua,mo));
   Fenergi(phiKind,mo) = [sum(ua $OnU(ua), Q.L(ua,mo)) + PowerProd(mo)] / eE(phiKind);
-  Phi(phiKind,mo)     = ifthen(Fenergi(phiKind,mo) EQ 0.0, 0.0, [Fenergi(phiKind,mo) - FEBiogenTotal(mo)] / Fenergi(phiKind,mo) );
-  
-  #TODO  INDFØR DÆMPNING PÅ ÆNDRING AF phi NÅR ER ANTAL ITERATIONER ER GENNEMFØRT (skal modvirke oscillationer).
-  # ... kode indsættes her ....
+  Phi(phiKind,mo)     = ifthen(Fenergi(phiKind,mo) EQ 0.0, 0.0, FEBiogenTotal(mo) / Fenergi(phiKind,mo) );
   PhiIter(phiKind,mo,iter) = Phi(phiKind,mo);
 
   # Beregn afgiftssum og sammenlign med forrige iteration.
@@ -1075,9 +1112,42 @@ loop (iter $(ord(iter) GE 2),
 
   DeltaAfgift           = 2 * (sum(mo, abs(AfgiftTotalIter(mo,iter) - AfgiftTotalIter(mo,iter-1)))) / sum(mo, abs(AfgiftTotalIter(mo,iter) + AfgiftTotalIter(mo,iter-1)));
   DeltaAfgiftIter(iter) = deltaAfgift;
+
+  # BEREGNING AF METRIK FOR KONVERGENS (DÆKNINGSBIDRAG)
+  ConvMetric(mo)            = IncomeTotal.L(mo) - CostsTotal.L(mo);
+  ConvMetricIter(mo,iter)   = ConvMetric(mo);
+  DeltaConvMetric           = 2 * (sum(mo, abs(ConvMetricIter(mo,iter) - ConvMetricIter(mo,iter-1)))) / sum(mo, abs(ConvMetricIter(mo,iter) + ConvMetricIter(mo,iter-1))) / card(mo);
+  DeltaConvMetricIter(iter) = DeltaConvMetric;
+
+  # Check for oscillationer på månedsbasis.
+  Found = FALSE
+  display "Detektering af oscillation af Phi:", IterNo, Phi;
+  loop (mo,
+    dPhi(phiKind)       = PhiIter(phiKind,mo,iter) - PhiIter(phiKind,mo,iter-1);
+    dPhiChange(phiKind) = abs(abs(dPhi(phiKind) - abs(dPhiIter(phiKind,mo,iter-1))));
+
+    dPhiIter(phiKind,mo,iter)       = dPhi(phiKind);
+    dPhiChangeIter(phiKind,mo,iter) = dPhiChange(phiKind);
+
+    loop (phiKind,
+      if (IterNo GE 3 AND dPhi(phiKind) GT 1E-3,  # Kun oscillation hvis Phi har ændret sig siden forrige iteration.
+        if (dPhiChange(phiKind) LE 1E-4,
+          # Oscillation detekteret - justér begge Phi-faktorer for aktuel måned.
+          Found =  TRUE;
+          Phi(phiKind,mo)          = PhiScale * (Phi(phiKind,mo) - PhiIter(phiKind,mo,iter-1));
+          PhiIter(phiKind,mo,iter) = Phi(phiKind,mo);
+        );
+      );
+    );
+  );
+  if (Found,
+    display "Detektering af oscillation af Phi:", IterNo, PhiScale, Phi;
+  else
+    display "Ingen oscillation af Phi fundet:", IterNo;
+  );
   
   # Stopkriterier testes.
-  display "Iteration på ulineære afgiftsberegning:", IterNo, DeltaAfgift, DeltaAfgiftTol;
+  display "Iteration på ulineære afgiftsberegning:", IterNo, DeltaConvMetric, DeltaConvMetricTol;
   
   # Max. antal iterationer.
   if (IterNo GE NiterMax, 
@@ -1085,8 +1155,8 @@ loop (iter $(ord(iter) GE 2),
     break;
   );
 
-  if (DeltaAfgift <= DeltaAfgiftTol, 
-    display 'Ændring af afgiftsbetaling opfylder accepttolerancen.', DeltaAfgiftTol;
+  if (DeltaConvMetric <= DeltaConvMetricTol, 
+    display 'Ændring af afgiftsbetaling opfylder accepttolerancen.';
     break;
   );
 );
@@ -1125,10 +1195,10 @@ NPV_Total_V = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal;
 
 # NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
 NPV_REFA_V  = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal
-              + sum(mo,
-                  + sum(ugsf $(OnU(ugsf)), CostsU.L(ugsf,mo))
-                  + sum(fgsf $(OnF(fgsf)), CostsPurchaseF.L(fgsf,mo) + TaxCO2F.L(fgsf,mo) + TaxNOxF.L(fgsf,mo)) + TaxEnr.L(mo)
-                );
+              + sum(mo, CostsTotalOwner.L('gsf',mo));
+#---          + sum(ugsf $(OnU(ugsf)), CostsU.L(ugsf,mo))
+#---          + sum(fgsf $(OnF(fgsf)), CostsPurchaseF.L(fgsf,mo) + TaxCO2F.L(fgsf,mo) + TaxNOxF.L(fgsf,mo)) + TaxEnr.L(mo)
+#---        );
 
 display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
 
@@ -1202,7 +1272,7 @@ loop (mo $(NOT sameas(mo,'mo0')),
 
   RefaAnlaegsVarOmk_V(mo)                  = sum(urefa $OnU(urefa), CostsU.L(urefa,mo));
   RefaBraendselsVarOmk_V(mo)               = sum(frefa, CostsPurchaseF.L(frefa,mo));
-  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + sum(frefa, TaxCO2F.L(frefa,mo) + TaxNOxF.L(frefa,mo));
+  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + sum(frefa, TaxCO2Aff.L(mo) + TaxNOxF.L(frefa,mo));
   RefaKvoteOmk_V(mo)                       = CostsETS.L(mo);  # Kun REFA er kvoteomfattet.
   RefaStoCost_V(mo)                        = sum(s $OnS(s), StoCostAll.L(s,mo));
   RefaTotalVarOmk_V(mo)                    = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo);
@@ -1236,7 +1306,7 @@ loop (mo $(NOT sameas(mo,'mo0')),
 
   GsfAnlaegsVarOmk_V(mo)                    = sum(ugsf, CostsU.L(ugsf, mo) );
   GsfBraendselsVarOmk_V(mo)                 = sum(fgsf, CostsPurchaseF.L(fgsf,mo) );
-  GsfAfgifter_V(mo)                         = sum(fgsf, TaxCO2F.L(fgsf, mo) + taxNOxF.L(fgsf,mo)) + TaxEnr.L(mo);
+  GsfAfgifter_V(mo)                         = sum(fgsf, TaxCO2Aux.L(mo) + taxNOxF.L(fgsf,mo)) + TaxEnr.L(mo);
   GsfCO2emission_V(mo)                      = sum(fgsf, CO2emisF.L(fgsf,mo,'afgift') );
   GsfTotalVarmeProd_V(mo)                   = sum(ugsf, Q.L(ugsf,mo) );
   GsfTotalVarOmk_V(mo)                      = GsfAnlaegsVarOmk_V(mo) + GsfBraendselsVarOmk_V(mo) + GsfAfgifter_V(mo);
