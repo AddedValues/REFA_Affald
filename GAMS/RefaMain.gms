@@ -1123,7 +1123,7 @@ loop (iter $(ord(iter) GE 2),
   ConvMetric(mo)            = IncomeTotal.L(mo) - CostsTotal.L(mo);
   ConvMetricIter(mo,iter)   = ConvMetric(mo);
   DeltaConvMetric           = 2 * (sum(mo, abs(ConvMetricIter(mo,iter) - ConvMetricIter(mo,iter-1)))) / sum(mo, abs(ConvMetricIter(mo,iter) + ConvMetricIter(mo,iter-1))) / card(mo);
-  DeltaConvMetricIter(iter) = DeltaConvMetric;
+  DeltaConvMetricIter(iter) = max(tiny, DeltaConvMetric);
 
   # Check for oscillationer på månedsbasis.
   Found = FALSE
@@ -1155,11 +1155,11 @@ loop (iter $(ord(iter) GE 2),
   # Stopkriterier testes.
   #--- display "Iteration på ulineære afgiftsberegning:", IterNo, DeltaConvMetric, DeltaConvMetricTol;
   
-  #--- # Konvergens opnået i forrige iteration - aktuelle iteration er en finpudsning.
-  #--- if (ConvergenceFound,
-  #---   display "Konvergens opnået og finpudset", IterNo;
-  #---   break;
-  #--- );
+  # Konvergens opnået i forrige iteration - aktuelle iteration er en finpudsning.
+  if (ConvergenceFound,
+    display "Konvergens opnået og finpudset", IterNo;
+    break;
+  );
 
   # Max. antal iterationer.
   if (IterNo GE NiterMax, 
@@ -1170,8 +1170,8 @@ loop (iter $(ord(iter) GE 2),
   if (DeltaConvMetric <= DeltaConvMetricTol, 
     display 'Konvergens opnået. Ændring af afgiftsbetaling opfylder accepttolerancen.', IterNo, DeltaConvMetric, DeltaConvMetricTol;
     ConvergenceFound = TRUE;
-    break;
-    #--- Udfør endnu en iteration, så modelvariable bliver opdateret  med seneste justering af phi.
+    #--- break;
+    # Udfør endnu en iteration, så modelvariable bliver opdateret  med seneste justering af phi.
   else
     display "Endnu ingen konvergens opnået.";
   );
