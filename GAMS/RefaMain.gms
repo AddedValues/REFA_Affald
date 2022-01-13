@@ -13,7 +13,6 @@ $OffText
 # Danske bogstaver kan IKKE bruges i model-elementer, såsom set-elementer, parameternavne, m.v.
 #--- set dummy / sæ, sø, så, sÆ, sØ, sÅ /;
 
-
 # Globale erklæringer og shorthands. 
 option dispwidth = 40; 
 
@@ -46,7 +45,7 @@ alias(mo,moa);
 set labDataCtrl       'Styringparms'       / IncludeGSF, VirtuelVarme, RgkRabatSats, RgkAndelRabat, Varmesalgspris, SkorstensMetode /;
 set labScheduleCol    'Periodeomfang'      / FirstYear, LastYear, FirstPeriod, LastPeriod /;
 set labScheduleRow    'Periodeomfang'      / aar, maaned, dato /;
-set labDataU          'DataU labels'       / Aktiv, Ukind, Prioritet, minLhv, kapTon, kapNom, kapRgk, kapMax, MinLast, KapMin, EtaE, EtaQ, DV /;
+set labDataU          'DataU labels'       / Aktiv, Ukind, Prioritet, MinLhv, MaxLhv, MinTon, MaxTon, kapNom, kapRgk, kapMax, MinLast, KapMin, EtaE, EtaQ, DVMWhq, DVtime /;
 set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Varmebehov, NSprod, ELprod, Elpris,
                                              ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, NOxKgTon, CO2kgGJ /;
@@ -66,7 +65,6 @@ Set f     'Drivmidler'    / DepoSort, DepoSmaat, DepoNedd, Dagren, AndetBrand, T
                             Flis, NSvarme, PeakFuel /;
 #--- Set f     'Drivmidler'    / Dagren,
 #---                             Flis, NSvarme /;
-
 #--- Set f             'Drivmidler' / f1 * f29 /;
 set fa(f)         'Affaldstyper';
 set fb(f)         'Biobraendsler';
@@ -140,8 +138,8 @@ $If not errorfree $exit
 $onecho > REFAinput.txt
 par=DataCtrl            rng=DataCtrl!B4:C8           rdim=1 cdim=0
 par=Schedule            rng=DataU!A3:E6              rdim=1 cdim=1
-par=DataU               rng=DataU!A11:L17            rdim=1 cdim=1
-par=DataSto             rng=DataU!N11:Y17            rdim=1 cdim=1
+par=DataU               rng=DataU!A11:O17            rdim=1 cdim=1
+par=DataSto             rng=DataU!Q11:AB17           rdim=1 cdim=1
 par=Prognoses           rng=DataU!D22:AA58           rdim=1 cdim=1
 par=DataFuel            rng=DataFuel!C4:T33          rdim=1 cdim=1
 par=FuelBounds          rng=DataFuel!B39:AM178       rdim=2 cdim=1
@@ -294,16 +292,12 @@ Parameter OnM(moall)           'Angiver om en given maaned er aktiv';
 Parameter Hours(moall)         'Antal timer i maaned';
 Parameter AvailDaysU(moall,u)  'Antal raadige dage';
 Parameter ShareAvailU(u,moall) 'Andel af fuld raadighed';
-Parameter EtaQ(u)              'Varmevirkningsgrad';
-Parameter EtaRgk(u)            'Varmevirkningsgrad';
 
 OnU(u)       = DataU(u,'aktiv');
 OnF(f)       = DataFuel(f,'aktiv');
 Ons(s)       = DataSto(s,'aktiv');
 OnM(moall)   = Prognoses(moall,'aktiv');
 Hours(moall) = 24 * Prognoses(moall,'ndage');
-EtaQ(u)      = DataU(u,'etaq');
-EtaRgk(u)    = DataU(u,'KapRgk') / DataU(u,'KapNom') * EtaQ(u);
 
 # Initialisering af aktive perioder (maaneder).
 mo(moall) = no;
@@ -375,18 +369,36 @@ $OnOrder
 
 # Produktionsanlæg og kølere.
 Parameter MinLhvMWh(u)   'Mindste braendvaerdi affaldsanlaeg GJ/ton';
-Parameter KapTon(u)      'Stoerste indfyringskapacitet ton/h';
+Parameter MaxLhvMWh(u)   'Største braendvaerdi affaldsanlaeg GJ/ton';
+Parameter MinTon(u)      'Mindste indfyringskapacitet ton/h';
+Parameter MaxTon(u)      'Stoerste indfyringskapacitet ton/h';
 Parameter KapMin(u)      'Mindste modtrykslast MWq';
 Parameter KapNom(u)      'Stoerste modtrykskapacitet MWq';
 Parameter KapMax(u)      'Stoerste samlede varmekapacitet MWq';
 Parameter KapRgk(u)      'RGK kapacitet MWq';
+Parameter KapRgk(u)      'RGK kapacitet MWq';
+Parameter EtaQ(u)        'Varmevirkningsgrad';
+Parameter EtaRgk(u)      'Varmevirkningsgrad';
+Parameter EtaE(u)        'RGK kapacitet MWq';
+Parameter EtaE(u)        'RGK kapacitet MWq';
+Parameter DvMWhq(u)      'DV-omkostning pr. MWhf';
+Parameter DvTime(u)      'DV-omkostning pr. driftstimer'; 
+
 MinLhvMWh(ua) = DataU(ua,'MinLhv') / 3.6;
-KapTon(ua)    = DataU(ua,'kapTon');
-KapMin(u)     = DataU(u, 'kapMin');
-KapRgk(ua)    = DataU(ua,'kapRgk');
+MaxLhvMWh(ua) = DataU(ua,'MaxLhv') / 3.6;
+MinTon(ua)    = DataU(ua,'MinTon');
+MaxTon(ua)    = DataU(ua,'Maxton');
+KapMin(u)     = DataU(u, 'KapMin');
+KapRgk(ua)    = DataU(ua,'KapRgk');
 KapNom(u)     = DataU(u, 'KapNom');
 KapMax(u)     = KapNom(u) + KapRgk(u);
-#--- display MinLhvMWh, KapTon, KapMin, KapNom, KapRgk, KapMax ;
+EtaE(u)       = DataU(u,'EtaE');
+EtaQ(u)       = DataU(u,'EtaQ');
+EtaRgk(u)     = DataU(u,'KapRgk') / DataU(u,'KapNom') * EtaQ(u);
+DvMWhq(u)     = DataU(u,'DvMWhq');
+DvTime(u)     = DataU(u,'DvTime');
+
+#--- display MinLhvMWh, MinTon, MaxTon, KapMin, KapNom, KapRgk, KapMax, EtaE, EtaQ, EtaRgk, DvMWhq, DvTime;
 
 # Lagre. Parametre gøres alment periodeafhængige, da det giver max. fleksiblitet ift. scenarie-specifikation.
 Parameter StoLoadInitF(s,f)          'Initial lagerbeholdning for hvert brændsel';
@@ -719,7 +731,7 @@ ZQ_CostsTotalOwner(owner,mo) .. CostsTotalOwner(owner,mo)  =E=
                                  + TaxCO2Aux(mo) + TaxEnr(mo)
                                 ] $sameas(owner,'gsf');
                             
-ZQ_CostsU(u,mo)      .. CostsU(u,mo)      =E=  Q(u,mo) * DataU(u,'dv') $OnU(u);
+ZQ_CostsU(u,mo)      .. CostsU(u,mo)      =E=  [Q(u,mo) * DvMWhq(u) + bOnU(u,mo) * DvTime(u)] $OnU(u);
 
 #--- ZQ_CostsTotalF(owner,mo)   .. CostsTotalF(owner,mo) =E=
 #---                                  sum(f $(OnF(f) AND fown(f,owner) AND fnegpris(f)), CostsPurchaseF(f,mo))
@@ -931,6 +943,7 @@ ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri) AND card(mo) G
 #--- ZQ_FuelMaxFree(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri)) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDeliv(ua,ffri,mo))  =L=  FuelDelivFreeSum(ffri) * 1.0001;
 
 # Restriktioner på tonnage og braendvaerdi for affaldsanlaeg.
+Equation ZQ_MinTonnage(u,moall)    'Mindste tonnage for affaldsanlaeg';
 Equation ZQ_MaxTonnage(u,moall)    'Stoerste tonnage for affaldsanlaeg';
 Equation ZQ_MinLhvAffald(u,moall)  'Mindste braendvaerdi for affaldsblanding';
 
@@ -938,7 +951,8 @@ Equation ZQ_MinLhvAffald(u,moall)  'Mindste braendvaerdi for affaldsblanding';
 #--- ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDeliv(ua,fa,mo))
 #---                                       =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDeliv(ua,fa,mo) * LhvMWh(fa));
 
-ZQ_MaxTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * KapTon(ua);
+ZQ_MinTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo))  =G=  ShareAvailU(ua,mo) * Hours(mo) * MinTon(ua);
+ZQ_MaxTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * MaxTon(ua);
 ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo))  =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo) * LhvMWh(fa));
 
 # Lagerdisponering.
@@ -1478,10 +1492,10 @@ par=DataSto_V             rng=Inputs!B27        cdim=1  rdim=1
 text="DataSto"            rng=Inputs!B27:B27
 par=DataFuel_V            rng=Inputs!B38        cdim=1  rdim=1
 text="DataFuel"           rng=Inputs!B38:B38
-par=Prognoses_V           rng=Inputs!R13        cdim=1  rdim=1
-text="Prognoser"          rng=Inputs!R13:R13
-par=FuelBounds_V          rng=Inputs!R38        cdim=1  rdim=2
-text="FuelBounds"         rng=Inputs!R38:R38
+par=Prognoses_V           rng=Inputs!T13        cdim=1  rdim=1
+text="Prognoser"          rng=Inputs!T13:T13
+par=FuelBounds_V          rng=Inputs!T38        cdim=1  rdim=2
+text="FuelBounds"         rng=Inputs!T38:T38
 
 *end   Individuelle dataark
 
