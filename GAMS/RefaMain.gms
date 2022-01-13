@@ -49,7 +49,7 @@ set labScheduleRow    'Periodeomfang'      / aar, maaned, dato /;
 set labDataU          'DataU labels'       / Aktiv, Ukind, Prioritet, minLhv, kapTon, kapNom, kapRgk, kapMax, MinLast, KapMin, EtaE, EtaQ, DV /;
 set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Varmebehov, NSprod, ELprod, Elpris,
                                              ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
-set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, CO2kgGJ /;
+set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, NOxKgTon, CO2kgGJ /;
 set labDataSto        'DataSto labels'     / Aktiv, StoKind, LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost, ResetFirst, ResetIntv, ResetLast /;  # stoKind=1 er affalds-, stoKind=2 er varmelager.
 set taxkind(labProgn) 'Omkostningstyper'   / ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set typeCO2           'CO2-Opgørelsestype' / afgift, kvote, total /;
@@ -143,8 +143,8 @@ par=Schedule            rng=DataU!A3:E6              rdim=1 cdim=1
 par=DataU               rng=DataU!A11:L17            rdim=1 cdim=1
 par=DataSto             rng=DataU!N11:Y17            rdim=1 cdim=1
 par=Prognoses           rng=DataU!D22:AA58           rdim=1 cdim=1
-par=DataFuel            rng=DataFuel!C4:S33          rdim=1 cdim=1
-par=FuelBounds          rng=DataFuel!B39:AM174       rdim=2 cdim=1
+par=DataFuel            rng=DataFuel!C4:T33          rdim=1 cdim=1
+par=FuelBounds          rng=DataFuel!B39:AM178       rdim=2 cdim=1
 $offecho
 
 $call "ERASE  REFAinputM.gdx"
@@ -429,7 +429,7 @@ Parameter TaxEtsTon(moall)              'CO2 Kvotepris [DKK/tom]';
 Parameter TaxCO2TonF(f,moall)           'CO2-afgift på brændselsniveau [DKK/tonCO2]';
 Parameter CO2ContentAff(moall)          'CO2 indhold affald [kgCO2 / tonAffald]';
 Parameter TaxCO2AffTon(moall)           'CO2 afgift affald [DKK/tonCO2]';
-Parameter TaxNOxAffTon(moall)           'NOx afgift affald [DKK/tonCO2]';
+Parameter TaxNOxAffkg(moall)            'NOx afgift affald [DKK/kgNOx]';
 Parameter TaxNOxFlisTon(moall)          'NOx afgift flis [DKK/tom]';
 Parameter TaxEnrPeakTon(moall)          'Energiafgift SR-kedler [DKK/tom]';
 Parameter TaxCO2peakTon(moall)          'CO2 afgift SR-kedler [DKK/tom]';
@@ -460,7 +460,7 @@ TaxAtlMWh(mo)     = Prognoses(mo,'atl') * 3.6;
 TaxEtsTon(mo)     = Prognoses(mo,'ets');
 CO2ContentAff(mo) = Prognoses(mo,'CO2aff') / 1E3;   # CO2-indhold i generisk affald [ton CO2 / GJf]
 TaxCO2AffTon(mo)  = Prognoses(mo,'CO2afgAff');
-TaxNOxAffTon(mo)  = Prognoses(mo,'NOxAff');
+TaxNOxAffkg(mo)   = Prognoses(mo,'NOxAff');
 TaxNOxFlisTon(mo) = Prognoses(mo,'NOxFlis') * DataFuel('flis','brandv');
 TaxEnrPeakTon(mo) = Prognoses(mo,'EnrPeak') * DataFuel('peakfuel','brandv');
 TaxCO2peakTon(mo) = Prognoses(mo,'CO2peak');
@@ -699,7 +699,7 @@ ZQ_IncomeTotal(mo)   .. IncomeTotal(mo)   =E=  sum(fa $OnF(fa), IncomeAff(fa,mo)
 
 ZQ_IncomeHeat(mo)   ..  IncomeHeat(mo)    =E=  VarmeSalgspris * sum(u $(OnU(u) AND up(u) AND urefa(u)), Q(u,mo));
 
-ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDeliv(fa,mo) * DataFuel(fa,'pris') $(OnF(fa) AND fpospris(fa));
+ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDeliv(fa,mo) * FuelBounds(fa,'ModtPris',mo) $(OnF(fa) AND fpospris(fa));
 
 ZQ_CostsTotal(mo)    .. CostsTotal(mo)    =E= sum(owner, CostsTotalOwner(owner,mo));
 
@@ -728,7 +728,7 @@ ZQ_CostsU(u,mo)      .. CostsU(u,mo)      =E=  Q(u,mo) * DataU(u,'dv') $OnU(u);
 #---                                  + (TaxAFV(mo) + TaxATL(mo) + CostsETS(mo)) $sameas(owner,'refa');
 
 
-ZQ_CostsPurchaseF(f,mo) $(OnF(f) AND fnegpris(f)) .. CostsPurchaseF(f,mo)  =E=  FuelDeliv(f,mo) * (-DataFuel(f,'pris'));
+ZQ_CostsPurchaseF(f,mo) $(OnF(f) AND fnegpris(f)) .. CostsPurchaseF(f,mo)  =E=  FuelDeliv(f,mo) * (-FuelBounds(f,'ModtPris',mo));
 
 
 # Beregning af afgiftspligtigt affald.
@@ -749,9 +749,11 @@ ZQ_Qafv(mo)       .. Qafv(mo)       =E=  sum(ua $OnU(ua), Q(ua,mo) - 0.85 * FEBi
 ZQ_QUdenRgk(mo)   .. QudenRgk(mo)  =E=  [QtotalAff(mo) * (1 - Phi('85',mo))] / 1.2;
 ZQ_QMedRgk(mo)    .. QmedRgk(mo)   =E=  [QtotalAff(mo) - 0.1 * EtotalAff(mo) * (1 - Phi('95',mo))] / 1.2;
 
-# Beregn produktet af bOnRgkRabat * QmedRgk hhv (1 - bOnRgkRabat) * QudenRgk
+# Beregn produktet af bOnRgkRabat * QmedRgk hhv (1 - bOnRgkRabat) * QudenRgk. 
+# Produktet bruges i ZQ_TaxATL hhv. ZQ_TaxCO2Aff.
 Parameter QtotalAffMax(moall) 'Max. aff-varme';
 QtotalAffMax(mo) = sum(ua $OnU(ua), (EtaQ(ua) + EtaRgk(ua)) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelBounds(fa,'max',mo)) );
+display QtotalAffMax;
 
 # Afgiftspligtig affaldsmængde henført til varmeproduktion.
 ZQ_QtotalAfgift(phiKind,mo) .. QtotalAfgift(phiKind,mo)  =E=  [QtotalAff(mo) - 0.1 * EtotalAff(mo) $sameas(phiKind,'95') ] * (1 - phi(phiKind,mo)); 
@@ -765,6 +767,7 @@ ZQ_QudenRgkProductMax2(mo) .. QtotalAfgift('85',mo) - Quden_X_bOnRgkRabat(mo)  =
 ZQ_QmedRgkProductMax1(mo) .. Qmed_X_bOnRgkRabat(mo)                          =L=  bOnRgkRabat(mo) * QtotalAffMax(mo);
 ZQ_QmedRgkProductMin2(mo) .. 0                                               =L=  QtotalAfgift('95',mo) - Qmed_X_bOnRgkRabat(mo);
 ZQ_QmedRgkProductMax2(mo) .. QtotalAfgift('95',mo) - Qmed_X_bOnRgkRabat(mo)  =L=  (1 - bOnRgkRabat(mo)) * QtotalAffMax(mo);
+
 
 # Tillægsafgift af affald baseret på SKAT's administrative satser:
 ZQ_TaxATL(mo)     .. TaxATL(mo)    =E=  TaxAtlMWh(mo) * (Quden_X_bOnRgkRabat(mo) + Qmed_X_bOnRgkRabat(mo));
@@ -797,9 +800,9 @@ ZQ_CO2emisAff(mo,typeCO2)         .. CO2emisAff(mo,typeCO2)  =E=  QudenRgk(mo) *
 
 
 # NOx-afgift:
-ZQ_TaxNOxF(f,mo) $OnF(f)   .. TaxNOxF(f,mo)  =E=  sum(ua $OnU(ua), FuelCons(ua,f,mo)) * TaxNOxAffTon(mo)  $fa(f)
-                                                + sum(ub $OnU(ub), FuelCons(ub,f,mo)) * TaxNOxFlisTon(mo) $fb(f)
-                                                + sum(ur $OnU(ur), FuelCons(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
+ZQ_TaxNOxF(f,mo) $OnF(f)   .. TaxNOxF(f,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,f)), FuelCons(ua,f,mo)) * DataFuel(f,'NOxKgTon') * TaxNOxAffkg(mo) $fa(f)
+                                                + sum(ub $(OnU(ub) AND u2f(ub,f)), FuelCons(ub,f,mo)) * TaxNOxFlisTon(mo) $fb(f)
+                                                + sum(ur $(OnU(ur) AND u2f(ur,f)), FuelCons(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
                                                 
 # Energiafgift SR-kedel:
 ZQ_TaxEnr(mo)              .. TaxEnr(mo)     =E=  sum(ur $OnU(ur), FuelCons(ur,'peakfuel',mo)) * TaxEnrPeakTon(mo);
@@ -1070,8 +1073,8 @@ loop (iter $(ord(iter) GE 2),
   
   option MIP=gurobi;    
   modelREFA.optFile = 1;
-  option MIP=CBC;
-  modelREFA.optFile = 0;
+  #--- option MIP=CBC;
+  #--- modelREFA.optFile = 0;
   
   option LIMROW=250, LIMCOL=250;  
   if (IterNo GE 2, 
@@ -1500,7 +1503,7 @@ text="Varmemængder"                 rng=Overblik!A36:A36
 par=FuelDeliv_V                     rng=Overblik!C44         cdim=1  rdim=1
 text="Brændselsforbrug"             rng=Overblik!A44:A44
 par=IncomeFuel_V                    rng=Overblik!C76         cdim=1  rdim=1
-text="Brøndselsindkomst"            rng=Overblik!A76:A76
+text="Brændselsindkomst"            rng=Overblik!A76:A76
 par=Usage_V                         rng=Overblik!C108        cdim=1  rdim=1
 text="Kapacitetsudnyttelse"         rng=Overblik!A108:A108
 par=StoLoadAll_V                    rng=Overblik!C117        cdim=1 rdim=1
