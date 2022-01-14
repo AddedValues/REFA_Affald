@@ -108,15 +108,16 @@ set s2f(s,f)  'Gyldige kombinationer af lagre og drivmidler';
 # ------------------------------------------------------------------------------------------------
 # Erklaering af input parametre
 # ------------------------------------------------------------------------------------------------
-Scalar    Penalty_bOnU              'Penalty på bOnU'           / 00000E+5 /;
-Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss'       /   20 /;      # Denne penalty må ikke være højere end tillaegsafgiften.
-Scalar    Penalty_QInfeas           'Penalty på QInfeasDir'     / 5000 /;      # Denne penalty må ikke være højere end tillaegsafgiften.
-Scalar    OnQInfeas                 'On/Off på virtual varme'   / 0    /;
-Scalar    RgkRabatSats              'Rabatsats på ATL'          / 0.10 /;
-Scalar    RgkRabatMinShare          'Taerskel for RGK rabat'    / 0.07 /;
-Scalar    VarmeSalgspris            'Varmesalgspris DKK/MWhq'   / 200.0 /;
-Scalar    AffaldsOmkAndel           'Affaldssiden omk.andel'    / 0.45  /;
-Scalar    SkorstensMetode           '0/1 for skorstensmetode'   / 0     /;
+Scalar    Penalty_bOnU              'Penalty på bOnU'           / 0000E+5 /;
+Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss'       /   20    /;      # Denne penalty må ikke være højere end tillaegsafgiften.
+Scalar    Penalty_QInfeas           'Penalty på QInfeasDir'     / 5000    /;      # Pålægges virtuel varmekilder og -dræn.
+Scalar    Gain_Ovn3                 'Gevinst for OVn3-varme'    / 100.00  /;      # Tillægges varmeproduktion på Ovn3 for at sikre udlastning før NS-varmen.
+Scalar    OnQInfeas                 'On/Off på virtual varme'   / 0       /;
+Scalar    RgkRabatSats              'Rabatsats på ATL'          / 0.10    /;
+Scalar    RgkRabatMinShare          'Taerskel for RGK rabat'    / 0.07    /;
+Scalar    VarmeSalgspris            'Varmesalgspris DKK/MWhq'   / 200.00  /;
+Scalar    AffaldsOmkAndel           'Affaldssiden omk.andel'    / 0.45    /;
+Scalar    SkorstensMetode           '0/1 for skorstensmetode'   / 0       /;
 Scalar    NactiveM                  'Antal aktive måneder';
 
 Parameter IncludeOwner(owner)       '!= 0 => Ejer smed i OBJ'   / refa 1, gsf 0 /;
@@ -700,6 +701,7 @@ Equation  ZQ_PrioUp(up,up,moall)         'Prioritet af uprio over visse up anlae
 
 ZQ_Obj  ..  NPV  =E=  sum(mo,
                          IncomeTotal(mo)
+                         + Gain_Ovn3 * Q('Ovn3',mo)
                          - CostsTotal(mo)
                          - [ 
                              + Penalty_bOnU * sum(u $OnU(u), bOnU(u,mo))
@@ -1199,10 +1201,27 @@ loop (iter $(ord(iter) GE 2),
 # Efterbehandling af resultater.
 # ------------------------------------------------------------------------------------------------
 
-# OBS: Penalty_bOnU skal tilbagebetales til NPV.
-Scalar Penalty_bOnUTotal;
-Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
-#--- display Penalty_bOnUTotal, NPV.L;
+# Tilbageføring til NPV af penalty costs og omkostninger fra ikke-inkluderede anlaeg og braendsler samt gevinst for Ovn3-varme.
+Scalar NPV_REFA_V, NPV_Total_V;
+Scalar Penalty_bOnUTotal, Penalty_QRgkMissTotal;
+Scalar Gain_Ovn3Total 'Samlede virtuelle gevinst';
+
+Penalty_bOnUTotal     = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
+Penalty_QRgkMissTotal = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
+Gain_Ovn3Total        = Gain_Ovn3 * sum(mo, Q.L('Ovn3',mo));
+
+# NPV_Total_V er den samlede NPV med tilbageførte penalties.
+NPV_Total_V = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal - Gain_Ovn3Total;
+
+# NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
+NPV_REFA_V  = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal - Gain_Ovn3Total
+              + sum(mo, CostsTotalOwner.L('gsf',mo));
+#---          + sum(ugsf $(OnU(ugsf)), CostsU.L(ugsf,mo))
+#---          + sum(fgsf $(OnF(fgsf)), CostsPurchaseF.L(fgsf,mo) + TaxCO2F.L(fgsf,mo) + TaxNOxF.L(fgsf,mo)) + TaxEnr.L(mo)
+#---        );
+
+#--- display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
+
 
 # ------------------------------------------------------------------------------------------------
 # Udskriv resultater til Excel output fil.
@@ -1215,25 +1234,6 @@ Scalar PerStart;
 Scalar PerSlut;
 PerStart = Schedule('dato','firstPeriod');
 PerSlut  = Schedule('dato','lastPeriod');
-
-# Tilbageføring til NPV af penalty costs og omkostninger fra ikke-inkluderede anlaeg og braendsler.
-Scalar NPV_REFA_V, NPV_Total_V;
-Scalar Penalty_bOnUTotal, Penalty_QRgkMissTotal;
-
-Penalty_bOnUTotal = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
-Penalty_QRgkMissTotal = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
-
-# NPV_Total_V er den samlede NPV med tilbageførte penalties.
-NPV_Total_V = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal;
-
-# NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
-NPV_REFA_V  = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal
-              + sum(mo, CostsTotalOwner.L('gsf',mo));
-#---          + sum(ugsf $(OnU(ugsf)), CostsU.L(ugsf,mo))
-#---          + sum(fgsf $(OnF(fgsf)), CostsPurchaseF.L(fgsf,mo) + TaxCO2F.L(fgsf,mo) + TaxNOxF.L(fgsf,mo)) + TaxEnr.L(mo)
-#---        );
-
-#--- display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
 
 
 # Sammenfatning af aggregerede resultater på maanedsniveau.
