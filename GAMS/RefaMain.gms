@@ -766,7 +766,7 @@ ZQ_QMedRgk(mo)    .. QmedRgk(mo)   =E=  [QtotalAff(mo) - 0.1 * EtotalAff(mo) * (
 # Beregn produktet af bOnRgkRabat * QmedRgk hhv (1 - bOnRgkRabat) * QudenRgk. 
 # Produktet bruges i ZQ_TaxATL hhv. ZQ_TaxCO2Aff.
 Parameter QtotalAffMax(moall) 'Max. aff-varme';
-QtotalAffMax(mo) = sum(ua $OnU(ua), (EtaQ(ua) + EtaRgk(ua)) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelBounds(fa,'max',mo)) );
+QtotalAffMax(mo) = sum(ua $OnU(ua), (EtaQ(ua) + EtaRgk(ua)) * sum(fa $(OnF(fa) AND u2f(ua,fa)), LhvMWh(fa) * FuelBounds(fa,'max',mo)) );
 display QtotalAffMax;
 
 # Afgiftspligtig affaldsmængde henført til varmeproduktion.
