@@ -42,11 +42,11 @@ set moall     'Aarsmaaneder'   / mo0 * mo36 /;  # Daekker op til 3 aar. Elemente
 set mo(moall) 'Aktive maaneder';
 alias(mo,moa);
 
-set labDataCtrl       'Styringparms'       / IncludeGSF, VirtuelVarme, RgkRabatSats, RgkAndelRabat, Varmesalgspris, SkorstensMetode /;
+set labDataCtrl       'Styringparms'       / IncludeGSF, VirtuelVarme, RgkRabatSats, RgkAndelRabat, Varmesalgspris, SkorstensMetode, EgetforbrugKVV /;
 set labScheduleCol    'Periodeomfang'      / FirstYear, LastYear, FirstPeriod, LastPeriod /;
 set labScheduleRow    'Periodeomfang'      / aar, maaned, dato /;
 set labDataU          'DataU labels'       / Aktiv, Ukind, Prioritet, MinLhv, MaxLhv, MinTon, MaxTon, kapNom, kapRgk, kapMax, MinLast, KapMin, EtaE, EtaQ, DVMWhq, DVtime /;
-set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Varmebehov, NSprod, ELprod, Elpris,
+set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Varmebehov, NSprod, ELprod, Bypass, Elpris,
                                              ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, NOxKgTon, CO2kgGJ /;
 set labDataSto        'DataSto labels'     / Aktiv, StoKind, LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost, ResetFirst, ResetIntv, ResetLast /;  # stoKind=1 er affalds-, stoKind=2 er varmelager.
@@ -108,40 +108,46 @@ set s2f(s,f)  'Gyldige kombinationer af lagre og drivmidler';
 # ------------------------------------------------------------------------------------------------
 # Erklaering af input parametre
 # ------------------------------------------------------------------------------------------------
+# Penalty faktorer til objektfunktionen.
 Scalar    Penalty_bOnU              'Penalty på bOnU'           / 0000E+5 /;
 Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss'       /   20    /;      # Denne penalty må ikke være højere end tillaegsafgiften.
 Scalar    Penalty_QInfeas           'Penalty på QInfeasDir'     / 5000    /;      # Pålægges virtuel varmekilder og -dræn.
+Scalar    Penalty_AffaldsGensalg    'Affald gensalgspris'       / 150.00  /;      # Pålægges ikke-udnyttet affald.
 Scalar    Gain_Ovn3                 'Gevinst for OVn3-varme'    / 100.00  /;      # Tillægges varmeproduktion på Ovn3 for at sikre udlastning før NS-varmen.
 Scalar    OnQInfeas                 'On/Off på virtual varme'   / 0       /;
+
+# Indlæses via DataCtrl.
 Scalar    RgkRabatSats              'Rabatsats på ATL'          / 0.10    /;
 Scalar    RgkRabatMinShare          'Taerskel for RGK rabat'    / 0.07    /;
 Scalar    VarmeSalgspris            'Varmesalgspris DKK/MWhq'   / 200.00  /;
 Scalar    AffaldsOmkAndel           'Affaldssiden omk.andel'    / 0.45    /;
 Scalar    SkorstensMetode           '0/1 for skorstensmetode'   / 0       /;
+Scalar    EgetforbrugKVV            'Angiver egetforbrug MWhe/døgn';  
+
 Scalar    NactiveM                  'Antal aktive måneder';
 
-Parameter IncludeOwner(owner)       '!= 0 => Ejer smed i OBJ'   / refa 1, gsf 0 /;
+Parameter IncludeOwner(owner)       '<>0 => Ejer med i OBJ'     / refa 1, gsf 0 /;
 Parameter IncludePlant(u);
 Parameter IncludeFuel(f);
 
 Parameter Schedule(labScheduleRow, labScheduleCol)  'Periode start/stop';
-Parameter DataCtrl(labDataCtrl)     'Data for styringsparametre';
-Parameter DataU(u, labDataU)        'Data for anlaeg';
-Parameter DataSto(s, labDataSto)    'Lagerspecifikationer';
-Parameter Prognoses(moall,labProgn) 'Data for prognoser';
-Parameter DataFuel(f, labDataFuel)  'Data for drivmidler';
-Parameter FuelBounds(f,bound,moall) 'Maengdegraenser for drivmidler';
+Parameter DataCtrl(labDataCtrl)          'Data for styringsparametre';
+Parameter DataU(u, labDataU)             'Data for anlaeg';
+Parameter DataSto(s, labDataSto)         'Lagerspecifikationer';
+Parameter Prognoses(moall,labProgn)      'Data for prognoser';
+Parameter DataFuel(f, labDataFuel)       'Data for drivmidler';
+Parameter FuelBounds(f,bound,moall)      'Maengdegraenser for drivmidler';
 
 $If not errorfree $exit
 
 # Indlaesning af input parametre
 
 $onecho > REFAinput.txt
-par=DataCtrl            rng=DataCtrl!B4:C8           rdim=1 cdim=0
+par=DataCtrl            rng=DataCtrl!B4:C10          rdim=1 cdim=0
 par=Schedule            rng=DataU!A3:E6              rdim=1 cdim=1
 par=DataU               rng=DataU!A11:O17            rdim=1 cdim=1
 par=DataSto             rng=DataU!Q11:AB17           rdim=1 cdim=1
-par=Prognoses           rng=DataU!D22:AA58           rdim=1 cdim=1
+par=Prognoses           rng=DataU!D22:AB58           rdim=1 cdim=1
 par=DataFuel            rng=DataFuel!C4:T33          rdim=1 cdim=1
 par=FuelBounds          rng=DataFuel!B39:AM178       rdim=2 cdim=1
 $offecho
@@ -175,6 +181,7 @@ RgkRabatSats        = DataCtrl('RgkRabatSats');
 RgkRabatMinShare    = DataCtrl('RgkAndelRabat');
 VarmeSalgspris      = DataCtrl('VarmeSalgspris');
 SkorstensMetode     = DataCtrl('SkorstensMetode');
+EgetforbrugKVV      = DataCtrl('EgetforbrugKVV');
 
 $If not errorfree $exit
 
@@ -292,7 +299,10 @@ Parameter OnS(s)               'Angiver om lager er til raadighed';
 Parameter OnM(moall)           'Angiver om en given maaned er aktiv';
 Parameter Hours(moall)         'Antal timer i maaned';
 Parameter AvailDaysU(moall,u)  'Antal raadige dage';
-Parameter ShareAvailU(u,moall) 'Andel af fuld raadighed';
+Parameter ShareAvailU(u,moall) 'Andel af fuld rådighed på månedsbasis';
+Parameter ShareBypass(moall)   'Andel af bypass-drift på månedsbasis';
+Parameter Peget(moall)       'Elektrisk egetforbrug KKV-anlægget';
+Parameter HoursBypass(moall) 'Antal timer med turbine-bypass';
 
 OnU(u)       = DataU(u,'aktiv');
 OnF(f)       = DataFuel(f,'aktiv');
@@ -312,7 +322,13 @@ loop (u $OnU(u),
   );
 );
 
-#--- display mo, OnU, OnF, OnM, Hours, AvailDaysU, ShareAvailU, EtaQ;
+
+# Ovn3 er KV-anlæg med mulighed for turbine-bypass-drift.
+ShareBypass(mo) = max(0.0, min(1.0, Prognoses(mo,'Bypass') / (24 * Prognoses(mo,'Ovn3')) ));
+HoursBypass(mo) = Prognoses(mo,'Bypass');
+Peget(mo)       = EgetforbrugKVV * (AvailDaysU(mo,'Ovn3'));  #---   - HoursBypass(mo));
+
+#--- display mo, OnU, OnF, OnM, Hours, AvailDaysU, ShareAvailU, ShareBypass;
 
 # Rimelighedskontrol af inputtabeller.
 loop (labDataU $(NOT sameas(labDataU,'KapMin') AND NOT sameas(labDataU,'MinLast')),
@@ -428,25 +444,27 @@ StoIntvReset(s)        = DataSto(s,'ResetIntv');
 StoFirstReset(s)       = ifthen(StoFirstReset(s) EQ 0.0, StoIntvReset(s), min(StoFirstReset(s), StoIntvReset(s)) );
 
 # Prognoser.
-Parameter IncomeElec(moall)             'El-indkomst [DKK]';
-Parameter MinTonnageYear(f)             'Braendselstonnage min aarsniveau [ton/aar]';
-Parameter MaxTonnageYear(f)             'Braendselstonnage max aarsniveau [ton/aar]';
-Parameter LhvMWh(f)                     'Braendvaerdi [MWf]';
-Parameter CO2potenTon(f,typeCO2,moall)  'CO2-emission [tonCO2/tonBrændsel]';
-Parameter Qdemand(moall)                'FJV-behov';
-Parameter PowerProd(moall)              'Elproduktion MWhe';
-Parameter PowerPrice(moall)             'El-pris DKK/MWhe';
-Parameter TaxAfvMWh(moall)              'Affaldsvarmeafgift [DKK/MWhq]';
-Parameter TaxAtlMWh(moall)              'Affaldstillaegsafgift [DKK/MWhf]';
-Parameter TaxEtsTon(moall)              'CO2 Kvotepris [DKK/tom]';
-Parameter TaxCO2TonF(f,moall)           'CO2-afgift på brændselsniveau [DKK/tonCO2]';
-Parameter CO2ContentAff(moall)          'CO2 indhold affald [kgCO2 / tonAffald]';
-Parameter TaxCO2AffTon(moall)           'CO2 afgift affald [DKK/tonCO2]';
-Parameter TaxNOxAffkg(moall)            'NOx afgift affald [DKK/kgNOx]';
-Parameter TaxNOxFlisTon(moall)          'NOx afgift flis [DKK/tom]';
-Parameter TaxEnrPeakTon(moall)          'Energiafgift SR-kedler [DKK/tom]';
-Parameter TaxCO2peakTon(moall)          'CO2 afgift SR-kedler [DKK/tom]';
-Parameter TaxNOxPeakTon(moall)          'NOx afgift SR-kedler [DKK/tom]';
+#--- Parameter FuelBoundsModif(f,bound,moall) 'Maengdegraenser for drivmidler som inddrager anlægsrådighed';
+Parameter MinTonnageYear(f)              'Braendselstonnage min aarsniveau [ton/aar]';
+Parameter MaxTonnageYear(f)              'Braendselstonnage max aarsniveau [ton/aar]';
+Parameter LhvMWh(f)                      'Braendvaerdi [MWf]';
+Parameter CO2potenTon(f,typeCO2,moall)   'CO2-emission [tonCO2/tonBrændsel]';
+Parameter Qdemand(moall)                 'FJV-behov';
+#--- Parameter IncomeElec(moall)              'El-indkomst [DKK]';
+#--- Parameter PowerProd(moall)               'Elproduktion MWhe';
+Parameter PowerPrice(moall)              'El-pris DKK/MWhe';
+Parameter TariffElProd(moall)            'Tarif på elproduktion [DKK/MWhe]';
+Parameter TaxAfvMWh(moall)               'Affaldsvarmeafgift [DKK/MWhq]';
+Parameter TaxAtlMWh(moall)               'Affaldstillaegsafgift [DKK/MWhf]';
+Parameter TaxEtsTon(moall)               'CO2 Kvotepris [DKK/tom]';
+Parameter TaxCO2TonF(f,moall)            'CO2-afgift på brændselsniveau [DKK/tonCO2]';
+Parameter CO2ContentAff(moall)           'CO2 indhold affald [kgCO2 / tonAffald]';
+Parameter TaxCO2AffTon(moall)            'CO2 afgift affald [DKK/tonCO2]';
+Parameter TaxNOxAffkg(moall)             'NOx afgift affald [DKK/kgNOx]';
+Parameter TaxNOxFlisTon(moall)           'NOx afgift flis [DKK/tom]';
+Parameter TaxEnrPeakTon(moall)           'Energiafgift SR-kedler [DKK/tom]';
+Parameter TaxCO2peakTon(moall)           'CO2 afgift SR-kedler [DKK/tom]';
+Parameter TaxNOxPeakTon(moall)           'NOx afgift SR-kedler [DKK/tom]';
 
 fpospris(f)       = yes;
 fpospris(f)       = DataFuel(f,'pris') GE 0.0;
@@ -457,6 +475,22 @@ MinTonnageYear(f) = DataFuel(f,'minTonnage');
 MaxTonnageYear(f) = DataFuel(f,'maxTonnage');
 LhvMWh(f)         = DataFuel(f,'brandv') / 3.6;
 
+# Årskrav til affaldsfraktioner, som skal bortskaffes.
+# FuelBounds er beregnet på basis af fuldlast hver måned og ligelig fordeling af årstonnage henover månederne.
+# Grænserne skal tage hensyn til rådigheden af affaldsovnen. Det antages at overskydende affald sælges og dermed ikke indgår i regnskabet.
+# Der er både begrænsninger....
+# FuelBoundsModif(fa,'min',mo) = FuelBounds(fa,'min',mo) * sum(ua $OnU(ua), MaxTon(ua) * 24 * AvailDaysU(ua,mo))
+
+#--- FuelBoundsModif(f,bound,mo) = FuelBounds(f,bound,mo);
+#--- FuelBoundsModif(fa,'min',mo) = min(FuelBounds(fa,'min',mo), sum(ua $OnU(ua), MaxTon(ua) * 24 * AvailDaysU(mo,ua)));
+#--- FuelBoundsModif(fa,'max',mo) = max(FuelBounds(fa,'max',mo), sum(ua $OnU(ua), MinTon(ua) * 24 * AvailDaysU(mo,ua)));
+
+
+#=== ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo)  =G=  FuelBounds(f,'min',mo);
+#=== ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f))                  ..  FuelDelivT(f,mo)  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+
+
+
 # Emissionsopgørelsen for affald er som udgangspunkt efter skorstensmetoden, hvor CO2-indholdet af  hver fraktion er kendt.
 # Men uden skorstensmetoden anvendes i stedet for SKATs emissionssatser, som desuden er forskellige efter om det er CO2-afgift eller CO2-kvoteforbruget, som skal opgøres !!!
 CO2potenTon(f,typeCO2,mo) = DataFuel(f,'brandv') * DataFuel(f,'CO2kgGJ') / 1000;  # ton CO2 / ton brændsel.
@@ -465,9 +499,11 @@ if (NOT SkorstensMetode,
 );
 
 Qdemand(mo)       = Prognoses(mo,'varmebehov');
-PowerProd(mo)     = Prognoses(mo,'ELprod');
+#--- PowerProd(mo)     = Prognoses(mo,'ELprod');
 PowerPrice(mo)    = Prognoses(mo,'ELpris');
-IncomeElec(mo)    = PowerProd(mo) * PowerPrice(mo) $OnU('Ovn3');
+#TODO: Tarif på indfødning af elproduktion på nettet skal flyttes til DataCtrl.
+TariffElProd(mo)  = 4.00;  
+#--- IncomeElec(mo)    = PowerProd(mo) * PowerPrice(mo) $OnU('Ovn3');
 TaxAfvMWh(mo)     = Prognoses(mo,'afv') * 3.6;
 TaxAtlMWh(mo)     = Prognoses(mo,'atl') * 3.6;
 TaxEtsTon(mo)     = Prognoses(mo,'ets');
@@ -491,7 +527,7 @@ Parameter QaffTotalMax(moall)  'Max. total varme fra affaldsanlæg';
 QaffMmax(ua,moall)  = min(ShareAvailU(ua,moall) * Hours(moall) * KapNom(ua), [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelBounds(fa,'max',moall) * EtaQ(ua) * LhvMWh(fa))]) $OnU(ua);
 QrgkMax(ua,moall)   = KapRgk(ua) / KapNom(ua) * QaffMmax(ua,moall);
 QaffTotalMax(moall) = sum(ua $OnU(ua), ShareAvailU(ua,moall) * (QaffMmax(ua,moall) + QrgkMax(ua,moall)) );
-EaffGross(moall)    = QaffTotalMax(moall) + PowerProd(moall);
+#--- EaffGross(moall)    = QaffTotalMax(moall) + PowerProd(moall);
 #--- display QaffMmax, QrgkMax, QaffTotalMax, EaffGross;
 
 Parameter TaxATLMax(moall) 'Oevre graense for ATL';
@@ -511,18 +547,20 @@ Parameter Phi(phiKind,moall)           'Aktuel værdi af Phi = Fbiogen/F';
 # ------------------------------------------------------------------------------------------------
 # Erklaering af variable.
 # ------------------------------------------------------------------------------------------------
-Free     variable NPV                          'Nutidsvaerdi af affaldsdisponering';
-                                               
-Binary   variable bOnU(u,moall)                'Anlaeg on-off';
-Binary   variable bOnRgk(ua,moall)             'Affaldsanlaeg RGK on-off';
-Binary   variable bOnRgkRabat(moall)           'Indikator for om der i given kan opnaas RGK rabat';
-Binary   variable bOnSto(s,moall)              'Indikator for om et lager bruges i given maaned ';
-                                               
-Positive variable FuelCons(u,f,moall)          'Drivmiddel forbrug på hvert anlaeg';
-Positive variable FuelDeliv(f,moall)           'Drivmiddel leverance på hvert anlaeg';
-Positive variable FuelDelivFreeSum(f)          'Samlet braendselsmængde frie fraktioner';
-
-Free variable StoDLoadF(s,f,moall)             'Lagerført brændsel (pos. til lager)';
+Free     variable NPV                           'Nutidsvaerdi af affaldsdisponering';
+                                                
+Binary   variable bOnU(u,moall)                 'Anlaeg on-off';
+Binary   variable bOnRgk(ua,moall)              'Affaldsanlaeg RGK on-off';
+Binary   variable bOnRgkRabat(moall)            'Indikator for om der i given kan opnaas RGK rabat';
+Binary   variable bOnSto(s,moall)               'Indikator for om et lager bruges i given maaned ';
+                                                
+Positive variable FuelConsT(u,f,moall)          'Drivmiddel forbrug på hvert anlaeg [ton]';
+Positive variable FuelConsP(f,moall)            'Effekt af drivmiddel forbrug [MWf]';
+Positive variable FuelResaleT(f,moall)          'Drivmiddel gensalg / ikke-udnyttet [ton]';
+Positive variable FuelDelivT(f,moall)           'Drivmiddel leverance på hvert anlaeg [ton]';
+Positive variable FuelDelivFreeSumT(f)          'Samlet braendselsmængde frie fraktioner';
+                                        
+Free     variable StoDLoadF(s,f,moall)          'Lagerført brændsel (pos. til lager)';
 
 Positive variable StoCostAll(s,moall)           'Samlet lageromkostning';
 Positive variable StoCostLoad(s,moall)          'Lageromkostning på beholdning';
@@ -532,7 +570,11 @@ Positive variable StoLoss(s,moall)              'Aktuelt lagertab';
 Free     variable StoDLoad(s,moall)             'Aktuel lagerændring positivt indgående i lager';
 Positive variable StoDLoadAbs(s,moall)          'Absolut værdi af StoDLoad';
 Positive variable StoLoadF(s,f,moall)           'Lagerbeholdning af givet brændsel på givet lager';
-                                                
+           
+Positive variable PbrutMax(moall)               'Max. mulige brutto elproduktion [MWhe]';
+Positive variable Pbrut(moall)                  'Brutto elproduktion [MWhe]';
+Positive variable Pnet(moall)                   'Netto elproduktion [MWhe]';
+Positive variable Qbypass(moall)                'Bypass varme [MWhq]';
 Positive variable Q(u,moall)                    'Grundlast MWq';
 Positive variable QaffM(ua,moall)               'Modtryksvarme på affaldsanlaeg MWq';
 Positive variable Qrgk(u,moall)                 'RGK produktion MWq';
@@ -553,6 +595,7 @@ Positive variable Quden_X_bOnRgkRabat(moall)    'Produktet bOnRgkRabat * Qtotal'
 Positive variable Qmed_X_bOnRgkRabat(moall)     'Produktet (1 - bOnRgkRabat) * Qtotal';
                                                 
 Positive variable IncomeTotal(moall)            'Indkomst total';
+Positive variable IncomeElec(moall)             'El-indkomst [DKK]';
 Positive variable IncomeHeat(moall)             'Indkomnst for varmesalg til GSF';
 Positive variable IncomeAff(f,moall)            'Indkomnst for affaldsmodtagelse DKK';
 Positive variable RgkRabat(moall)               'RGK rabat på tillaegsafgift';
@@ -596,7 +639,13 @@ loop (u $(NOT OnU(u)),
   bOnU.fx(u,mo)         = 0.0;
   Q.fx(u,mo)            = 0.0;
   CostsU.fx(u,mo)       = 0.0;
-  FuelCons.fx(u,f,mo)   = 0.0;
+  FuelConsT.fx(u,f,mo)  = 0.0;
+);
+
+if (NOT OnU('Ovn3'),
+  Pbrut.fx(mo)   = 0.0;
+  Pnet.fx(mo)    = 0.0;
+  Qbypass.fx(mo) = 0.0;
 );
 
 loop (s $(NOT OnS(s)),
@@ -606,15 +655,16 @@ loop (s $(NOT OnS(s)),
   StoDLoad.fx(s,mo)    = 0.0;
   StoDLoadAbs.fx(s,mo) = 0.0;
   StoCostAll.fx(s,mo)  = 0.0;
-  StoDLoadF.fx(s,f,mo)  = 0.0;
+  StoDLoadF.fx(s,f,mo) = 0.0;
 );
 
 loop (f $(NOT OnF(f)),
   CostsPurchaseF.fx(f,mo)    = 0.0;
   IncomeAff.fx(f,mo)         = 0.0;
-  CO2emisF.fx(f,mo,typeCO2)   = 0.0;
-  FuelDeliv.fx(f,mo)         = 0.0;
-  FuelCons.fx(u,f,mo)        = 0.0;
+  CO2emisF.fx(f,mo,typeCO2)  = 0.0;
+  FuelDelivT.fx(f,mo)        = 0.0;
+  FuelConsT.fx(u,f,mo)       = 0.0;
+  FuelConsP.fx(f,mo)         = 0.0;
   StoDLoadF.fx(s,f,mo)       = 0.0;
 );
 
@@ -651,6 +701,7 @@ loop (ua $(NOT OnU(ua)), bOnRgk.fx(ua,mo) = 0.0; );
 
 Equation  ZQ_Obj                           'Objective';
 Equation  ZQ_IncomeTotal(moall)            'Indkomst Total';
+Equation  ZQ_IncomeElec(moall)             'Indkomst Elsalg';
 Equation  ZQ_IncomeHeat(moall)             'Indkomst Varmesalg til GSF';
 Equation  ZQ_IncomeAff(f,moall)            'Indkomst på affaldsfraktioner';
 Equation  ZQ_CostsTotal(moall)             'Omkostninger Total';
@@ -663,6 +714,7 @@ Equation  ZQ_TaxATL(moall)                 'Affaldstillaegsafgift foer evt. raba
 Equation  ZQ_TaxNOxF(f,moall)              'NOx-afgift på brændsler';
 Equation  ZQ_TaxEnr(moall)                 'Energiafgift på fossil varme';
 
+Equation ZQ_FuelConsP(f,moall);
 Equation ZQ_FEBiogen(ua,moall);
 Equation ZQ_QtotalCool(moall);
 Equation ZQ_QtotalAff(moall);
@@ -707,13 +759,16 @@ ZQ_Obj  ..  NPV  =E=  sum(mo,
                              + Penalty_bOnU * sum(u $OnU(u), bOnU(u,mo))
                              + Penalty_QRgkMiss * QRgkMiss(mo)
                              + [Penalty_QInfeas * sum(dir, QInfeasDir(dir,mo))] $OnQInfeas
+                             + [Penalty_AffaldsGensalg * sum(f $OnF(f), FuelResaleT(f,mo))]
                            ] );
 
 ZQ_IncomeTotal(mo)   .. IncomeTotal(mo)   =E=  sum(fa $OnF(fa), IncomeAff(fa,mo)) + RgkRabat(mo) + IncomeElec(mo) + IncomeHeat(mo);
 
+ZQ_IncomeElec(mo)   ..  IncomeElec(mo)    =E=  Pnet(mo) * (PowerPrice(mo) - TariffElProd(mo));
+
 ZQ_IncomeHeat(mo)   ..  IncomeHeat(mo)    =E=  VarmeSalgspris * sum(u $(OnU(u) AND up(u) AND urefa(u)), Q(u,mo));
 
-ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDeliv(fa,mo) * FuelBounds(fa,'ModtPris',mo) $(OnF(fa) AND fpospris(fa));
+ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDelivT(fa,mo) * FuelBounds(fa,'ModtPris',mo) $(OnF(fa) AND fpospris(fa));
 
 ZQ_CostsTotal(mo)    .. CostsTotal(mo)    =E= sum(owner, CostsTotalOwner(owner,mo));
 
@@ -742,18 +797,20 @@ ZQ_CostsU(u,mo)      .. CostsU(u,mo)      =E=  [Q(u,mo) * DvMWhq(u) + bOnU(u,mo)
 #---                                  + (TaxAFV(mo) + TaxATL(mo) + CostsETS(mo)) $sameas(owner,'refa');
 
 
-ZQ_CostsPurchaseF(f,mo) $(OnF(f) AND fnegpris(f)) .. CostsPurchaseF(f,mo)  =E=  FuelDeliv(f,mo) * (-FuelBounds(f,'ModtPris',mo));
-
+ZQ_CostsPurchaseF(f,mo) $(OnF(f) AND fnegpris(f)) .. CostsPurchaseF(f,mo)  =E=  FuelDelivT(f,mo) * (-FuelBounds(f,'ModtPris',mo));
 
 # Beregning af afgiftspligtigt affald.
+
+ZQ_FuelConsP(fa,mo) $OnF(fa) .. FuelConsP(fa,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,fa)), FuelConsT(ua,fa,mo) * LhvMWh(fa));
+
 # Opgørelse af biogen affaldsmængde for hver ovn-linje.
-ZQ_FEBiogen(ua,mo) .. FEBiogen(ua,mo)  =E=  sum(fbiogen $(OnF(fbiogen) AND u2f(ua,fbiogen)), FuelCons(ua,fbiogen,mo) * LhvMWh(fbiogen));
+ZQ_FEBiogen(ua,mo) .. FEBiogen(ua,mo)  =E=  sum(fbiogen $(OnF(fbiogen) AND u2f(ua,fbiogen)), FuelConsT(ua,fbiogen,mo) * LhvMWh(fbiogen));
 
 
 # Opsummering af varmemængder til mere overskuelig afgiftsberegning.
 ZQ_QtotalCool(mo) ..  QtotalCool(mo)  =E=  sum(uv $OnU(uv), Q(uv,mo));
 ZQ_QtotalAff(mo)  ..  QtotalAff(mo)   =E=  sum(ua $OnU(ua), Q(ua,mo));
-ZQ_EtotalAff(mo)  ..  EtotalAff(mo)   =E=  QtotalAff(mo) + PowerProd(mo);
+ZQ_EtotalAff(mo)  ..  EtotalAff(mo)   =E=  QtotalAff(mo) + Pbrut(mo);
 
 # Affaldvarme-afgift:
 ZQ_TaxAFV(mo)     .. TaxAFV(mo)     =E=  TaxAfvMWh(mo) * Qafv(mo);
@@ -795,31 +852,31 @@ ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * 
 ZQ_CostsETS(mo)  ..  CostsETS(mo)   =E=   TaxEtsTon(mo) * sum(fa $OnF(fa), CO2emisF(fa,mo,'kvote'));  # Kun affaldsanlægget er kvoteomfattet.
 
 # CO2-afgift på ikke-affaldsanlæg (p.t. ingen afgift på biomasse):
-ZQ_TaxCO2Aux(mo)  .. TaxCO2Aux(mo)  =E=  sum(fr $OnF(fr), sum(ur $(OnU(ur) AND u2f(ur,fr)), FuelCons(ur,fr,mo))) * TaxCO2peakTon(mo);
+ZQ_TaxCO2Aux(mo)  .. TaxCO2Aux(mo)  =E=  sum(fr $OnF(fr), sum(ur $(OnU(ur) AND u2f(ur,fr)), FuelConsT(ur,fr,mo))) * TaxCO2peakTon(mo);
 
 # Den fulde CO2-emission uden hensyntagen til fradrag for elproduktion.
-ZQ_CO2emisF(f,mo,typeCO2) $OnF(f) .. CO2emisF(f,mo,typeCO2)  =E=  sum(u $(OnU(u) AND u2f(u,f)), FuelCons(u,f,mo)) * CO2potenTon(f,typeCO2,mo);
+ZQ_CO2emisF(f,mo,typeCO2) $OnF(f) .. CO2emisF(f,mo,typeCO2)  =E=  sum(u $(OnU(u) AND u2f(u,f)), FuelConsT(u,f,mo)) * CO2potenTon(f,typeCO2,mo);
 ZQ_CO2emisAff(mo,typeCO2)         .. CO2emisAff(mo,typeCO2)  =E=  QudenRgk(mo) * CO2ContentAff(mo) $sameas(typeCO2,'afgift') + sum(fa, CO2emisF(fa,mo,typeCO2)) $sameas(typeCO2,'kvote');
 
 #--- ZQ_TaxCO2(mo)              .. TaxCO2(mo)     =E=  sum(f $OnF(f), TaxCO2F(f,mo)); 
-#--- ZQ_TaxCO2F(f,mo) $OnF(f)   .. TaxCO2F(f,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,f)), FuelCons(ua,f,mo)) * TaxCO2AffTon(mo) $fa(f) 
-#---                                                 + sum(ur $(OnU(ur) AND u2f(ur,f)), FuelCons(ur,f,mo)) * TaxCO2peakTon(mo) $fr(f); 
+#--- ZQ_TaxCO2F(f,mo) $OnF(f)   .. TaxCO2F(f,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,f)), FuelConsT(ua,f,mo)) * TaxCO2AffTon(mo) $fa(f) 
+#---                                                 + sum(ur $(OnU(ur) AND u2f(ur,f)), FuelConsT(ur,f,mo)) * TaxCO2peakTon(mo) $fr(f); 
 #--- ZQ_CostsETS(mo)            .. CostsETS(mo)   =E=  sum(fa $OnF(fa), CO2emis(fa,mo,'kvote')) * TaxEtsTon(mo);  # Kun affaldsanl?gget er kvoteomfattet. 
 #---  
 #--- ZQ_Qafv(mo)                .. Qafv(mo)       =E=  sum(ua $OnU(ua), Q(ua,mo)) - sum(uv $OnU(uv), Q(uv,mo));   # Antagelse: Kun affaldsanlaeg giver anledning til bortkoeling. 
 #---  
-#--- #--- ZQ_CO2emis(f,mo) $OnF(f)   .. CO2emis(f,mo)  =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelCons(up,f,mo)) * CO2potenTon(f); 
-#--- ZQ_CO2emis(f,mo,typeCO2) $OnF(f)   .. CO2emis(f,mo,typeCO2)  =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelCons(up,f,mo)) * CO2potenTon(f,typeCO2,mo); 
+#--- #--- ZQ_CO2emis(f,mo) $OnF(f)   .. CO2emis(f,mo)  =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelConsT(up,f,mo)) * CO2potenTon(f); 
+#--- ZQ_CO2emis(f,mo,typeCO2) $OnF(f)   .. CO2emis(f,mo,typeCO2)  =E=  sum(up $(OnU(up) AND u2f(up,f)), FuelConsT(up,f,mo)) * CO2potenTon(f,typeCO2,mo); 
 #---  
 
 
 # NOx-afgift:
-ZQ_TaxNOxF(f,mo) $OnF(f)   .. TaxNOxF(f,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,f)), FuelCons(ua,f,mo)) * DataFuel(f,'NOxKgTon') * TaxNOxAffkg(mo) $fa(f)
-                                                + sum(ub $(OnU(ub) AND u2f(ub,f)), FuelCons(ub,f,mo)) * TaxNOxFlisTon(mo) $fb(f)
-                                                + sum(ur $(OnU(ur) AND u2f(ur,f)), FuelCons(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
+ZQ_TaxNOxF(f,mo) $OnF(f)   .. TaxNOxF(f,mo)  =E=  sum(ua $(OnU(ua) AND u2f(ua,f)), FuelConsT(ua,f,mo)) * DataFuel(f,'NOxKgTon') * TaxNOxAffkg(mo) $fa(f)
+                                                + sum(ub $(OnU(ub) AND u2f(ub,f)), FuelConsT(ub,f,mo)) * TaxNOxFlisTon(mo) $fb(f)
+                                                + sum(ur $(OnU(ur) AND u2f(ur,f)), FuelConsT(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
                                                 
 # Energiafgift SR-kedel:
-ZQ_TaxEnr(mo)              .. TaxEnr(mo)     =E=  sum(ur $OnU(ur), FuelCons(ur,'peakfuel',mo)) * TaxEnrPeakTon(mo);
+ZQ_TaxEnr(mo)              .. TaxEnr(mo)     =E=  sum(ur $OnU(ur), FuelConsT(ur,'peakfuel',mo)) * TaxEnrPeakTon(mo);
 
 # Prioritering af anlægsdrift:
 ZQ_PrioUp(uprio,up,mo) $(OnU(uprio) AND OnU(up) AND AvailDaysU(mo,uprio) AND AvailDaysU(mo,up)) ..  bOnU(up,mo)  =L=  bOnU(uprio,mo);
@@ -839,7 +896,7 @@ Equation  ZQ_TotalAffEprod(moall)  'Samlet energiproduktion MWh';
 Equation  ZQ_QRgkMiss(moall)       'Bestem manglende RGK-varme for at opnaa rabat';
 Equation  ZQ_bOnRgkRabat(moall)    'Bestem bOnRgkRabat';
 
-ZQ_TotalAffEprod(mo)  ..  TotalAffEProd(mo)  =E=  PowerProd(mo) + sum(ua $OnU(ua), Q(ua,mo));       # Samlet energioutput fra affaldsanlæg. Bruges til beregning af RGK-rabat.
+ZQ_TotalAffEprod(mo)  ..  TotalAffEProd(mo)  =E=  Pbrut(mo) + sum(ua $OnU(ua), Q(ua,mo));       # Samlet energioutput fra affaldsanlæg. Bruges til beregning af RGK-rabat.
 ZQ_QRgkMiss(mo)       ..  sum(ua $OnU(ua), Qrgk(ua,mo)) + QRgkMiss(mo)  =G=  RgkRabatMinShare * TotalAffEProd(mo);
 ZQ_bOnRgkRabat(mo)    ..  QRgkMiss(mo)  =L=  (1 - bOnRgkRabat(mo)) * QRgkMissMax;
 
@@ -858,7 +915,12 @@ ZQ_RgkRabatMax2(mo) ..  RgkRabatSats * TaxATL(mo) - RGKrabat(mo)  =L=  RgkRabatM
 
 #end Beregning af RGK-rabat
 
-#begin Varmebalancer
+#begin Varmebalancer og elproduktion
+Equation ZQ_PbrutMax(moall)              'Brutto elproduktion uden hensyn til bypass';
+Equation ZQ_Pbrut(moall)                 'Brutto elproduktion';
+Equation ZQ_Pnet(moall)                  'Netto elproduktion';
+Equation ZQ_Qbypass(moall)               'Bypass varmeproduktion';
+
 Equation  ZQ_Qdemand(moall)              'Opfyldelse af fjv-behov';
 Equation  ZQ_Qaff(ua,moall)              'Samlet varmeprod. affaldsanlaeg';
 Equation  ZQ_QaffM(ua,moall)             'Samlet modtryks-varmeprod. affaldsanlaeg';
@@ -871,20 +933,27 @@ Equation  ZQ_Qmin(u,moall)               'Sikring af nedre graense på varmeprodu
 Equation  ZQ_QMax(u,moall)               'Aktiv status begraenset af total raadighed';
 Equation  ZQ_bOnRgk(ua,moall)            'Angiver om RGK er aktiv';
 
-ZQ_Qdemand(mo)               ..  Qdemand(mo)  =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo)) + [QInfeasDir('source',mo) - QInfeasDir('drain',mo)] $OnQInfeas;
-ZQ_Qaff(ua,mo)     $OnU(ua)  ..  Q(ua,mo)     =E=  [QaffM(ua,mo) + Qrgk(ua,mo)];
-ZQ_QaffM(ua,mo)    $OnU(ua)  ..  QaffM(ua,mo) =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo) * EtaQ(ua) * LhvMWh(fa))] $OnU(ua);
-ZQ_Qrgk(ua,mo)     $OnU(ua)  ..  Qrgk(ua,mo)  =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);
-ZQ_QrgkMax(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);
 
-ZQ_Qaux(uaux,mo) $OnU(uaux)  ..  Q(uaux,mo)   =E=  [sum(faux $(OnF(faux) AND u2f(uaux,faux)), FuelCons(uaux,faux,mo) * EtaQ(uaux) * LhvMWh(faux))] $OnU(uaux);
+# Beregning af elproduktion. Det antages, at omsætning fra bypass-damp til fjernvarme er 1-til-1, dvs. 100 pct. effektiv bypass-drift.
+ZQ_PbrutMax(mo)$OnU('Ovn3')  .. PbrutMax(mo) =E=  EtaE('Ovn3') * sum(fa $(OnF(fa) AND u2f('Ovn3',fa)), FuelConsT('Ovn3',fa,mo) * LhvMWh(fa));
+ZQ_Pbrut(mo)   $OnU('Ovn3')  .. Pbrut(mo)    =E=  PbrutMax(mo) * (1 - ShareBypass(mo));
+ZQ_Pnet(mo)    $OnU('Ovn3')  .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo) * (1 - ShareBypass(mo));  # Peget har taget hensyn til bypass.
+ZQ_Qbypass(mo) $OnU('Ovn3')  .. Qbypass(mo)  =E=  (PbrutMax(mo) - Peget(mo)) * ShareBypass(mo);
 
+ZQ_Qdemand(mo)               ..  Qdemand(mo)   =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo)) + [QInfeasDir('source',mo) - QInfeasDir('drain',mo)] $OnQInfeas;
+ZQ_Qaff(ua,mo)     $OnU(ua)  ..  Q(ua,mo)      =E=  [QaffM(ua,mo) + Qrgk(ua,mo)] + Qbypass(mo) $sameas(ua,'Ovn3');
+ZQ_QaffM(ua,mo)    $OnU(ua)  ..  QaffM(ua,mo)  =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelConsT(ua,fa,mo) * EtaQ(ua) * LhvMWh(fa))] $OnU(ua);
+ZQ_QaffMmax(ua,mo) $OnU(ua)  ..  QAffM(ua,mo)  =L=  QaffMmax(ua,mo);    
+ZQ_Qrgk(ua,mo)     $OnU(ua)  ..  Qrgk(ua,mo)   =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);
+ZQ_QrgkMax(ua,mo)  $OnU(ua)  ..  Qrgk(ua,mo)   =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);
 
-ZQ_QaffMmax(ua,mo) $OnU(ua)  ..  QAffM(ua,mo)                =L=  QaffMmax(ua,mo);
+ZQ_Qaux(uaux,mo) $OnU(uaux)  ..  Q(uaux,mo)  =E=  [sum(faux $(OnF(faux) AND u2f(uaux,faux)), FuelConsT(uaux,faux,mo) * EtaQ(uaux) * LhvMWh(faux))] $OnU(uaux);
+
 ZQ_CoolMax(mo)               ..  sum(uv $OnU(uv), Q(uv,mo))  =L=  sum(ua $OnU(ua), Q(ua,mo));
 
-ZQ_QMin(u,mo)      $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo);   #  Restriktionen på timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
-ZQ_QMax(u,mo)      $OnU(u)   ..  Q(u,mo)      =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo);
+#OBS: Qbypass indgår i Q('Ovn3',mo).
+ZQ_QMin(u,mo)      $OnU(u)   ..  Q(u,mo)      =G=  ShareAvailU(u,mo) * Hours(mo) * KapMin(u) * bOnU(u,mo) + Qbypass(mo) $sameas(u,'Ovn3');   #  Restriktionen på timeniveau tager hoejde for, at NS leverer mindre end 1 dags kapacitet.
+ZQ_QMax(u,mo)      $OnU(u)   ..  Q(u,mo)      =L=  ShareAvailU(u,mo) * Hours(mo) * KapMax(u) * bOnU(u,mo) + Qbypass(mo) $sameas(u,'Ovn3');
 ZQ_bOnRgk(ua,mo)   $OnU(ua)  ..  Qrgk(ua,mo)  =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);
 
 #end Varmebalancer
@@ -908,28 +977,28 @@ Equation ZQ_StoDLoad(s,moall)   'Samlet lagermængde';
 Equation ZQ_FuelCons(f,moall)   'Relation mellem afbrændt, leveret og lagerført brændsel (if any)';
 
 ZQ_StoDLoad(sa,mo) $OnS(sa) ..  sum(fsto $(OnF(fsto) AND s2f(sa,fsto)), StoDLoadF(sa,fsto,mo))  =E=  StoDLoad(sa,mo);
-ZQ_FuelCons(f,mo)  $OnF(f)  ..  sum(u $(OnU(u) AND u2f(u,f)), FuelCons(u,f,mo))                =E=  FuelDeliv(f,mo) - [sum(sa $(OnS(sa) and s2f(sa,f)), StoDLoadF(sa,f,mo))] $fsto(f);
+ZQ_FuelCons(f,mo)  $OnF(f)  ..  sum(u $(OnU(u) AND u2f(u,f)), FuelConsT(u,f,mo))                =E=  FuelDelivT(f,mo) - [sum(sa $(OnS(sa) and s2f(sa,f)), StoDLoadF(sa,f,mo))] $fsto(f);
 
 # Grænser for leverancer.
+
 Equation  ZQ_FuelMin(f,moall)   'Mindste drivmiddelforbrug på månedsniveau';
 Equation  ZQ_FuelMax(f,moall)   'Stoerste drivmiddelforbrug på månedsniveau';
 
-#-- ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fsto(f) AND NOT ffri(f))  ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDeliv(u,f,mo))   =G=  FuelBounds(f,'min',mo);
-#-- ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f)) ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDeliv(u,f,mo))  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+#-- ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fsto(f) AND NOT ffri(f))  ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDelivT(u,f,mo))   =G=  FuelBounds(f,'min',mo);
+#-- ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f)) ..  sum(u $(OnU(u)  AND u2f(u,f)),  FuelDelivT(u,f,mo))  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
-#--- ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fsto(f) AND NOT ffri(f))  ..  FuelDeliv(f,mo)  =G=  FuelBounds(f,'min',mo);
-ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT ffri(f))  ..  FuelDeliv(f,mo)  =G=  FuelBounds(f,'min',mo);
-ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f))                  ..  FuelDeliv(f,mo)  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+#--- ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fsto(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo)  =G=  FuelBounds(f,'min',mo);
+ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'min',mo);
+ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
-# Årskrav til affaldsfraktioner, som skal bortskaffes.
 Equation  ZQ_FuelMinYear(f)  'Mindste braendselsforbrug på årsniveau';
 Equation  ZQ_FuelMaxYear(f)  'Stoerste braendselsforbrug på årsniveau';
 
-#--- ZQ_FuelMinYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDeliv(u,fdis,mo)))  =G=  MinTonnageYear(fdis) * card(mo) / 12;
-#--- ZQ_FuelMaxYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDeliv(u,fdis,mo)))  =L=  MaxTonnageYear(fdis) * card(mo) / 12;
+#--- ZQ_FuelMinYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDelivT(u,fdis,mo)))  =G=  MinTonnageYear(fdis) * card(mo) / 12;
+#--- ZQ_FuelMaxYear(fdis)  $OnF(fdis)  ..  sum(mo, sum(u $(OnU(u) AND u2f(u,fdis)), FuelDelivT(u,fdis,mo)))  =L=  MaxTonnageYear(fdis) * card(mo) / 12;
 
-ZQ_FuelMinYear(fdis)  $OnF(fdis)  ..  sum(mo, FuelDeliv(fdis,mo))  =G=  MinTonnageYear(fdis) * card(mo) / 12;
-ZQ_FuelMaxYear(fdis)  $OnF(fdis)  ..  sum(mo, FuelDeliv(fdis,mo))  =L=  MaxTonnageYear(fdis) * card(mo) / 12;
+ZQ_FuelMinYear(fdis)  $(OnF(fdis) AND FALSE) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) - FuelResaleT(fdis,mo))  =G=  MinTonnageYear(fdis) * card(mo) / 12;
+ZQ_FuelMaxYear(fdis)  $(OnF(fdis) AND FALSE) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) - FuelResaleT(fdis,mo))  =L=  MaxTonnageYear(fdis) * card(mo) / 12;
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
@@ -937,25 +1006,25 @@ Equation ZQ_FuelMinFreeNonStorable(f,moall)  'Ligeligt tonnageforbrug af ikke-la
 #--- Equation ZQ_FuelMinFree(f,moall)     'Mindste maengde ikke-lagerbare frie affaldsfraktioner';
 #--- Equation ZQ_FuelMaxFree(f,moall)     'stoerste maengde til ikke-lagerbare frie affaldsfraktioner';
 
-ZQ_FuelDelivFreeSum(ffri) $(OnF(ffri) AND card(mo) GT 1)                             ..  FuelDelivFreeSum(ffri)  =E=  sum(mo, FuelDeliv(ffri,mo));
-ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri) AND card(mo) GT 1) ..  FuelDeliv(ffri,mo)      =E=  FuelDelivFreeSum(ffri) / card(mo);
-#--- ZQ_FuelDelivFreeSum(ffri) $(OnF(ffri) AND card(mo) GT 1)                             .. FuelDelivFreeSum(ffri)  =E=  sum(mo, sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDeliv(ua,ffri,mo) ) );
-#--- ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri) AND card(mo) GT 1) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDeliv(ua,ffri,mo))  =E=  FuelDelivFreeSum(ffri) / card(mo);
-#--- ZQ_FuelMinFree(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri)) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDeliv(ua,ffri,mo))  =G=  FuelDelivFreeSum(ffri);
-#--- ZQ_FuelMaxFree(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri)) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDeliv(ua,ffri,mo))  =L=  FuelDelivFreeSum(ffri) * 1.0001;
+ZQ_FuelDelivFreeSum(ffri) $(OnF(ffri) AND card(mo) GT 1)                             ..  FuelDelivFreeSumT(ffri)  =E=  sum(mo, FuelDelivT(ffri,mo));
+ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri) AND card(mo) GT 1) ..  FuelDelivT(ffri,mo)      =E=  FuelDelivFreeSumT(ffri) / card(mo);
+#--- ZQ_FuelDelivFreeSum(ffri) $(OnF(ffri) AND card(mo) GT 1)                             .. FuelDelivFreeSumT(ffri)  =E=  sum(mo, sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDelivT(ua,ffri,mo) ) );
+#--- ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri) AND card(mo) GT 1) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDelivT(ua,ffri,mo))  =E=  FuelDelivFreeSumT(ffri) / card(mo);
+#--- ZQ_FuelMinFree(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri)) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDelivT(ua,ffri,mo))  =G=  FuelDelivFreeSumT(ffri);
+#--- ZQ_FuelMaxFree(ffri,mo) $(OnF(ffri) AND NOT fsto(ffri)) ..  sum(ua $(OnU(ua)  AND u2f(ua,ffri)), FuelDelivT(ua,ffri,mo))  =L=  FuelDelivFreeSumT(ffri) * 1.0001;
 
 # Restriktioner på tonnage og braendvaerdi for affaldsanlaeg.
 Equation ZQ_MinTonnage(u,moall)    'Mindste tonnage for affaldsanlaeg';
 Equation ZQ_MaxTonnage(u,moall)    'Stoerste tonnage for affaldsanlaeg';
 Equation ZQ_MinLhvAffald(u,moall)  'Mindste braendvaerdi for affaldsblanding';
 
-#--- ZQ_MaxTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDeliv(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * KapTon(ua);
-#--- ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDeliv(ua,fa,mo))
-#---                                       =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDeliv(ua,fa,mo) * LhvMWh(fa));
+#--- ZQ_MaxTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDelivT(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * KapTon(ua);
+#--- ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDelivT(ua,fa,mo))
+#---                                       =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelDelivT(ua,fa,mo) * LhvMWh(fa));
 
-ZQ_MinTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo))  =G=  ShareAvailU(ua,mo) * Hours(mo) * MinTon(ua);
-ZQ_MaxTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * MaxTon(ua);
-ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo))  =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelCons(ua,fa,mo) * LhvMWh(fa));
+ZQ_MinTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelConsT(ua,fa,mo))  =G=  ShareAvailU(ua,mo) * Hours(mo) * MinTon(ua);
+ZQ_MaxTonnage(ua,mo) $OnU(ua)    ..  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelConsT(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * MaxTon(ua);
+ZQ_MinLhvAffald(ua,mo) $OnU(ua)  ..  MinLhvMWh(ua) * sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelConsT(ua,fa,mo))  =L=  sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelConsT(ua,fa,mo) * LhvMWh(fa));
 
 # Lagerdisponering.
 Equation ZQ_StoCostAll(s,moall)       'Samlet lageromkostning';
@@ -1109,19 +1178,19 @@ loop (iter $(ord(iter) GE 2),
   # Phi opdateres på basis af seneste optimeringsløsning.
   QcoolTotal(mo)      = sum(uv $OnU(uv), Q.L(uv,mo));
   Qtotal(mo)          = sum(ua $OnU(ua), Q.L(ua,mo));
-  EnergiTotal(mo)     = Qtotal(mo) + PowerProd(mo);
+  EnergiTotal(mo)     = Qtotal(mo) + Pbrut.L(mo);
   FEBiogenTotal(mo)   = sum(ua $OnU(ua), FEBiogen.L(ua,mo));
-  Fenergi(phiKind,mo) = [sum(ua $OnU(ua), Q.L(ua,mo)) + PowerProd(mo)] / eE(phiKind);
+  Fenergi(phiKind,mo) = [sum(ua $OnU(ua), Q.L(ua,mo)) + Pbrut.L(mo)] / eE(phiKind);
   Phi(phiKind,mo)     = ifthen(Fenergi(phiKind,mo) EQ 0.0, 0.0, FEBiogenTotal(mo) / Fenergi(phiKind,mo) );
   PhiIter(phiKind,mo,iter) = Phi(phiKind,mo);
 
   # Beregn afgiftssum og sammenlign med forrige iteration.
   # AffaldVarme-afgift: Qafg = Qtotal - Qkøl - 0.85 * Fbiogen
   # Tillægs-afgift for bOnRgkRabat = 0:     Qafg = Qtotal * (1 - phi85) / 1.2    
-  # Tillægs-afgift for bOnRgkRabat = 1:     Qafg = [Qtotal - 0.1 * (Qtotal + PowerProd)] * (1 - phi95) / 1.2 
+  # Tillægs-afgift for bOnRgkRabat = 1:     Qafg = [Qtotal - 0.1 * (Qtotal + Pbrut)] * (1 - phi95) / 1.2 
   # CO2-afgift     for bOnRgkRabat = 0:     Qafg = Qtotal * (1 - phi85) / 1.2   
-  # CO2-afgift     for bOnRgkRabat = 1:     Qafg = [Qtotal - 0.1 * (Qtotal + PowerProd)] * (1 - phi95) / 1.2 
-  # phi = Fbiogen / Fenergi;  Fenergi = (Qtotal + PowerProd) / e;  phi85 = phi(e=0.85);  phi95 = phi(e=0.95);
+  # CO2-afgift     for bOnRgkRabat = 1:     Qafg = [Qtotal - 0.1 * (Qtotal + Pbrut)] * (1 - phi95) / 1.2 
+  # phi = Fbiogen / Fenergi;  Fenergi = (Qtotal + Pbrut) / e;  phi85 = phi(e=0.85);  phi95 = phi(e=0.95);
     
   QafgAfv(mo) = Qtotal(mo) - QcoolTotal(mo) - 0.85 * FEBiogenTotal(mo);
   QafgAtl(mo) = [(Qtotal(mo) * (1 - Phi('85',mo)) * (1 - bOnRgkRabat.L(mo)))  +  (Qtotal(mo) - 0.1 * EnergiTotal(mo) * (1 - Phi('95',mo))) * bOnRgkRabat.L(mo) ] / 1.2;
@@ -1203,19 +1272,20 @@ loop (iter $(ord(iter) GE 2),
 
 # Tilbageføring til NPV af penalty costs og omkostninger fra ikke-inkluderede anlaeg og braendsler samt gevinst for Ovn3-varme.
 Scalar NPV_REFA_V, NPV_Total_V;
-Scalar Penalty_bOnUTotal, Penalty_QRgkMissTotal;
+Scalar Penalty_bOnUTotal, Penalty_QRgkMissTotal, Penalty_AffaldsGensalgTotal;
 Scalar Gain_Ovn3Total 'Samlede virtuelle gevinst';
 
-Penalty_bOnUTotal     = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
-Penalty_QRgkMissTotal = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
-Gain_Ovn3Total        = Gain_Ovn3 * sum(mo, Q.L('Ovn3',mo));
+Penalty_bOnUTotal           = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
+Penalty_QRgkMissTotal       = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
+Penalty_AffaldsGensalgTotal = Penalty_AffaldsGensalg * sum(mo, sum(f $OnF(f), FuelResaleT.L(f,mo)));
+Gain_Ovn3Total              = Gain_Ovn3 * sum(mo, Q.L('Ovn3',mo));
 
 # NPV_Total_V er den samlede NPV med tilbageførte penalties.
-NPV_Total_V = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal - Gain_Ovn3Total;
+NPV_Total_V = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal + Penalty_AffaldsGensalgTotal - Gain_Ovn3Total;
 
 # NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
-NPV_REFA_V  = NPV.L + Penalty_bOnUTotal + Penalty_QRgkMissTotal - Gain_Ovn3Total
-              + sum(mo, CostsTotalOwner.L('gsf',mo));
+NPV_REFA_V  = NPV_Total_V + sum(mo, CostsTotalOwner.L('gsf',mo));
+
 #---          + sum(ugsf $(OnU(ugsf)), CostsU.L(ugsf,mo))
 #---          + sum(fgsf $(OnF(fgsf)), CostsPurchaseF.L(fgsf,mo) + TaxCO2F.L(fgsf,mo) + TaxNOxF.L(fgsf,mo)) + TaxEnr.L(mo)
 #---        );
@@ -1240,8 +1310,8 @@ PerSlut  = Schedule('dato','lastPeriod');
 set topics / FJV-behov, Var-Varmeproduktions-Omk-Total, Var-Varmeproduktions-Omk-REFA,
              REFA-Daekningsbidrag, REFA-Total-Var-Indkomst, REFA-Affald-Modtagelse, REFA-RGK-Rabat, REFA-Elsalg,
              REFA-Total-Var-Omkostning, REFA-AnlaegsVarOmk, REFA-BraendselOmk, REFA-Afgifter, REFA-CO2-Kvoteomk, REFA-Lageromkostning,
-             REFA-CO2-Emission-Afgift, REFA-CO2-Emission-Kvote, REFA-El-produktion,
-             REFA-Total-Varme-Produktion, REFA-Modtryk-Varme, REFA-RGK-Varme, REFA-RGK-Andel, REFA-Bortkoelet-Varme,
+             REFA-CO2-Emission-Afgift, REFA-CO2-Emission-Kvote, REFA-El-produktion-Brutto, REFA-El-produktion-Netto,
+             REFA-Total-Varme-Produktion, REFA-Modtryk-Varme, REFA-Bypass-Varme, REFA-RGK-Varme, REFA-RGK-Andel, REFA-Bortkoelet-Varme,
              GSF-Total-Var-Omkostning,  GSF-AnlaegsVarOmk,  GSF-BraendselOmk,  GSF-Afgifter,  GSF-CO2-Emission,  GSF-Total-Varme-Produktion
              /;
 
@@ -1273,11 +1343,13 @@ Parameter RefaAfgifter_V(moall)            'REFA afgifter [DKK]';
 Parameter RefaKvoteOmk_V(moall)            'REFA CO2 kvote-omk. [DKK]';
 Parameter RefaStoCost_V(moall)             'REFA Lageromkostning [DKK]';
 Parameter RefaCO2emission_V(moall,typeCO2) 'REFA CO2 emission [ton]';
-Parameter RefaElproduktion_V(moall)        'REFA elproduktion [MWhe]';
+Parameter RefaElproduktionBrutto_V(moall)  'REFA brutto elproduktion [MWhe]';
+Parameter RefaElproduktionNetto_V(moall)   'REFA netto elproduktion [MWhe]';
 
 Parameter RefaVarmeProd_V(moall)           'REFA Total varmeproduktion [MWhq]';
 Parameter RefaModtrykProd_V(moall)         'REFA Total modtryksvarmeproduktion [MWhq]';
-Parameter RefaRgkProd_V(moall)             'REFA RGJ-varmeproduktion [MWhq]';
+Parameter RefaBypassVarme_V(moall)         'REFA Bypass-varme på Ovn3 [MWhq]';
+Parameter RefaRgkProd_V(moall)             'REFA RGK-varmeproduktion [MWhq]';
 Parameter RefaRgkShare_V(moall)            'RGK-varmens andel af REFA energiproduktion';
 Parameter RefaBortkoeletVarme_V(moall)     'REFA bortkoelet varme [MWhq]';
 Parameter VarmeVarProdOmkTotal_V(moall)    'Variabel varmepris på tvaers af alle produktionsanlæg DKK/MWhq';
@@ -1297,7 +1369,7 @@ Parameter GsfTotalVarmeProd_V(moall)       'Guldborgsund Forsyning Total Varmepr
 loop (mo $(NOT sameas(mo,'mo0')),
   RefaAffaldModtagelse_V(mo)            = sum(fa $OnF(fa), IncomeAff.L(fa,mo));
   RefaRgkRabat_V(mo)                    = RgkRabat.L(mo);
-  RefaElsalg_V(mo)                      = IncomeElec(mo);
+  RefaElsalg_V(mo)                      = IncomeElec.L(mo);
   RefaTotalVarIndkomst_V(mo)            = RefaAffaldModtagelse_V(mo) + RefaRgkRabat_V(mo) + RefaElsalg_V(mo);
   OverView('REFA-Affald-Modtagelse',mo) = max(tiny, RefaAffaldModtagelse_V(mo) );
   OverView('REFA-RGK-Rabat',mo)         = max(tiny, RefaRgkRabat_V(mo) );
@@ -1321,18 +1393,23 @@ loop (mo $(NOT sameas(mo,'mo0')),
 
 # TODO: Skal tilrettes ændrede CO2-opgørelser.
   RefaCO2emission_V(mo,typeCO2)            = max(tiny, sum(frefa $OnF(frefa), CO2emisF.L(frefa,mo,typeCO2)) );
-  RefaElproduktion_V(mo)                   = max(tiny, PowerProd(mo));
+  RefaElproduktionBrutto_V(mo)             = max(tiny, Pbrut.L(mo));
+  RefaElproduktionNetto_V(mo)              = max(tiny, Pnet.L(mo));
+  
   OverView('REFA-CO2-Emission-afgift',mo)  = RefaCO2emission_V(mo,'afgift');
   OverView('REFA-CO2-Emission-kvote',mo)   = RefaCO2emission_V(mo,'kvote');
-  OverView('REFA-El-produktion',mo)        = RefaElproduktion_V(mo);
+  OverView('REFA-El-produktion-Brutto',mo) = RefaElproduktionBrutto_V(mo);
+  OverView('REFA-El-produktion-Netto',mo)  = RefaElproduktionNetto_V(mo);
 
   RefaVarmeProd_V(mo)       = max(tiny, sum(uprefa $OnU(uprefa), Q.L(uprefa,mo)) );
   RefaModtrykProd_V(mo)     = max(tiny, sum(ua $OnU(ua), QAffM.L(ua,mo)) );
+  RefaBypassVarme_V(mo)     = max(tiny, Qbypass.L(mo));
   RefaRgkProd_V(mo)         = max(tiny, sum(ua $OnU(ua), Qrgk.L(ua,mo)) );
   RefaRgkShare_V(mo)        = max(tiny, sum(ua $OnU(ua), Qrgk.L(ua,mo)) / sum(ua $OnU(ua), Q.L(ua,mo)) );
   RefaBortkoeletVarme_V(mo) = max(tiny, sum(uv $OnU(uv), Q.L(uv,mo)) );
   OverView('REFA-Total-Varme-Produktion',mo) = RefaVarmeProd_V(mo);
   OverView('REFA-Modtryk-Varme',mo)          = RefaModtrykProd_V(mo);
+  OverView('REFA-Bypass-Varme',mo)          = RefaBypassVarme_V(mo);
   OverView('REFA-RGK-Varme',mo)              = RefaRgkProd_V(mo);
   OverView('REFA-RGK-Andel',mo)              = RefaRgkShare_V(mo);
   OverView('REFA-Bortkoelet-Varme',mo)       = RefaBortkoeletVarme_V(mo);
@@ -1360,12 +1437,12 @@ loop (mo $(NOT sameas(mo,'mo0')),
 
 
   loop (f,
-    FuelDeliv_V(f,mo) = max(tiny, FuelDeliv.L(f,mo));
+    FuelDeliv_V(f,mo) = max(tiny, FuelDelivT.L(f,mo));
     IncomeFuel_V(f,mo) = IncomeAff.L(f,mo) - CostsPurchaseF.L(f,mo);
     if (IncomeFuel_V(f,mo) EQ 0.0, IncomeFuel_V(f,mo) = tiny; );
   );
   
-  FuelCons_V(u,f,mo) = max(tiny, FuelCons.L(u,f,mo));
+  FuelCons_V(u,f,mo) = max(tiny, FuelConsT.L(u,f,mo));
   
   loop (f $(OnF(f) AND fa(f) AND fsto(f)),
     StoDLoadF_V(sa,f,mo)  = max(tiny, StoDLoadF.L(sa,f,mo));
@@ -1386,14 +1463,14 @@ loop (mo $(NOT sameas(mo,'mo0')),
     );
     if (up(u), 
       # Realiseret brændværdi.
-      tmp1 = sum(f $(OnF(f) AND u2f(u,f)), FuelCons.L(u,f,mo));
+      tmp1 = sum(f $(OnF(f) AND u2f(u,f)), FuelConsT.L(u,f,mo));
       if (tmp1 GT 0.0, 
-        LhvCons_V(u,mo) = 3.6 * sum(f $(OnF(f) AND u2f(u,f)), FuelCons.L(u,f,mo) * LhvMWh(f)) / tmp1;
+        LhvCons_V(u,mo) = 3.6 * sum(f $(OnF(f) AND u2f(u,f)), FuelConsT.L(u,f,mo) * LhvMWh(f)) / tmp1;
       );
       # Tonnage indfyret.
       tmp2 = ShareAvailU(u,mo) * Hours(mo);
       if (tmp2 GT 0.0, 
-        Tonnage_V(u,mo) = sum(f $(OnF(f) AND u2f(u,f)), FuelCons.L(u,f,mo)) / tmp2;
+        Tonnage_V(u,mo) = sum(f $(OnF(f) AND u2f(u,f)), FuelConsT.L(u,f,mo)) / tmp2;
       );
     );
   );
@@ -1416,7 +1493,8 @@ TimeOfWritingMasterResults,
 bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, 
 labDataU, labDataFuel, labScheduleRow, labScheduleCol, labProgn, taxkind, topics, typeCO2,
 Schedule, DataCtrl_V, DataU_V, DataSto_V, Prognoses_V, AvailDaysU, DataFuel_V, FuelBounds_V, 
-OnU, OnF, OnM, OnS, Hours, ShareAvailU, EtaQ, KapMin, KapNom, KapRgk, KapMax, Qdemand, PowerProd, LhvMWh, 
+OnU, OnF, OnM, OnS, Hours, ShareAvailU, EtaQ, KapMin, KapNom, KapRgk, KapMax, Qdemand, LhvMWh, 
+Pbrut, Pnet, Qbypass, 
 TaxAfvMWh, TaxAtlMWh, TaxCO2AffTon, TaxCO2peakTon,
 EaffGross, QaffMmax, QrgkMax, QaffTotalMax, TaxATLMax, RgkRabatMax,
 OverView, NPV_Total_V, NPV_REFA_V, Prognoses_V, FuelDeliv_V, FuelCons_V, StoLoadF_V, StoDLoadF_V, IncomeFuel_V, Q_V,
@@ -1435,10 +1513,12 @@ RefaAfgifter_V,
 RefaKvoteOmk_V,
 RefaStoCost_V,
 RefaCO2emission_V,
-RefaElproduktion_V,
+RefaElproduktionBrutto_V, 
+RefaElproduktionNetto_V,
 
 RefaVarmeProd_V,
 RefaModtrykProd_V,
+RefaBypassVarme_V, 
 RefaRgkProd_V,
 RefaRgkShare_V,
 RefaBortkoeletVarme_V,
@@ -1512,21 +1592,21 @@ par=NPV_REFA_V                      rng=Overblik!B4:B4
 text="NPV_REFA"                     rng=Overblik!A4:A4
 par=OverView                        rng=Overblik!C6          cdim=1  rdim=1
 text="Overblik"                     rng=Overblik!C6:C6
-par=Q_V                             rng=Overblik!C36         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!A36:A36
-par=FuelDeliv_V                     rng=Overblik!C44         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!A44:A44
-par=IncomeFuel_V                    rng=Overblik!C76         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!A76:A76
-par=Usage_V                         rng=Overblik!C108        cdim=1  rdim=1
-text="Kapacitetsudnyttelse"         rng=Overblik!A108:A108
-par=StoLoadAll_V                    rng=Overblik!C117        cdim=1 rdim=1
-text="Lagerbeholdning totalt"       rng=Overblik!A117:A117   
-text="Lager"                        rng=Overblik!C117:C117   
-par=StoLoadF_V                      rng=Overblik!B125        cdim=1 rdim=2
-text="Lagerbeh. pr fraktion"        rng=Overblik!A125:A125   
-text="Lager"                        rng=Overblik!B125:B125   
-text="Fraktion"                     rng=Overblik!C125:C125   
+par=Q_V                             rng=Overblik!C39         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!A39:A39
+par=FuelDeliv_V                     rng=Overblik!C47         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!A47:A47
+par=IncomeFuel_V                    rng=Overblik!C79         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!A79:A79
+par=Usage_V                         rng=Overblik!C111        cdim=1  rdim=1
+text="Kapacitetsudnyttelse"         rng=Overblik!A111:A111
+par=StoLoadAll_V                    rng=Overblik!C120        cdim=1 rdim=1
+text="Lagerbeholdning totalt"       rng=Overblik!A120:A120   
+text="Lager"                        rng=Overblik!C120:C120   
+par=StoLoadF_V                      rng=Overblik!B128        cdim=1 rdim=2
+text="Lagerbeh. pr fraktion"        rng=Overblik!A128:A128   
+text="Lager"                        rng=Overblik!B128:B128   
+text="Fraktion"                     rng=Overblik!C128:C128   
 *end
 
 $offecho
