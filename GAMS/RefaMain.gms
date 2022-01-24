@@ -819,15 +819,23 @@ $If not errorfree $exit
 
 # Erklæring af scenario Loop
 
-set topic  / NPV_Total, NPV_REFA, 
+set topic  / Tidsstempel, NPV_Total, NPV_REFA, 
              FJV-behov, Var-Varmeproduktions-Omk-Total, Var-Varmeproduktions-Omk-REFA,
              REFA-Daekningsbidrag, REFA-Total-Var-Indkomst, REFA-Affald-Modtagelse, REFA-RGK-Rabat, REFA-Elsalg,
              REFA-Total-Var-Omkostning, REFA-AnlaegsVarOmk, REFA-BraendselOmk, REFA-Afgifter, REFA-CO2-Kvoteomk, REFA-Lageromkostning,
              REFA-CO2-Emission-Afgift, REFA-CO2-Emission-Kvote, REFA-El-produktion-Brutto, REFA-El-produktion-Netto,
              REFA-Total-Affald-Raadighed, REFA-Affald-anvendt, REFA-Affald-Uudnyttet, REFA-Affald-Lagret,
-             REFA-Total-Varme-Produktion, REFA-Modtryk-Varme, REFA-Bypass-Varme, REFA-RGK-Varme, REFA-RGK-Andel, REFA-Bortkoelet-Varme,
-             GSF-Total-Var-Omkostning,  GSF-AnlaegsVarOmk,  GSF-BraendselOmk,  GSF-Afgifter,  GSF-CO2-Emission,  GSF-Total-Varme-Produktion
+             REFA-Total-Varme-Produktion, REFA-Leveret-Varme, REFA-Modtryk-Varme, REFA-Bypass-Varme, REFA-RGK-Varme, REFA-RGK-Andel, REFA-Bortkoelet-Varme,
+             GSF-Total-Var-Omkostning,  GSF-AnlaegsVarOmk,  GSF-BraendselOmk,  GSF-Afgifter,  GSF-CO2-Emission,  GSF-Total-Varme-Produktion,
+             NS-Total-Varme-Produktion
              /;
+
+set topicSummable(topic) 'Emner som skal summeres i Scen_Overview';
+topicSummable(topic)         = yes;
+topicSummable('Tidsstempel') = no;
+topicSummable('NPV_Total')   = no;
+topicSummable('NPV_REFA')    = no;
+
 
 Scalar    nScen           'Antal beregnede aktive scenarier';
 Scalar    NPV_REFA_V      'REFAs nutidsværdi';
@@ -837,7 +845,7 @@ Scalar    Gain_Ovn3Total  'Samlede virtuelle gevinst';                          
 Scalar    PerStart;    
 Scalar    PerSlut;
 Scalar    TimeOfWritingMasterResults   'Tidsstempel for udskrivning af resultater for aktuelt scenarie';
-Parameter Scen_TimeStamp(scen)         'Tidsstempel for scenarier';
+#--- Parameter Scen_TimeStamp(scen)         'Tidsstempel for scenarier';
 
 # Kopi af data, som kan ændres af scenarieparametre
 Parameter PrognosesSaved(moall,labProgn)   'Kopi af referencedata for prognoser';
@@ -880,6 +888,7 @@ Parameter RefaElproduktionBrutto_V(moall)  'REFA brutto elproduktion [MWhe]';
 Parameter RefaElproduktionNetto_V(moall)   'REFA netto elproduktion [MWhe]';
 
 Parameter RefaVarmeProd_V(moall)           'REFA Total varmeproduktion [MWhq]';
+Parameter RefaVarmeLeveret_V(moall)        'REFA Leveret varme [MWhq]';
 Parameter RefaModtrykProd_V(moall)         'REFA Total modtryksvarmeproduktion [MWhq]';
 Parameter RefaBypassVarme_V(moall)         'REFA Bypass-varme på Ovn3 [MWhq]';
 Parameter RefaRgkProd_V(moall)             'REFA RGK-varmeproduktion [MWhq]';
@@ -903,7 +912,9 @@ Parameter GsfAfgifter_V(moall)             'Guldborgsund Forsyning Afgifter [DKK
 Parameter GsfCO2emission_V(moall)          'Guldborgsund Forsyning CO2 emission [ton]';
 Parameter GsfTotalVarmeProd_V(moall)       'Guldborgsund Forsyning Total Varmeproduktion [MWhq]';
 
-Parameter VPO_V(u,mo)                      'Varmeproduktionsomkostning DKK/MWhq';
+Parameter NsTotalVarmeProd_V(moall)        'Nordic Sugar Total varmeproduktion [MWhq]';
+
+Parameter VPO_V(u,moall)                   'Varmeproduktionsomkostning DKK/MWhq';
 
 
 
@@ -1265,7 +1276,7 @@ $If not errorfree $exit
 
 # Fiksering af ikke-forbundne anlæg+drivmidler, samt af ikke-aktive anlaeg og ikke-aktive drivmidler.
 # Først løsnes variable, som kunne være blevet fikseret i forrige scenarie.
-if (nScen GE 2,
+if (nScen GE 2 AND FALSE,
   bOnU.up(u,mo)              =  1;
   bOnSto.up(s,mo)            =  1; 
   bOnRgk.up(ua,mo)           =  1; 
@@ -1557,9 +1568,11 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   RefaRgkProd_V(mo)         = max(tiny, sum(ua $OnU(ua), Qrgk.L(ua,mo)) );
   RefaRgkShare_V(mo)        = max(tiny, sum(ua $OnU(ua), Qrgk.L(ua,mo)) / sum(ua $OnU(ua), Q.L(ua,mo)) );
   RefaBortkoeletVarme_V(mo) = max(tiny, sum(uv $OnU(uv), Q.L(uv,mo)) );
+  RefaVarmeLeveret_V(mo)    = RefaVarmeProd_V(mo) - RefaBortkoeletVarme_V(mo);
   OverView('REFA-Total-Varme-Produktion',mo) = RefaVarmeProd_V(mo);
+  OverView('REFA-Leveret-Varme',mo)          = RefaVarmeLeveret_V(mo);
   OverView('REFA-Modtryk-Varme',mo)          = RefaModtrykProd_V(mo);
-  OverView('REFA-Bypass-Varme',mo)          = RefaBypassVarme_V(mo);
+  OverView('REFA-Bypass-Varme',mo)           = RefaBypassVarme_V(mo);
   OverView('REFA-RGK-Varme',mo)              = RefaRgkProd_V(mo);
   OverView('REFA-RGK-Andel',mo)              = RefaRgkShare_V(mo);
   OverView('REFA-Bortkoelet-Varme',mo)       = RefaBortkoeletVarme_V(mo);
@@ -1576,6 +1589,9 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('GSF-CO2-Emission',mo)           = max(tiny, GsfCO2emission_V(mo) );
   OverView('GSF-Total-Varme-Produktion',mo) = max(tiny, GsfTotalVarmeProd_V(mo) );
   OverView('GSF-Total-Var-Omkostning',mo)   = max(tiny, GsfTotalVarOmk_V(mo) );
+
+  NsTotalVarmeProd_V(mo)                    = max(tiny, sum(uc, Q.L(uc,mo)) );
+  OverView('NS-Total-Varme-Produktion',mo)  = NsTotalVarmeProd_V(mo);
 
 #---  VarmeVarProdOmkTotal_V(mo) = (sum(u $OnU(u), CostsU.L(u,mo)) + sum(owner, CostsTotalF.L(owner,mo)) - IncomeTotal.L(mo)) / (sum(up, Q.L(up,mo) - sum(uv, Q.L(uv,mo))));
 #---  VarmeVarProdOmkRefa_V(mo)  = (sum(urefa, CostsU.L(urefa,mo)) + CostsTotalF.L('refa',mo) - IncomeTotal.L(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
@@ -1626,11 +1642,11 @@ Loop (mo $(NOT sameas(mo,'mo0')),
     );
     
 #---    # VPO: Varmeproduktionsomkostning pr. anlæg og måned.
-#---	if (ua(u),
+#---    if (ua(u),
 #---      tmp3 =   sum(f, FuelConsT.L(u,f,mo) * IncomeAff.L(f,mo))
-#---	         - sum(f, FuelConsT.L(u,f,mo) * CostsPurchaseF.L(f,mo)
-#---	         - CostsU.L(u,mo);
-#---	 );
+#---             - sum(f, FuelConsT.L(u,f,mo) * CostsPurchaseF.L(f,mo)
+#---             - CostsU.L(u,mo);
+#---     );
 #---    if (Q.L(u,mo) NE 0.0,
 #---      VPO(u,mo) = tmp3 / abs(Q.L(u,mo));
 #---    );
@@ -1653,16 +1669,18 @@ FuelConsT_V(u,f,'mo0')      = 0.0;
 
 
 # Overførsel af aktuelt scenaries nøgletal til opsamlings-array.
-Scen_TimeStamp(actScen) = TimeOfWritingMasterResults;
+#--- Scen_TimeStamp(actScen) = mod(TimeOfWritingMasterResults, 1);  # Gemmer kun tidspunktet, men ikke døgnet.
 
 Scen_Q(u,actScen)          = sum(mo, Q_V(u,mo));
 Scen_FuelDeliv(f,actScen)  = sum(mo, FuelDeliv_V(f,mo));
 Scen_IncomeFuel(f,actScen) = sum(mo, IncomeFuel_V(f,mo));
 
+Scen_Overview('Tidsstempel',actScen) = frac(TimeOfWritingMasterResults);  # Gemmer kun tidspunktet, men ikke døgnet.
 Scen_Overview('NPV_Total',actScen) = NPV_Total_V;
 Scen_Overview('NPV_REFA', actScen) = NPV_REFA_V;
-Loop (topic $(NOT sameas(topic,'NPV_Total') AND NOT sameas(topic,'NPV_REFA')),
-  Scen_Overview(topic,actScen) = sum(mo, OverView(topic,mo));
+
+Loop (topicSummable,
+  Scen_Overview(topicSummable,actScen) = sum(mo, OverView(topicSummable,mo));
 );
 # Følgende topic giver ikke mening som sumtal.
 Scen_Overview('REFA-RGK-Andel',actScen) = 0.0;
@@ -1704,6 +1722,7 @@ AffaldUudnyttet_V,
 AffaldLagret_V,
 
 RefaVarmeProd_V,
+RefaVarmeLeveret_V, 
 RefaModtrykProd_V,
 RefaBypassVarme_V, 
 RefaRgkProd_V,
@@ -1779,21 +1798,21 @@ par=NPV_REFA_V                      rng=Overblik!B4:B4
 text="NPV_REFA"                     rng=Overblik!A4:A4
 par=OverView                        rng=Overblik!C6          cdim=1  rdim=1
 text="Overblik"                     rng=Overblik!C6:C6
-par=Q_V                             rng=Overblik!C44         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!A44:A44
-par=FuelDeliv_V                     rng=Overblik!C52         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!A52:A52
-par=IncomeFuel_V                    rng=Overblik!C84         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!A84:A84
-par=Usage_V                         rng=Overblik!C116        cdim=1  rdim=1
-text="Kapacitetsudnyttelse"         rng=Overblik!A116:A116
-par=StoLoadAll_V                    rng=Overblik!C125        cdim=1 rdim=1
-text="Lagerbeholdning totalt"       rng=Overblik!A125:A125   
-text="Lager"                        rng=Overblik!C125:C125   
-par=StoLoadF_V                      rng=Overblik!B133        cdim=1 rdim=2
-text="Lagerbeh. pr fraktion"        rng=Overblik!A133:A133   
-text="Lager"                        rng=Overblik!B133:B133   
-text="Fraktion"                     rng=Overblik!C133:C133   
+par=Q_V                             rng=Overblik!C45         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!A45:A45
+par=FuelDeliv_V                     rng=Overblik!C53         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!A53:A53
+par=IncomeFuel_V                    rng=Overblik!C85         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!A85:A85
+par=Usage_V                         rng=Overblik!C117        cdim=1  rdim=1
+text="Kapacitetsudnyttelse"         rng=Overblik!A117:A117
+par=StoLoadAll_V                    rng=Overblik!C126        cdim=1 rdim=1
+text="Lagerbeholdning totalt"       rng=Overblik!A126:A126   
+text="Lager"                        rng=Overblik!C126:C126   
+par=StoLoadF_V                      rng=Overblik!B134        cdim=1 rdim=2
+text="Lagerbeh. pr fraktion"        rng=Overblik!A134:A134   
+text="Lager"                        rng=Overblik!B134:B134   
+text="Fraktion"                     rng=Overblik!C134:C134   
 *end
 
 $offecho
@@ -1824,14 +1843,14 @@ embeddedCode Python:
 
   # Copy Excel file assigning it a name including current iteration, no. of periods and a timestamp.
   fpathOld = os.path.join(wkdir, r'REFAoutput.xlsm')
-  fpathNew = os.path.join(wkdir, r'REFAoutput (' + str(currentDate) + ').xlsm')
+  fpathNew = os.path.join(wkdir, r'Output\REFAoutput (' + str(currentDate) + ').xlsm')
 
   shutil.copyfile(fpathOld, fpathNew)
   gams.printLog('Excel file "' + os.path.split(fpathNew)[1] + '" written to folder: ' + wkdir)
 
   # Copy gdx file assigning it a name including current iteration, no. of periods and a timestamp.
   fpathOld = os.path.join(wkdir, r'REFAmain.gdx')
-  fpathNew = os.path.join(wkdir, r'REFAmain (' + str(currentDate) + ').gdx')
+  fpathNew = os.path.join(wkdir, r'Output\REFAmain (' + str(currentDate) + ').gdx')
 
   shutil.copyfile(fpathOld, fpathNew)
   gams.printLog('GDX file "' + os.path.split(fpathNew)[1] + '" written to folder: ' + wkdir)
@@ -1849,18 +1868,80 @@ if (NOT RunScenarios,
 
 # Sammenfattende nøgletal for alle scenarier
 
+if (RunScenarios,
+  TimeOfWritingMasterResults = jnow;
+  
+  execute_unload 'REFAscens.gdx',
+  TimeOfWritingMasterResults,
+  scen, actScen,
+  bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, 
+  labDataU, labDataFuel, labScheduleRow, labScheduleCol, labProgn, taxkind, topic, typeCO2,
+  PerStart, PerSlut, nScen, nScenActive,
+  ScenProgn, #--- Scen_TimeStamp, 
+  Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel;
+  
+  #TODO: Udskriv til Excel-fil REFAOutputScens.xlsm 
 
-TimeOfWritingMasterResults = jnow;
+$onecho > REFAscens.txt
+filter=0
 
-execute_unload 'REFAOutputScenarios.gdx',
-scen, actScen,
-bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, 
-labDataU, labDataFuel, labScheduleRow, labScheduleCol, labProgn, taxkind, topic, typeCO2,
-PerStart, PerSlut, nScen, nScenActive,
-ScenProgn, 
-Scen_TimeStamp, Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel;
+* OBS: Vaerdier udskrives i basale enheder, men formatteres i Excel til visning af fx. tusinder fremfor enere.
 
-#TODO: Udskriv til Excel-fil REFAOutputScens.xlsm 
+*begin sheet Overblik
+*---par=Scen_TimeStamp                  rng=Overblik!D1
+*---text="Tidsstempel"                  rng=Overblik!C1:C1
+par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
+par=PerStart                        rng=Overblik!B2:B2
+par=PerSlut                         rng=Overblik!C2:C2
+par=Scen_Overview                   rng=Overblik!C4          cdim=1  rdim=1
+text="OverView"                     rng=Overblik!C4:C4
+par=Scen_Q                          rng=Overblik!C45         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!C45:C45
+par=Scen_FuelDeliv                  rng=Overblik!C53         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!C53:C53
+par=Scen_IncomeFuel                 rng=Overblik!C85         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!C85:C85
+*end
 
+$offecho
 
+# Write the output Excel file using GDXXRW.
+execute "gdxxrw.exe REFAscens.gdx o=REFAscens.xlsm trace=1 @REFAscens.txt";
+
+$If not errorfree $exit
+  
+# ======================================================================================================================
+# Python script to copy the recently saved output files.
+embeddedCode Python:
+  import os
+  import shutil
+  import datetime
+  currentDate = datetime.datetime.today().strftime('%Y-%m-%d %Hh%Mm%Ss')
+
+  #--- actIter = list(gams.get('actIter'))[0]
+  #--- per  = 'per' + str(int( list(gams.get('PeriodLast'))[0] ))
+  #--- scenId = str(int( list(gams.get('ScenId'))[0] ))
+  #--- gams.printLog("per = " + per + ", scenId = " + scenId)
+
+  wkdir = os.getcwd()
+
+  # Copy Excel file assigning it a name including current iteration, no. of periods and a timestamp.
+  fpathOld = os.path.join(wkdir, r'REFAscens.xlsm')
+  fpathNew = os.path.join(wkdir, r'Output\REFAscens (' + str(currentDate) + ').xlsm')
+
+  shutil.copyfile(fpathOld, fpathNew)
+  gams.printLog('Excel file "' + os.path.split(fpathNew)[1] + '" written to folder: ' + wkdir)
+
+  # Copy gdx file assigning it a name including current iteration, no. of periods and a timestamp.
+  fpathOld = os.path.join(wkdir, r'REFAscens.gdx')
+  fpathNew = os.path.join(wkdir, r'Output\REFAscens (' + str(currentDate) + ').gdx')
+
+  shutil.copyfile(fpathOld, fpathNew)
+  gams.printLog('GDX file "' + os.path.split(fpathNew)[1] + '" written to folder: ' + wkdir)
+
+endEmbeddedCode
+# ======================================================================================================================
+  
+
+);
 
