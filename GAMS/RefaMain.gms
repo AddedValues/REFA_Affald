@@ -56,7 +56,7 @@ set labDataU          'DataU labels'       / Aktiv, Ukind, Prioritet, MinLhv, Ma
 set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Varmebehov, NSprod, ELprod, Bypass, Elpris,
                                              ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Flex, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, NOxKgTon, CO2kgGJ /;
-set labDataSto        'DataSto labels'     / Aktiv, StoKind, LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost, ResetFirst, ResetIntv, ResetLast /;  # stoKind=1 er affalds-, stoKind=2 er varmelager.
+set labDataSto        'DataSto labels'     / Aktiv, StoKind, LoadInit, LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost, ResetFirst, ResetIntv, ResetLast /;  # stoKind=1 er affalds-, stoKind=2 er varmelager.
 set taxkind(labProgn) 'Omkostningstyper'   / ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set typeCO2           'CO2-Opgørelsestype' / afgift, kvote, total /;
 
@@ -189,6 +189,7 @@ Parameter EtaE(u)                        'RGK kapacitet MWq';
 Parameter DvMWhq(u)                      'DV-omkostning pr. MWhf';
 Parameter DvTime(u)                      'DV-omkostning pr. driftstimer'; 
 Parameter StoLoadInitF(s,f)              'Initial lagerbeholdning for hvert brændsel';
+Parameter StoLoadInitQ(s)                'Initial lagerbeholdning for varmelagre';
 Parameter StoLoadMin(s,moall)            'Min. lagerbeholdning';
 Parameter StoLoadMax(s,moall)            'Max. lagerbeholdning';
 Parameter StoDLoadMax(s,moall)           'Max. lagerændring i periode';
@@ -237,7 +238,7 @@ par=ScenProgn           rng=Scen!A7:J37              rdim=1 cdim=1
 par=DataCtrl            rng=DataCtrl!B4:C20          rdim=1 cdim=0
 par=Schedule            rng=DataU!A3:E6              rdim=1 cdim=1
 par=DataU               rng=DataU!A11:O17            rdim=1 cdim=1
-par=DataSto             rng=DataU!Q11:AB17           rdim=1 cdim=1
+par=DataSto             rng=DataU!Q11:AC17           rdim=1 cdim=1
 par=Prognoses           rng=DataU!D22:AB58           rdim=1 cdim=1
 par=DataFuel            rng=DataFuel!C4:T33          rdim=1 cdim=1
 par=FuelBounds          rng=DataFuel!B39:AM178       rdim=2 cdim=1
@@ -340,8 +341,9 @@ $If not errorfree $exit
 
 
 # Initialisering af arbejdsvariable som anvendes i Equations.
-Parameter Phi(phiKind,moall)           'Aktuel værdi af Phi = Fbiogen/F';
-Parameter QtotalAffMax(moall) 'Max. aff-varme';
+Parameter Phi(phiKind,moall)      'Aktuel værdi af Phi = Fbiogen/F';
+Parameter QtotalAffMax(moall)     'Max. aff-varme';
+Parameter StoCostLoadMax(s)       'Max. lageromkostning';
 
 mo(moall) = yes;
 OnU(u)    = yes;
@@ -375,9 +377,11 @@ Positive variable StoCostLoad(s,moall)          'Lageromkostning på beholdning';
 Positive variable StoCostDLoad(s,moall)         'Transportomk. til/fra lagre';
 Positive variable StoLoad(s,moall)              'Aktuel lagerbeholdning';
 Positive variable StoLoss(s,moall)              'Aktuelt lagertab';
+Positive variable StoLossF(s,f,moall)           'Lagertab på affaldsfraktioner [ton]';
 Free     variable StoDLoad(s,moall)             'Aktuel lagerændring positivt indgående i lager';
 Positive variable StoDLoadAbs(s,moall)          'Absolut værdi af StoDLoad';
 Positive variable StoLoadF(s,f,moall)           'Lagerbeholdning af givet brændsel på givet lager';
+
            
 Positive variable PbrutMax(moall)               'Max. mulige brutto elproduktion [MWhe]';
 Positive variable Pbrut(moall)                  'Brutto elproduktion [MWhe]';
@@ -763,10 +767,15 @@ ZQ_MinLhvAffald(ua,mo) $(OnU(ua) AND NOT DoFixAffT(mo))  ..  MinLhvMWh(ua) * sum
 Equation ZQ_StoCostAll(s,moall)       'Samlet lageromkostning';
 Equation ZQ_StoCostLoad(s,moall)      'Lageromkostning opbevaring';
 Equation ZQ_StoCostDLoad(s,moall)     'Lageromkostning transport';
+Equation ZQ_bOnSto(s,moall)           'Sikrer at bOnSto afspejler lagerbeholdning';
 Equation ZQ_StoLoadMin(s,moall)       'Nedre grænse for lagerbeholdning';
 Equation ZQ_StoLoadMax(s,moall)       'Øvre grænse for lagerbeholdning';
-Equation ZQ_StoLoad(s,moall)          'Lagerbeholdning og -ændring';
-Equation ZQ_StoLoss(s,moall)          'Lagertab proport. til beholdning';
+Equation ZQ_StoLoadQ(s,moall)         'Varmelagerbeholdning og -ændring';
+Equation ZQ_StoLoadA(s,moall)         'Affaldslagerbeholdning og -ændring';
+Equation ZQ_StoLoadF(s,f,moall)       'Tilvækst på affaldslagre';
+Equation ZQ_StoLossF(s,f,moall)       'Lagertab på affaldsfraktioner';
+Equation ZQ_StoLossA(s,moall)         'Lagertab proport. til beholdning';
+Equation ZQ_StoLossQ(s,moall)         'Tab på varmelagre';
 Equation ZQ_StoDLoadMax(s,moall)      'Max. lagerændring';
 Equation ZQ_StoDLoadAbs1(s,moall)     'Abs funktion på lagerændring StoDLoad';
 Equation ZQ_StoDLoadAbs2(s,moall)     'Abs funktion på lagerændring StoDLoad';
@@ -777,29 +786,39 @@ ZQ_StoCostAll(s,mo)   $OnS(s)  ..  StoCostAll(s,mo)    =E=  StoCostLoad(s,mo) + 
 ZQ_StoCostLoad(s,mo)  $OnS(s)  ..  StoCostLoad(s,mo)   =E=  StoLoadCostRate(s,mo) * StoLoad(s,mo);
 ZQ_StoCostDLoad(s,mo) $OnS(s)  ..  StoCostDLoad(s,mo)  =E=  StoDLoadCostRate(s,mo) * StoDLoadAbs(s,mo);
 
-ZQ_StoLoadMin(s,mo) $OnS(s) ..  StoLoad(s,mo)      =G=  StoLoadMin(s,mo);
-ZQ_StoLoadMax(s,mo) $OnS(s) ..  StoLoad(s,mo)      =L=  StoLoadMax(s,mo);
+ZQ_bOnSto(s,mo) $OnS(s)        ..  StoCostAll(s,mo)    =L=  bOnSto(s,mo) * StoCostLoadMax(s);
+                               
+ZQ_StoLoadMin(s,mo) $OnS(s)    ..  StoLoad(s,mo)       =G=  StoLoadMin(s,mo);
+ZQ_StoLoadMax(s,mo) $OnS(s)    ..  StoLoad(s,mo)       =L=  StoLoadMax(s,mo);
 
 # Lageret af en given fraktion kan højst tømmes.
 
 Equation ZQ_StoDLoadFMin(s,f,moall)  'Lagerbeholdningsændring af given fraktion';
 Equation ZQ_StoLoadSum(s,moall)      'Sum af fraktioner på givet lager';
 
-# Sikring af at StoDLoadF ikke overstiger lagerbeholdningen fra forrige måned.
-#--- ZQ_StoDLoadFMin(sa,fsto,mo) $OnS(sa) .. StoLoadF(sa,fsto,mo) + StoDLoadF(sa,fsto,mo)  =G=  0.0;
+# Sikring af at StoDLoadF ikke overstiger lagerbeholdningen fra forrige måned og ikke trækker mere ud af lageret end beholdningen.
 $OffOrder
-ZQ_StoDLoadFMin(sa,fsto,mo) $OnS(sa) .. [StoLoadInitF(sa,fsto) $(ord(mo) EQ 1) + StoLoadF(sa,fsto,mo-1) $(ord(mo) GT 1)] + StoDLoadF(sa,fsto,mo)  =G=  0.0;
+ZQ_StoDLoadFMin(sa,fsto,mo) $(OnS(sa) AND OnF(fsto) AND s2f(sa,fsto)) .. [StoLoadInitF(sa,fsto) $(ord(mo) EQ 1) + StoLoadF(sa,fsto,mo-1) $(ord(mo) GT 1)] + StoDLoadF(sa,fsto,mo)  =G=  0.0;
 $OnOrder
 ZQ_StoLoadSum(s,mo) $OnS(s)          .. StoLoad(s,mo)  =E=  sum(fsto $(OnF(fsto) AND s2f(s,fsto)), StoLoadF(s,fsto,mo));
 
-
 $OffOrder
-ZQ_StoLoad(s,mo) $OnS(s)    ..  StoLoad(s,mo)      =E=  StoLoad(s,mo-1) + StoDLoad(s,mo) - StoLoss(s,mo-1);
+#--- ZQ_StoLoad(s,mo) $OnS(s)         ..  StoLoad(s,mo)         =E=  StoLoad(s,mo-1) + StoDLoad(s,mo) - StoLoss(s,mo-1);
+#--- ZQ_StoLoadQ(sq,mo) $OnS(sq)       ..  StoLoad(sq,mo)        =E=  [StoLoadInitF(s,fsto) $(ord(mo) EQ 1) + StoLoadF(sa,fsto,mo-1) $(ord(mo) GT 1)] + StoDLoadF(sa,fsto,mo) - StoLossF(sa,fsto,mo-1);
+# Affaldslagre håndteres på fraktionsbasis, mens varmelagre kun indeholder ét species.
+ZQ_StoLoadQ(sq,mo) $OnS(sq)       ..  StoLoad(sq,mo)        =E=  [StoLoadInitQ(sq) $(ord(mo) EQ 1) + StoLoad(sq,mo-1) $(ord(mo) GT 1)] + StoDLoad(sq,mo) - StoLoss(sq,mo);
+ZQ_StoLoadA(sa,mo) $OnS(sa)       ..  StoLoad(sa,mo)        =E=  sum(fsto $(OnF(fsto) AND s2f(sa,fsto)), StoLoadF(sa,fsto,mo));
+ZQ_StoLoadF(sa,fsto,mo) $OnS(sa)  ..  StoLoadF(sa,fsto,mo)  =E=  [StoLoadInitF(sa,fsto) $(ord(mo) EQ 1) + StoLoadF(sa,fsto,mo-1) $(ord(mo) GT 1)] + StoDLoadF(sa,fsto,mo) - StoLossF(sa,fsto,mo);
 $OnOrder
-ZQ_StoLoss(s,mo) $OnS(s)    ..  StoLoss(s,mo)      =E=  StoLossRate(s,mo) * StoLoad(s,mo);
-ZQ_StoDLoadMax(s,mo)        ..  StoDLoadAbs(s,mo)  =L=  StoDLoadMax(s,mo) $OnS(s);
-ZQ_StoDLoadAbs1(s,mo)       ..  +StoDLoad(s,mo)    =L=  StoDLoadAbs(s,mo) $OnS(s);
-ZQ_StoDLoadAbs2(s,mo)       ..  -StoDLoad(s,mo)    =L=  StoDLoadAbs(s,mo) $OnS(s);
+
+ZQ_StoLossF(sa,fsto,mo) $(OnS(sa) AND OnF(fsto) AND s2f(sa,fsto))  ..  StoLossF(sa,fsto,mo)  =E=  StoLossRate(sa,mo) * StoLoadF(sa,fsto,mo);
+
+ZQ_StoLossA(sa,mo) $OnS(sa)  ..  StoLoss(sa,mo)             =E=  sum(fsto $(OnF(fsto) and s2f(sa,fsto)), StoLossF(sa,fsto,mo));
+ZQ_StoLossQ(sq,mo) $OnS(sq)  ..  StoLoss(sq,mo)             =E=  StoLossRate(sq,mo) * StoLoad(sq,mo);
+
+ZQ_StoDLoadMax(s,mo)         ..  StoDLoadAbs(s,mo)          =L=  StoDLoadMax(s,mo) $OnS(s);
+ZQ_StoDLoadAbs1(s,mo)        ..  +StoDLoad(s,mo)            =L=  StoDLoadAbs(s,mo) $OnS(s);
+ZQ_StoDLoadAbs2(s,mo)        ..  -StoDLoad(s,mo)            =L=  StoDLoadAbs(s,mo) $OnS(s);
 
 # OBS: ZQ_StoFirstReset dækker med én ligning pr. lager perioden frem til og med først nulstilling. Denne ligning tilknyttes første måned.
 # TODO: Lageret fyldes op frem mod slutningen af planperioden, fordi modtageindkomsten gør det lukrativt.
@@ -827,7 +846,7 @@ $If not errorfree $exit
 
 set topic  / Tidsstempel, FJV-behov, Total-NPV, Total-Var-Varmeproduktions-Omk, 
              REFA-NPV, REFA-Var-Varmeproduktions-Omk,
-             REFA-Daekningsbidrag, REFA-Total-Var-Indkomst, REFA-Affald-Modtagelse, REFA-RGK-Rabat, REFA-Elsalg,
+             REFA-Daekningsbidrag, REFA-Total-Var-Indkomst, REFA-Affald-Modtagelse, REFA-RGK-Rabat, REFA-Elsalg, REFA-Varmesalg,
              REFA-Total-Var-Omkostning, REFA-AnlaegsVarOmk, REFA-BraendselOmk, REFA-Afgifter, REFA-CO2-Kvoteomk, REFA-Lageromkostning,
              REFA-CO2-Emission-Afgift, REFA-CO2-Emission-Kvote, REFA-El-produktion-Brutto, REFA-El-produktion-Netto,
              REFA-Total-Affald-Raadighed, REFA-Affald-anvendt, REFA-Affald-Uudnyttet, REFA-Affald-Lagret,
@@ -883,6 +902,7 @@ Parameter RefaTotalVarIndkomst_V(moall)    'REFA Total variabel indkomst [DKK]';
 Parameter RefaAffaldModtagelse_V(moall)    'REFA Affald modtageindkomst [DKK]';
 Parameter RefaRgkRabat_V(moall)            'REFA RGK-rabat for affald [DKK]';
 Parameter RefaElsalg_V(moall)              'REFA Indkomst elsalg [DKK]';
+Parameter RefaVarmeSalg_V(moall)           'REFA Indkomst varmesalg [DKK]';
 
 Parameter RefaTotalVarOmk_V(moall)         'REFA Total variabel indkomst [DKK]';
 Parameter RefaAnlaegsVarOmk_V(moall)       'REFA Var anlaegs omk [DKK]';
@@ -1032,7 +1052,7 @@ Loop (labDataU $(NOT sameas(labDataU,'KapMin') AND NOT sameas(labDataU,'MinLast'
   );
 );
 
-Loop (labDataSto $(NOT sameas(labDataSto,'Aktiv') AND NOT sameas(labDataSto,'LoadMin') AND NOT sameas(labDataSto,'LossRate')),
+Loop (labDataSto $(NOT sameas(labDataSto,'Aktiv') AND NOT sameas(labDataSto,'LoadInit') AND NOT sameas(labDataSto,'LoadMin') AND NOT sameas(labDataSto,'LossRate')),
   tmp1 = sum(s, DataSto(s,labDataSto));
   tmp2 = ord(labDataSto);
   if (tmp1 EQ 0, 
@@ -1195,6 +1215,7 @@ Loop (fa,
   StoLoadInitF('sto1',fa) = DataFuel(fa,'InitSto1');      
   StoLoadInitF('sto2',fa) = DataFuel(fa,'InitSto2');      
 );
+StoLoadInitQ(sq) = DataSto(sq,'LoadInit');
 
 StoLoadMin(s,mo)       = DataSto(s,'LoadMin');
 StoLoadMax(s,mo)       = DataSto(s,'LoadMax');
@@ -1265,8 +1286,10 @@ TaxNOxPeakTon(mo) = Prognoses(mo,'NOxPeak');
 # Special-haandtering af oevre graense for Nordic Sugar varme.
 FuelBounds('NSvarme','max',moall) = Prognoses(moall,'NS');
 
-QtotalAffMax(mo) = sum(ua $OnU(ua), (EtaQ(ua) + EtaRgk(ua)) * sum(fa $(OnF(fa) AND u2f(ua,fa)), LhvMWh(fa) * FuelBounds(fa,'max',mo)) );
-display QtotalAffMax;
+QtotalAffMax(mo)  = sum(ua $OnU(ua), (EtaQ(ua) + EtaRgk(ua)) * sum(fa $(OnF(fa) AND u2f(ua,fa)), LhvMWh(fa) * FuelBounds(fa,'max',mo)) );
+StoCostLoadMax(s) = smax(mo, StoLoadMax(s,mo) * StoLoadCostRate(s,mo));
+
+display QtotalAffMax, StoCostLoadMax;
 
 # EaffGross skal være mininum af energiindhold af rådige mængder affald hhv. affaldsanlæggets fuldlastkapacitet.
 #--- QaffMmax(ua,moall)  = min(ShareAvailU(ua,moall) * Hours(moall) * KapNom(ua), [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelBounds(fa,'max',moall) * EtaQ(ua) * LhvMWh(fa))]) $OnU(ua);
@@ -1537,20 +1560,22 @@ PerSlut  = Schedule('dato','lastPeriod');
 
 # Scenarieresultater
 Loop (mo $(NOT sameas(mo,'mo0')),
-  RefaAffaldModtagelse_V(mo)               = sum(fa $OnF(fa), IncomeAff.L(fa,mo));
-  RefaRgkRabat_V(mo)                       = RgkRabat.L(mo);
-  RefaElsalg_V(mo)                         = IncomeElec.L(mo);
-  RefaTotalVarIndkomst_V(mo)               = RefaAffaldModtagelse_V(mo) + RefaRgkRabat_V(mo) + RefaElsalg_V(mo);
+  RefaAffaldModtagelse_V(mo)               = max(tiny, sum(fa $OnF(fa), IncomeAff.L(fa,mo)));
+  RefaRgkRabat_V(mo)                       = max(tiny, RgkRabat.L(mo));
+  RefaElsalg_V(mo)                         = max(tiny, IncomeElec.L(mo));
+  RefaVarmeSalg_V(mo)                      = max(tiny, IncomeHeat.L(mo));
+  RefaTotalVarIndkomst_V(mo)               = RefaAffaldModtagelse_V(mo) + RefaRgkRabat_V(mo) + RefaElsalg_V(mo) + RefaVarmeSalg_V(mo);
   OverView('REFA-Affald-Modtagelse',mo)    = max(tiny, RefaAffaldModtagelse_V(mo) );
   OverView('REFA-RGK-Rabat',mo)            = max(tiny, RefaRgkRabat_V(mo) );
   OverView('REFA-Elsalg',mo)               = max(tiny, RefaElsalg_V(mo) );
+  OverView('REFA-Varmesalg',mo)            = max(tiny, RefaVarmeSalg_V(mo) );
 
   RefaAnlaegsVarOmk_V(mo)                  = sum(urefa $OnU(urefa), CostsU.L(urefa,mo));
   RefaBraendselsVarOmk_V(mo)               = sum(frefa, CostsPurchaseF.L(frefa,mo));
-  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + sum(frefa, TaxCO2Aff.L(mo) + TaxNOxF.L(frefa,mo));
-  RefaKvoteOmk_V(mo)                       = CostsETS.L(mo);  # Kun REFA er kvoteomfattet.
+  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + TaxCO2Aff.L(mo) + sum(frefa, TaxNOxF.L(frefa,mo));
+  RefaKvoteOmk_V(mo)                       = max(tiny, CostsETS.L(mo));  # Kun REFA er kvoteomfattet.
   RefaStoCost_V(mo)                        = sum(s $OnS(s), StoCostAll.L(s,mo));
-  RefaTotalVarOmk_V(mo)                    = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo);
+  RefaTotalVarOmk_V(mo)                    = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo) + RefaStoCost_V(mo);
   RefaDaekningsbidrag_V(mo)                = RefaTotalVarIndkomst_V(mo) - RefaTotalVarOmk_V(mo);
   OverView('REFA-AnlaegsVarOmk',mo)        = max(tiny, RefaAnlaegsVarOmk_V(mo) );
   OverView('REFA-BraendselOmk',mo)         = max(tiny, RefaBraendselsVarOmk_V(mo) );
@@ -1579,7 +1604,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   Overview('REFA-Affald-Uudnyttet',mo)       = AffaldUudnyttet_V(mo);
   Overview('REFA-Affald-Lagret',mo)          = AffaldLagret_V(mo);
 
-  
+ 
   RefaVarmeProd_V(mo)       = max(tiny, sum(uprefa $OnU(uprefa), Q.L(uprefa,mo)) );
   RefaModtrykProd_V(mo)     = max(tiny, sum(ua $OnU(ua), QAffM.L(ua,mo)) );
   RefaBypassVarme_V(mo)     = max(tiny, Qbypass.L(mo));
