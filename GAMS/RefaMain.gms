@@ -55,7 +55,7 @@ set labScheduleRow    'Periodeomfang'      / aar, maaned, dato /;
 set labDataU          'DataU labels'       / Aktiv, Ukind, Prioritet, MinLhv, MaxLhv, MinTon, MaxTon, kapQNom, kapRgk, kapE, MinLast, KapMin, EtaE, EtaQ, DVMWhq, DVtime /;
 set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Varmebehov, NSprod, ELprod, Bypass, Elpris,
                                              ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
-set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, NOxKgTon, CO2kgGJ /;
+set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Flex, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, NOxKgTon, CO2kgGJ /;
 set labDataSto        'DataSto labels'     / Aktiv, StoKind, LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost, ResetFirst, ResetIntv, ResetLast /;  # stoKind=1 er affalds-, stoKind=2 er varmelager.
 set taxkind(labProgn) 'Omkostningstyper'   / ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set typeCO2           'CO2-Opgørelsestype' / afgift, kvote, total /;
@@ -81,6 +81,7 @@ set fr(f)           'PeakK braendsel';
 set fsto(f)         'Lagerbare braendsler';
 set fdis(f)         'Braendsler som skal bortskaffes';
 set ffri(f)         'Braendsler med fri tonnage';
+set fflex(f)        'Braendsler med fleksibel månedstonnage';
 set faux(f)         'Andre braendsler end affald';
 set f2own(f,owner)  'Tilknytning af fuel til ejer';
 set frefa(f)        'REFA braendsler';
@@ -734,8 +735,8 @@ Equation  ZQ_FuelMaxYear(f)  'Stoerste braendselsforbrug på årsniveau';
 ZQ_FuelMin(f,mo) $((NOT fa(f) OR NOT DoFixAffT(mo)) AND OnF(f) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'min',mo);
 ZQ_FuelMax(f,mo) $((NOT fa(f) OR NOT DoFixAffT(mo)) AND OnF(f) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
-ZQ_FuelMinYear(fdis)  $(OnF(fdis) AND FALSE) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) - FuelResaleT(fdis,mo))  =G=  MinTonnageYear(fdis) * card(mo) / 12;
-ZQ_FuelMaxYear(fdis)  $(OnF(fdis) AND FALSE) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) - FuelResaleT(fdis,mo))  =L=  MaxTonnageYear(fdis) * card(mo) / 12;
+ZQ_FuelMinYear(fdis)  $(OnF(fdis) AND NOT FixAffald) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) + FuelResaleT(fdis,mo))  =G=  MinTonnageYear(fdis) * card(mo) / 12;
+ZQ_FuelMaxYear(fdis)  $(OnF(fdis) AND NOT FixAffald) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) + FuelResaleT(fdis,mo))  =L=  MaxTonnageYear(fdis) * card(mo) / 12 * 1.0001;
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
@@ -1111,15 +1112,17 @@ Loop (fa,
 );
 
 # Undertyper af brændsler:
-# fsto: Brændsler, som må lagres (bemærk af tømning af lagre er en særskilt restriktion)
-# fdis: Brændsler, som skal modtages og forbrændes hhv. om muligt lagres. 
-# ffri: Brændsler, hvor den øvre grænse aftagemængde er en optimeringsvariabel.
-# faux: Brændsler, som ikke er affaldsbrændsler.
+# fsto:  Brændsler, som må lagres (bemærk af tømning af lagre er en særskilt restriktion)
+# fdis:  Brændsler, som skal modtages og forbrændes hhv. om muligt lagres. 
+# ffri:  Brændsler, hvor den øvre grænse aftagemængde er en optimeringsvariabel.
+# fflex: Brændsler, hvor månedstonnagen er fri, men årstonnagen skal respekteres.
+# faux:  Brændsler, som ikke er affaldsbrændsler.
 
-fsto(f) = DataFuel(f,'lagerbar') NE 0;
-fdis(f) = DataFuel(f,'bortskaf') NE 0;
-ffri(f) = DataFuel(f,'fri') NE 0 AND fa(f);
-faux(f) = NOT fa(f);
+fsto(f)  = DataFuel(f,'Lagerbar') NE 0;
+fdis(f)  = DataFuel(f,'Bortskaf') NE 0;
+ffri(f)  = DataFuel(f,'Fri')      NE 0 AND fa(f);
+fflex(f) = DataFuel(f,'Flex')     NE 0 AND fa(f);
+faux(f)  = NOT fa(f);
 
 # Identifikation af lagertyper.
 sa(s) = DataSto(s,'stoKind') EQ 1;
@@ -1719,7 +1722,7 @@ Pbrut, Pnet, Qbypass,
 TaxAfvMWh, TaxAtlMWh, TaxCO2AffTon, TaxCO2peakTon,
 EaffGross, QaffMmax, QrgkMax, QaffTotalMax, TaxATLMax, RgkRabatMax,
 OverView, NPV_Total_V, NPV_REFA_V, Prognoses_V, FuelDeliv_V, FuelConsT_V, StoLoadF_V, StoDLoadF_V, IncomeFuel_V, Q_V,
-PerStart, PerSlut,
+PerStart, PerSlut, VirtualUsed,
 
 RefaDaekningsbidrag_V,
 RefaTotalVarIndkomst_V,
@@ -1898,7 +1901,7 @@ if (RunScenarios,
   scen, actScen,
   bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, 
   labDataU, labDataFuel, labScheduleRow, labScheduleCol, labProgn, taxkind, topic, typeCO2,
-  PerStart, PerSlut, nScen, nScenActive,
+  PerStart, PerSlut, nScen, nScenActive, VirtualUsed,
   ScenProgn, #--- Scen_TimeStamp, 
   Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel;
   
