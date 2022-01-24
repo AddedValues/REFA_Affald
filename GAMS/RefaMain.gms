@@ -733,10 +733,10 @@ Equation  ZQ_FuelMinYear(f)  'Mindste braendselsforbrug på årsniveau';
 Equation  ZQ_FuelMaxYear(f)  'Stoerste braendselsforbrug på årsniveau';
 
 ZQ_FuelMin(f,mo) $((NOT fa(f) OR NOT DoFixAffT(mo)) AND OnF(f) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'min',mo);
-ZQ_FuelMax(f,mo) $((NOT fa(f) OR NOT DoFixAffT(mo)) AND OnF(f) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'max',mo) * 1.0001;  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+ZQ_FuelMax(f,mo) $((NOT fa(f) OR NOT DoFixAffT(mo)) AND OnF(f) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'max',mo) * (1 + 1E-8);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 ZQ_FuelMinYear(fdis)  $(OnF(fdis) AND NOT FixAffald) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) + FuelResaleT(fdis,mo))  =G=  MinTonnageYear(fdis) * card(mo) / 12;
-ZQ_FuelMaxYear(fdis)  $(OnF(fdis) AND NOT FixAffald) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) + FuelResaleT(fdis,mo))  =L=  MaxTonnageYear(fdis) * card(mo) / 12 * 1.0001;
+ZQ_FuelMaxYear(fdis)  $(OnF(fdis) AND NOT FixAffald) ..  sum(mo $OnM(mo), FuelDelivT(fdis,mo) + FuelResaleT(fdis,mo))  =L=  MaxTonnageYear(fdis) * card(mo) / 12 * (1 + 1E-8);
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
