@@ -185,7 +185,7 @@ Parameter KapRgk(u)                      'RGK kapacitet MWq';
 Parameter KapE(u)                        'RGK kapacitet MWq';
 Parameter EtaQ(u)                        'Varmevirkningsgrad';
 Parameter EtaRgk(u)                      'Varmevirkningsgrad';
-Parameter EtaE(u)                        'RGK kapacitet MWq';
+Parameter EtaE(u,moall)                  'Elvirkningsgrad (er månedsafhængig i 2021)';
 Parameter DvMWhq(u)                      'DV-omkostning pr. MWhf';
 Parameter DvTime(u)                      'DV-omkostning pr. driftstimer'; 
 Parameter StoLoadInitF(s,f)              'Initial lagerbeholdning for hvert brændsel';
@@ -681,7 +681,7 @@ Equation  ZQ_bOnRgk(ua,moall)            'Angiver om RGK er aktiv';
 
 
 # Beregning af elproduktion. Det antages, at omsætning fra bypass-damp til fjernvarme er 1-til-1, dvs. 100 pct. effektiv bypass-drift.
-ZQ_PbrutMax(mo)$OnU('Ovn3')  .. PbrutMax(mo) =E=  EtaE('Ovn3') * sum(fa $(OnF(fa) AND u2f('Ovn3',fa)), FuelConsT('Ovn3',fa,mo) * LhvMWh(fa));
+ZQ_PbrutMax(mo)$OnU('Ovn3')  .. PbrutMax(mo) =E=  EtaE('Ovn3',mo) * sum(fa $(OnF(fa) AND u2f('Ovn3',fa)), FuelConsT('Ovn3',fa,mo) * LhvMWh(fa));
 ZQ_Pbrut(mo)   $OnU('Ovn3')  .. Pbrut(mo)    =E=  PbrutMax(mo) * (1 - ShareBypass(mo));
 ZQ_Pnet(mo)    $OnU('Ovn3')  .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo) * (1 - ShareBypass(mo));  # Peget har taget hensyn til bypass.
 ZQ_Qbypass(mo) $OnU('Ovn3')  .. Qbypass(mo)  =E=  (PbrutMax(mo) - Peget(mo)) * ShareBypass(mo);
@@ -1202,11 +1202,18 @@ KapRgk(ua)    = DataU(ua,'KapRgk');
 KapNom(u)     = DataU(u, 'KapQNom');
 KapMax(u)     = KapNom(u) + KapRgk(u);
 KapE(u)       = DataU(u, 'KapE');
-EtaE(u)       = DataU(u,'EtaE');
+EtaE(u,moall) = DataU(u,'EtaE');
 EtaQ(u)       = DataU(u,'EtaQ');
 EtaRgk(u)     = DataU(u,'KapRgk') / DataU(u,'KapQNom') * EtaQ(u);
 DvMWhq(u)     = DataU(u,'DvMWhq');
 DvTime(u)     = DataU(u,'DvTime');
+
+# EtaE er 18 % til og med august 2021, og derefter antages værdien givet i DataU.
+if (Schedule('aar','FirstYear') EQ 2021,
+  Loop (moall $(ord(moall) GE 1 AND ord(moall) LE 8+1),   # OBS: moall starter med element mo0, derfor 8+1 t.o.m. august. 
+    EtaE('Ovn3', moall) = 0.18;
+  );
+);
 
 #--- display MinLhvMWh, MinTon, MaxTon, KapMin, KapNom, KapRgk, KapMax, EtaE, EtaQ, EtaRgk, DvMWhq, DvTime;
 
@@ -1990,7 +1997,6 @@ embeddedCode Python:
 
 endEmbeddedCode
 # ======================================================================================================================
-  
-
+ 
 );
 
