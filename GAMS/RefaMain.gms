@@ -49,11 +49,11 @@ set moall     'Aarsmaaneder'   / mo0 * mo36 /;  # Daekker op til 3 aar. Elemente
 set mo(moall) 'Aktive maaneder';
 alias(mo,moa);
 
-set labDataCtrl       'Styringparms'       / IncludeGSF, VirtuelVarme, VirtuelAffald, RgkRabatSats, RgkAndelRabat, Varmesalgspris, SkorstensMetode, EgetforbrugKVV, RunScenarios, FixAffald /;
+set labDataCtrl       'Styringparms'       / RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald, RgkRabatSats, RgkAndelRabat, Varmesalgspris, EgetforbrugKVV /;
 set labScheduleCol    'Periodeomfang'      / FirstYear, LastYear, FirstPeriod, LastPeriod /;
 set labScheduleRow    'Periodeomfang'      / aar, maaned, dato /;
 set labDataU          'DataU labels'       / Aktiv, Ukind, Prioritet, MinLhv, MaxLhv, MinTon, MaxTon, kapQNom, kapRgk, kapE, MinLast, KapMin, EtaE, EtaQ, DVMWhq, DVtime /;
-set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Varmebehov, NSprod, ELprod, Bypass, Elpris,
+set labProgn          'Prognose labels'    / Aktiv, Ndage, Ovn2, Ovn3, FlisK, NS, Cooler, PeakK, Turbine, Varmebehov, NSprod, ELprod, Bypass, Elpris,
                                              ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 set labDataFuel       'DataFuel labels'    / Aktiv, Fkind, Lagerbar, Fri, Flex, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, Brandv, NOxKgTon, CO2kgGJ /;
 set labDataSto        'DataSto labels'     / Aktiv, StoKind, LoadInit, LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost, ResetFirst, ResetIntv, ResetLast /;  # stoKind=1 er affalds-, stoKind=2 er varmelager.
@@ -170,9 +170,11 @@ Parameter OnM(moall)                     'Angiver om en given maaned er aktiv';
 Parameter Hours(moall)                   'Antal timer i maaned';
 Parameter AvailDaysU(moall,u)            'Antal raadige dage';
 Parameter ShareAvailU(u,moall)           'Andel af fuld rådighed på månedsbasis';
-Parameter ShareBypass(moall)             'Andel af bypass-drift på månedsbasis';
+Parameter AvailDaysTurb(moall)           'Antal raadige dage for dampturbinen';
+Parameter ShareAvailTurb(moall)          'Andel af fuld rådighed af dampturbinen månedsbasis';
 Parameter Peget(moall)                   'Elektrisk egetforbrug KKV-anlægget';
-Parameter HoursBypass(moall)             'Antal timer med turbine-bypass';
+#--- Parameter ShareBypass(moall)             'Andel af bypass-drift på månedsbasis';
+#--- Parameter HoursBypass(moall)             'Antal timer med turbine-bypass';
                                          
 Parameter MinLhvMWh(u)                   'Mindste braendvaerdi affaldsanlaeg GJ/ton';
 Parameter MaxLhvMWh(u)                   'Største braendvaerdi affaldsanlaeg GJ/ton';
@@ -182,7 +184,7 @@ Parameter KapMin(u)                      'Mindste modtrykslast MWq';
 Parameter KapNom(u)                      'Stoerste modtrykskapacitet MWq';
 Parameter KapMax(u)                      'Stoerste samlede varmekapacitet MWq';
 Parameter KapRgk(u)                      'RGK kapacitet MWq';
-Parameter KapE(u)                        'RGK kapacitet MWq';
+Parameter KapE(u,moall)                  'El bruttokapacitet MWe';
 Parameter EtaQ(u)                        'Varmevirkningsgrad';
 Parameter EtaRgk(u)                      'Varmevirkningsgrad';
 Parameter EtaE(u,moall)                  'Elvirkningsgrad (er månedsafhængig i 2021)';
@@ -239,7 +241,7 @@ par=DataCtrl            rng=DataCtrl!B4:C20          rdim=1 cdim=0
 par=Schedule            rng=DataU!A3:E6              rdim=1 cdim=1
 par=DataU               rng=DataU!A11:O17            rdim=1 cdim=1
 par=DataSto             rng=DataU!Q11:AC17           rdim=1 cdim=1
-par=Prognoses           rng=DataU!D22:AB58           rdim=1 cdim=1
+par=Prognoses           rng=DataU!D22:AC58           rdim=1 cdim=1
 par=DataFuel            rng=DataFuel!C4:T33          rdim=1 cdim=1
 par=FuelBounds          rng=DataFuel!B39:AM178       rdim=2 cdim=1
 par=FixValueAffT       rng=DataFuel!D182:AM183       rdim=0 cdim=1
@@ -662,7 +664,8 @@ ZQ_RgkRabatMax2(mo) ..  RgkRabatSats * TaxATL(mo) - RGKrabat(mo)  =L=  RgkRabatM
 #end Beregning af RGK-rabat
 
 #begin Varmebalancer og elproduktion
-Equation ZQ_PbrutMax(moall)              'Brutto elproduktion uden hensyn til bypass';
+Equation ZQ_PbrutMin(moall)              'Mindste brutto elproduktion';
+Equation ZQ_PbrutMax(moall)              'Brutto elproduktion baseret på modtryksvarme og eta';
 Equation ZQ_Pbrut(moall)                 'Brutto elproduktion';
 Equation ZQ_Pnet(moall)                  'Netto elproduktion';
 Equation ZQ_Qbypass(moall)               'Bypass varmeproduktion';
@@ -681,10 +684,20 @@ Equation  ZQ_bOnRgk(ua,moall)            'Angiver om RGK er aktiv';
 
 
 # Beregning af elproduktion. Det antages, at omsætning fra bypass-damp til fjernvarme er 1-til-1, dvs. 100 pct. effektiv bypass-drift.
-ZQ_PbrutMax(mo)$OnU('Ovn3')  .. PbrutMax(mo) =E=  EtaE('Ovn3',mo) * sum(fa $(OnF(fa) AND u2f('Ovn3',fa)), FuelConsT('Ovn3',fa,mo) * LhvMWh(fa));
-ZQ_Pbrut(mo)   $OnU('Ovn3')  .. Pbrut(mo)    =E=  PbrutMax(mo) * (1 - ShareBypass(mo));
-ZQ_Pnet(mo)    $OnU('Ovn3')  .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo) * (1 - ShareBypass(mo));  # Peget har taget hensyn til bypass.
-ZQ_Qbypass(mo) $OnU('Ovn3')  .. Qbypass(mo)  =E=  (PbrutMax(mo) - Peget(mo)) * ShareBypass(mo);
+#--- ZQ_PbrutMax(mo)$OnU('Ovn3')  .. PbrutMax(mo) =E=  EtaE('Ovn3',mo) * sum(fa $(OnF(fa) AND u2f('Ovn3',fa)), FuelConsT('Ovn3',fa,mo) * LhvMWh(fa));
+#--- ZQ_Pbrut(mo)   $OnU('Ovn3')  .. Pbrut(mo)    =E=  PbrutMax(mo) * (1 - ShareBypass(mo));
+#--- ZQ_Pnet(mo)    $OnU('Ovn3')  .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo) * (1 - ShareBypass(mo));  # Peget har taget hensyn til bypass.
+#--- ZQ_Pnet(mo)    $OnU('Ovn3')  .. Pnet(mo)     =L=  Pbrut(mo) - Peget(mo) * (1 - ShareBypass(mo));  # Peget har taget hensyn til bypass.
+#--- ZQ_Pbrut(mo)   $OnU('Ovn3')  .. Pbrut(mo)    =L=  PbrutMax(mo) * (1 - ShareBypass(mo));
+#--- ZQ_Qbypass(mo) $OnU('Ovn3')  .. Qbypass(mo)  =E=  (PbrutMax(mo) - Peget(mo)) * ShareBypass(mo);
+
+#TODO: Omkostninger til at dække el-egetforbruget, når turbinen er ude, er ikke medtaget i objektfunktionen.
+
+ZQ_PbrutMin(mo) $OnU('Ovn3') .. Pbrut(mo)    =G=  Peget(mo) * bOnU('Ovn3',mo);
+ZQ_PbrutMax(mo) $OnU('Ovn3') .. PbrutMax(mo) =E=  EtaE('Ovn3',mo) * QAffM('Ovn3',mo) / EtaQ('Ovn3');
+ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo) * ShareAvailTurb(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
+ZQ_Pnet(mo)     $OnU('Ovn3') .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo); 
+ZQ_Qbypass(mo)  $OnU('Ovn3') .. Qbypass(mo)  =E=  PbrutMax(mo) - Pbrut(mo);  # Antager 100 pct. effektiv bypass-drift.
 
 ZQ_Qdemand(mo)               ..  Qdemand(mo)   =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo)) + [QInfeas('source',mo) - QInfeas('drain',mo)] $OnQInfeas;
 ZQ_Qaff(ua,mo)     $OnU(ua)  ..  Q(ua,mo)      =E=  [QaffM(ua,mo) + Qrgk(ua,mo)] + Qbypass(mo) $sameas(ua,'Ovn3');
@@ -1184,11 +1197,17 @@ Loop (u $OnU(u),
   );
 );
 
+AvailDaysTurb(mo)  = Prognoses(mo,'Turbine') $(OnU('Ovn3') AND OnM(mo));
+ShareAvailTurb(mo) = max(0.0, min(1.0, AvailDaysTurb(mo) / Prognoses(mo,'Ndage') ));
+
 # Ovn3 er KV-anlæg med mulighed for turbine-bypass-drift.
-ShareBypass(mo) = max(0.0, min(1.0, Prognoses(mo,'Bypass') / (24 * Prognoses(mo,'Ovn3')) ));
-HoursBypass(mo) = Prognoses(mo,'Bypass');
-Peget(mo)       = EgetforbrugKVV * (AvailDaysU(mo,'Ovn3'));  #---   - HoursBypass(mo));
+#OBS: Bypass-drift ændret fra forskrift til optimerings-aspekt, dvs. styret af objektfunktionen.
+#--- ShareBypass(mo) = max(0.0, min(1.0, Prognoses(mo,'Bypass') / (24 * Prognoses(mo,'Ovn3')) ));
+#--- HoursBypass(mo) = Prognoses(mo,'Bypass');
+Peget(mo)       = EgetforbrugKVV * (AvailDaysTurb(mo));
+#--- Peget(mo)       = EgetforbrugKVV * (AvailDaysU(mo,'Ovn3'));  #---   - HoursBypass(mo));
 #--- display mo, OnU, OnF, OnM, Hours, AvailDaysU, ShareAvailU, ShareBypass;
+
 
 
 # Produktionsanlæg og kølere.
@@ -1199,19 +1218,21 @@ MinTon(ua)    = DataU(ua,'MinTon');
 MaxTon(ua)    = DataU(ua,'Maxton');
 KapMin(u)     = DataU(u, 'KapMin');
 KapRgk(ua)    = DataU(ua,'KapRgk');
-KapNom(u)     = DataU(u, 'KapQNom');
-KapMax(u)     = KapNom(u) + KapRgk(u);
-KapE(u)       = DataU(u, 'KapE');
+KapNom(u)     = DataU(u,'KapQNom');
+KapE(u,moall) = DataU(u,'KapE');
 EtaE(u,moall) = DataU(u,'EtaE');
 EtaQ(u)       = DataU(u,'EtaQ');
 EtaRgk(u)     = DataU(u,'KapRgk') / DataU(u,'KapQNom') * EtaQ(u);
 DvMWhq(u)     = DataU(u,'DvMWhq');
 DvTime(u)     = DataU(u,'DvTime');
+KapMax(u)     = KapNom(u) + KapRgk(u);
 
 # EtaE er 18 % til og med august 2021, og derefter antages værdien givet i DataU.
+# KapE er 7,5 MWe til og med august 2021, og derefter antages værdien givet i DataU.
 if (Schedule('aar','FirstYear') EQ 2021,
   Loop (moall $(ord(moall) GE 1 AND ord(moall) LE 8+1),   # OBS: moall starter med element mo0, derfor 8+1 t.o.m. august. 
     EtaE('Ovn3', moall) = 0.18;
+    KapE('Ovn3', moall) = 7.5;
   );
 );
 
