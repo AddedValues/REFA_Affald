@@ -300,14 +300,14 @@ sfparm(s,f) = no;
 # OBS: Tilknytning af braendsel til ejer underforstaar eksklusivitet.
 f2own(f,owner)           = no;
 f2own(fa,        'refa') = yes;
-f2own('NSvarme', 'refa') = yes;
 f2own('flis',    'refa') = yes;
+f2own('NSvarme', 'gsf') = yes;
 f2own('peakfuel','gsf')  = yes;
 
 frefa(f)         = no;
 frefa(fa)        = yes;
 frefa('flis')    = yes;
-frefa('NSvarme') = yes;
+frefa('NSvarme') = no;
 
 fgsf(f)          = no;
 fgsf('peakfuel') = yes;
@@ -792,7 +792,8 @@ ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  Fue
 ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'max',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 ZQ_FuelMinYear(f)  $(OnF(f) AND fdis(f)) ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =G=  MinTonnageYear(f) * card(mo) / 12;
-ZQ_FuelMaxYear(f)  $(OnF(f) AND fdis(f)) ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =L=  MaxTonnageYear(f) * card(mo) / 12 * (1 + 1E-8);
+ZQ_FuelMaxYear(f)  $(OnF(f))             ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =L=  MaxTonnageYear(f) * card(mo) / 12 * (1 + 1E-6);
+#--- ZQ_FuelMaxYear(f)  $(OnF(f) AND fdis(f)) ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =L=  MaxTonnageYear(f) * card(mo) / 12 * (1 + 1E-8);
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
