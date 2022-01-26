@@ -399,6 +399,8 @@ Positive variable QaffM(ua,moall)               'Modtryksvarme på affaldsanlaeg 
 Positive variable Qrgk(u,moall)                 'RGK produktion MWq';
 Positive variable Qafv(moall)                   'Varme pålagt affaldvarmeafgift';
 Positive variable QRgkMiss(moall)               'Slack variabel til beregning om RGK-rabat kan opnaas';
+Binary   variable bOnBypass(moall)              'Angiver om turbine-bypass er aktivt';
+
                                                 
 Positive variable FEBiogen(u,moall)             'Indfyret biogen affaldsenergi [GJ]';
 Positive variable FuelHeatAff(moall)            'Afgiftspligtigt affald medgået til varmeproduktion';
@@ -680,6 +682,8 @@ Equation ZQ_PbrutMax(moall)              'Brutto elproduktion baseret på modtryk
 Equation ZQ_Pbrut(moall)                 'Brutto elproduktion';
 Equation ZQ_Pnet(moall)                  'Netto elproduktion';
 Equation ZQ_Qbypass(moall)               'Bypass varmeproduktion';
+Equation ZQ_QbypassMax(moall)            'Øvre grænse for Bypass varmeproduktion';
+Equation ZQ_OnBypass(moall)              'Sikrer at bypass ikke muligt, når GSF SR-kedel er aktiv';
 
 Equation  ZQ_Qdemand(moall)              'Opfyldelse af fjv-behov';
 Equation  ZQ_Qaff(ua,moall)              'Samlet varmeprod. affaldsanlaeg';
@@ -714,9 +718,14 @@ ZQ_PbrutMax(mo) $OnU('Ovn3') .. PbrutMax(mo) =E=  EtaE('Ovn3',mo) * QAffM('Ovn3'
 ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo) / ShareAvailU('Ovn3',mo) * ShareAvailTurb(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
 #--- ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo) * ShareAvailTurb(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
 #--- ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
-ZQ_Pnet(mo)     $OnU('Ovn3')     .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo); 
-ZQ_Qbypass(mo)  $OnU('Ovn3')     .. Qbypass(mo)  =E=  PbrutMax(mo) - Pbrut(mo);  # Antager 100 pct. effektiv bypass-drift.
-                                 
+ZQ_Pnet(mo)        $OnU('Ovn3')     .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo); 
+ZQ_Qbypass(mo)     $OnU('Ovn3')     .. Qbypass(mo)  =E=  PbrutMax(mo) - Pbrut(mo);  # Antager 100 pct. effektiv bypass-drift.
+ZQ_QbypassMax(mo)  $OnU('Ovn3')     .. Qbypass(mo)  =L=  ShareAvailU('Ovn3',mo) * Hours(mo) * KapE('Ovn3',mo) * bOnBypass(mo);  # Antager 100 pct. effektiv bypass-drift.
+
+#TODO: Denne restriktion medfører blot at SR-kedlen holdes ude, hvis Bypass kab levere varme-mankoen.
+#Løsning: Indfør penalty på Qbypass, hvis: bOnBypass==1 & bOnU(PeakK)==0. 
+ZQ_OnBypass(mo)  $(OnU('Ovn3') AND OnU('Cooler'))  .. bOnBypass(mo) + bOnU('PeakK',mo)  =L=  1;
+          
 ZQ_Qdemand(mo)                   ..  Qdemand(mo)   =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo)) + [QInfeas('source',mo) - QInfeas('drain',mo)] $OnQInfeas;
 ZQ_Qaff(ua,mo)     $OnU(ua)      ..  Q(ua,mo)      =E=  [QaffM(ua,mo) + Qrgk(ua,mo)] + Qbypass(mo) $sameas(ua,'Ovn3');
 ZQ_QaffM(ua,mo)    $OnU(ua)      ..  QaffM(ua,mo)  =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), EtaQ(ua) * FuelConsT(ua,fa,mo) * LhvMWh(fa))] $OnU(ua);
@@ -1326,6 +1335,7 @@ CO2potenTon(f,typeCO2,mo) = DataFuel(f,'brandv') * DataFuel(f,'CO2kgGJ') / 1000;
 if (NOT SkorstensMetode,
   CO2potenTon(fa,typeCO2,mo) = DataFuel(fa,'brandv') * [Prognoses(mo,'CO2aff') $sameas(typeCO2,'afgift') + Prognoses(mo,'ETSaff') $sameas(typeCO2,'kvote')] / 1000;
 );
+CO2potenTon(fbiogen,typeCO2,mo) = 0.0;
 
 Qdemand(mo)       = Prognoses(mo,'varmebehov');
 #--- PowerProd(mo)     = Prognoses(mo,'ELprod');
