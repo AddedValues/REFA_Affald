@@ -1841,7 +1841,7 @@ OnU, OnF, OnM, OnS, Hours, ShareAvailU, EtaQ, KapMin, KapNom, KapRgk, KapMax, Qd
 Pbrut, Pnet, Qbypass, 
 TaxAfvMWh, TaxAtlMWh, TaxCO2AffTon, TaxCO2peakTon,
 EaffGross, QaffMmax, QrgkMax, QaffTotalMax, TaxATLMax, RgkRabatMax,
-OverView, NPV_Total_V, NPV_REFA_V, Prognoses_V, FuelDeliv_V, FuelConsT_V, StoLoadF_V, StoDLoadF_V, IncomeFuel_V, Q_V,
+OverView, NPV_Total_V, NPV_REFA_V, Prognoses_V, FuelDeliv_V, FuelConsT_V, StoLoadF_V, StoDLoadF_V, IncomeFuel_V, Q_V, VPO_V,
 PerStart, PerSlut, VirtualUsed,
 
 RefaDaekningsbidrag_V,
