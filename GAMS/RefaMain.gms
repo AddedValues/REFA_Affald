@@ -300,16 +300,16 @@ sfparm(s,f) = no;
 # OBS: Tilknytning af braendsel til ejer underforstaar eksklusivitet.
 f2own(f,owner)           = no;
 f2own(fa,        'refa') = yes;
+f2own('NSvarme', 'refa') = yes;
 f2own('flis',    'refa') = yes;
-f2own('NSvarme', 'gsf') = yes;
 f2own('peakfuel','gsf')  = yes;
 
 frefa(f)         = no;
 frefa(fa)        = yes;
 frefa('flis')    = yes;
-frefa('NSvarme') = no;
 
 fgsf(f)          = no;
+fgsf('NSvarme')  = yes;
 fgsf('peakfuel') = yes;
 
 IncludePlant(urefa) = IncludeOwner('refa');
@@ -399,8 +399,6 @@ Positive variable QaffM(ua,moall)               'Modtryksvarme på affaldsanlaeg 
 Positive variable Qrgk(u,moall)                 'RGK produktion MWq';
 Positive variable Qafv(moall)                   'Varme pålagt affaldvarmeafgift';
 Positive variable QRgkMiss(moall)               'Slack variabel til beregning om RGK-rabat kan opnaas';
-Binary   variable bOnBypass(moall)              'Angiver om turbine-bypass er aktivt';
-
                                                 
 Positive variable FEBiogen(u,moall)             'Indfyret biogen affaldsenergi [GJ]';
 Positive variable FuelHeatAff(moall)            'Afgiftspligtigt affald medgået til varmeproduktion';
@@ -682,8 +680,6 @@ Equation ZQ_PbrutMax(moall)              'Brutto elproduktion baseret på modtryk
 Equation ZQ_Pbrut(moall)                 'Brutto elproduktion';
 Equation ZQ_Pnet(moall)                  'Netto elproduktion';
 Equation ZQ_Qbypass(moall)               'Bypass varmeproduktion';
-Equation ZQ_QbypassMax(moall)            'Øvre grænse for Bypass varmeproduktion';
-Equation ZQ_OnBypass(moall)              'Sikrer at bypass ikke muligt, når GSF SR-kedel er aktiv';
 
 Equation  ZQ_Qdemand(moall)              'Opfyldelse af fjv-behov';
 Equation  ZQ_Qaff(ua,moall)              'Samlet varmeprod. affaldsanlaeg';
@@ -718,14 +714,9 @@ ZQ_PbrutMax(mo) $OnU('Ovn3') .. PbrutMax(mo) =E=  EtaE('Ovn3',mo) * QAffM('Ovn3'
 ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo) / ShareAvailU('Ovn3',mo) * ShareAvailTurb(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
 #--- ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo) * ShareAvailTurb(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
 #--- ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
-ZQ_Pnet(mo)        $OnU('Ovn3')     .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo); 
-ZQ_Qbypass(mo)     $OnU('Ovn3')     .. Qbypass(mo)  =E=  PbrutMax(mo) - Pbrut(mo);  # Antager 100 pct. effektiv bypass-drift.
-ZQ_QbypassMax(mo)  $OnU('Ovn3')     .. Qbypass(mo)  =L=  ShareAvailU('Ovn3',mo) * Hours(mo) * KapE('Ovn3',mo) * bOnBypass(mo);  # Antager 100 pct. effektiv bypass-drift.
-
-#TODO: Denne restriktion medfører blot at SR-kedlen holdes ude, hvis Bypass kab levere varme-mankoen.
-#Løsning: Indfør penalty på Qbypass, hvis: bOnBypass==1 & bOnU(PeakK)==0. 
-ZQ_OnBypass(mo)  $(OnU('Ovn3') AND OnU('Cooler'))  .. bOnBypass(mo) + bOnU('PeakK',mo)  =L=  1;
-          
+ZQ_Pnet(mo)     $OnU('Ovn3')     .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo); 
+ZQ_Qbypass(mo)  $OnU('Ovn3')     .. Qbypass(mo)  =E=  PbrutMax(mo) - Pbrut(mo);  # Antager 100 pct. effektiv bypass-drift.
+                                 
 ZQ_Qdemand(mo)                   ..  Qdemand(mo)   =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo)) + [QInfeas('source',mo) - QInfeas('drain',mo)] $OnQInfeas;
 ZQ_Qaff(ua,mo)     $OnU(ua)      ..  Q(ua,mo)      =E=  [QaffM(ua,mo) + Qrgk(ua,mo)] + Qbypass(mo) $sameas(ua,'Ovn3');
 ZQ_QaffM(ua,mo)    $OnU(ua)      ..  QaffM(ua,mo)  =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), EtaQ(ua) * FuelConsT(ua,fa,mo) * LhvMWh(fa))] $OnU(ua);
@@ -792,7 +783,10 @@ ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  Fue
 ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'max',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 ZQ_FuelMinYear(f)  $(OnF(f) AND fdis(f)) ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =G=  MinTonnageYear(f) * card(mo) / 12;
-ZQ_FuelMaxYear(f)  $(OnF(f))             ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =L=  MaxTonnageYear(f) * card(mo) / 12 * (1 + 1E-6);
+# Nedenstående ændring medfører, at fliskedlen ikke kommer i drift !!!!!!!!
+# Det skyldes af faux også kommer ind under begrænsningen, men det skal kun gælde for affaldsbrændsler.
+ZQ_FuelMaxYear(fa)  $(OnF(fa))             ..  sum(mo, FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonnageYear(fa) * card(mo) / 12 * (1 + 1E-6);
+#--- ZQ_FuelMaxYear(f)  $(OnF(f))             ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =L=  MaxTonnageYear(f) * card(mo) / 12 * (1 + 1E-6);
 #--- ZQ_FuelMaxYear(f)  $(OnF(f) AND fdis(f)) ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =L=  MaxTonnageYear(f) * card(mo) / 12 * (1 + 1E-8);
 
 # Krav til frie affaldsfraktioner.
