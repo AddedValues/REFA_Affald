@@ -132,7 +132,7 @@ Scalar    Penalty_bOnU              'Penalty på bOnU'           / 0000E+5 /;
 Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss'       /   10    /;      # Denne penalty må ikke være højere end tillaegsafgiften.
 Scalar    Penalty_QInfeas           'Penalty på QInfeas'        / 5000    /;      # Pålægges virtuel varmekilder og -dræn.
 Scalar    Penalty_AffTInfeas        'Penalty på AffTInfeas'     / 5000    /;      # Pålægges virtuel affaldstonnage kilde og -dræn.
-Scalar    Penalty_AffaldsGensalg    'Affald gensalgspris'       / 150.00  /;      # Pålægges ikke-udnyttet affald.
+Scalar    Penalty_AffaldsGensalg    'Affald gensalgspris'       / 1500.00  /;      # Pålægges ikke-udnyttet affald.
 Scalar    OnQInfeas                 'On/Off på virtuel varme'   / 0       /;
 Scalar    OnAffTInfeas              'On/Off på virtuel affald'  / 0       /;
 Scalar    LhvMWhAffTInfeas          'LHV af virtuel affald'     / 3.0    /;                        # 3.0 MWhf/ton svarende til 10.80 GJ/ton.
@@ -156,7 +156,8 @@ Parameter IncludeOwner(owner)       '<>0 => Ejer med i OBJ'     / refa 1, gsf 0 
 Parameter IncludePlant(u);
 Parameter IncludeFuel(f);
 
-Parameter ScenProgn(scen,labProgn)       'Scenarier på prognoser';
+Parameter Scen_Progn(scen,labProgn)       'Scenarier på prognoser';
+Parameter Scen_Progn_Transpose(labProgn,scen)       'Transponering af Scen_Progn';
 Parameter Schedule(labScheduleRow, labScheduleCol)  'Periode start/stop';
 Parameter DataCtrl(labDataCtrl)          'Data for styringsparametre';
 Parameter DataU(u, labDataU)             'Data for anlaeg';
@@ -241,7 +242,7 @@ $If not errorfree $exit
 
 $onecho > REFAinput.txt
 set=labPrognScen        rng=Scen!C7:J7                      cDim=1
-par=ScenProgn           rng=Scen!A7:J37              rdim=1 cdim=1
+par=Scen_Progn           rng=Scen!A7:J37              rdim=1 cdim=1
 par=DataCtrl            rng=DataCtrl!B4:C20          rdim=1 cdim=0
 par=Schedule            rng=DataU!A3:E6              rdim=1 cdim=1
 par=DataU               rng=DataU!A11:O17            rdim=1 cdim=1
@@ -263,7 +264,7 @@ $call "GDXXRW REFAinputM.xlsm RWait=1 Trace=3 @REFAinput.txt"
 $GDXIN REFAinputM.gdx
 
 $LOAD   labPrognScen
-$LOAD   ScenProgn
+$LOAD   Scen_Progn
 $LOAD   DataCtrl
 $LOAD   Schedule
 $LOAD   DataU
@@ -276,7 +277,7 @@ $LOAD   FixValueAffT
 $GDXIN   # Close GDX file.
 $log  LOG: Finished loading input data from GDXIN.
 
-#--- display labPrognScen, ScenProgn, DataCtrl, DataU, Schedule, Prognoses, DataFuel, FuelBounds, DataSto;
+#--- display labPrognScen, Scen_Progn, DataCtrl, DataU, Schedule, Prognoses, DataFuel, FuelBounds, DataSto;
 #--- abort "BEVIDST STOP";
 
 #begin Opsætning af subsets, som IKKE afledes af inputdata.
@@ -337,10 +338,10 @@ FixAffald           = DataCtrl('FixAffald') NE 0;
 # Verificér scenarier.
 Scalar nScenActive 'Antal aktive definerede scenarier';
 if (RunScenarios,
-  nScenActive = sum(scen, 1 $ScenProgn(scen,'Aktiv'));
+  nScenActive = sum(scen, 1 $Scen_Progn(scen,'Aktiv'));
   if (nScenActive EQ 0,
-    display nScenActive, ScenProgn;
-    abort "RunScenarios er TRUE (NE 0), men ingen scenarier i ScenProgn er aktive.";
+    display nScenActive, Scen_Progn;
+    abort "RunScenarios er TRUE (NE 0), men ingen scenarier i Scen_Progn er aktive.";
   );
 );
 
@@ -1062,13 +1063,14 @@ Parameter dPhiChangeIter(phiKind,moall,iter) 'Ændring af Phi-ændring ift. forrig
 
 # Initialisering af scenarie Loop.
 
-# Tag backup af parametre i Prognoses, som er aktive i ScenProgn.
+# Tag backup af parametre i Prognoses, som er aktive i Scen_Progn.
 PrognosesSaved(moall,labPrognScen) = Prognoses(moall,labPrognScen);
 
 nScen = 0;
-ScenProgn('scen0','Aktiv') = 1;                    # Reference-scenariet beregnes altid.
+Scen_Progn('scen0','Aktiv') = 1;                    # Reference-scenariet beregnes altid.
+Scen_Progn_Transpose(labPrognScen,'scen0') = tiny;
 
-Loop (scen $ScenProgn(scen,'Aktiv'),               # Begin-of-scenario Loop
+Loop (scen $Scen_Progn(scen,'Aktiv'),               # Begin-of-scenario Loop
 actScen(scen) = yes;
 nScen = nScen + 1;
 display actScen, nScen;
@@ -1085,8 +1087,8 @@ if (ord(scen) GT 1,
 
   # Kun ikke-NaN parametre overføres fra scenariet.
   Loop (labPrognScen,
-    if (ScenProgn(actScen,labPrognScen) NE NaN,
-      Prognoses(mo,labPrognScen) = ScenProgn(actScen,labPrognScen);
+    if (Scen_Progn(actScen,labPrognScen) NE NaN,
+      Prognoses(mo,labPrognScen) = Scen_Progn(actScen,labPrognScen);
     );
   );
 );
@@ -1375,7 +1377,7 @@ RgkRabatMax(mo) = RgkRabatSats * TaxATLMax(mo);
 QRgkMissMax = 2 * RgkRabatMinShare * sum(ua $OnU(ua), 31 * 24 * KapNom(ua));  # Faktoren 2 er en sikkerhedsfaktor mod infeasibilitet.
 #--- display TaxATLMax, RgkRabatMax, QRgkMissMax;
 
-execute_unload "REFAmain.gdx";
+#--- execute_unload "REFAmain.gdx";
 #--- abort "BEVIDST STOP EFTER QaffMmax";
 $If not errorfree $exit
 
@@ -1829,6 +1831,10 @@ Loop (topicSummable,
 # Følgende topic giver ikke mening som sumtal.
 Scen_Overview('REFA-RGK-Andel',actScen) = 0.0;
 
+Scen_Progn_Transpose(labProgn,actScen) = 0.0;
+Loop (labPrognScen $(Scen_Progn(actScen,labPrognScen) NE NaN),  #---  AND NOT sameas(labPrognScen,'Aktiv')),
+  Scen_Progn_Transpose(labPrognScen,actScen) = Scen_Progn(actScen,labPrognScen);
+);
 
 
 execute_unload 'REFAoutput.gdx',
@@ -1836,7 +1842,7 @@ TimeOfWritingMasterResults, scen, actScen,
 bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, 
 labDataU, labDataFuel, labScheduleRow, labScheduleCol, labProgn, taxkind, topic, typeCO2,
 Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel, 
-ScenProgn, Schedule, DataCtrl_V, DataU_V, DataSto_V, Prognoses_V, AvailDaysU, DataFuel_V, FuelBounds_V, 
+Scen_Progn, Schedule, DataCtrl_V, DataU_V, DataSto_V, Prognoses_V, AvailDaysU, DataFuel_V, FuelBounds_V, 
 OnU, OnF, OnM, OnS, Hours, ShareAvailU, EtaQ, KapMin, KapNom, KapRgk, KapMax, Qdemand, LhvMWh, 
 Pbrut, Pnet, Qbypass, 
 TaxAfvMWh, TaxAtlMWh, TaxCO2AffTon, TaxCO2peakTon,
@@ -2022,7 +2028,7 @@ if (RunScenarios,
   bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, 
   labDataU, labDataFuel, labScheduleRow, labScheduleCol, labProgn, taxkind, topic, typeCO2,
   PerStart, PerSlut, nScen, nScenActive, VirtualUsed,
-  ScenProgn, #--- Scen_TimeStamp, 
+  Scen_Progn, Scen_Progn_Transpose, #--- Scen_TimeStamp, 
   Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel;
   
   #TODO: Udskriv til Excel-fil REFAOutputScens.xlsm 
@@ -2037,14 +2043,15 @@ par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
 par=VirtualUsed                     rng=Overblik!B1:B1
 par=PerStart                        rng=Overblik!B2:B2
 par=PerSlut                         rng=Overblik!C2:C2
-par=Scen_Overview                   rng=Overblik!C4          cdim=1  rdim=1
-text="OverView"                     rng=Overblik!C4:C4
-par=Scen_Q                          rng=Overblik!C49         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!C49:C49
-par=Scen_FuelDeliv                  rng=Overblik!C57         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!C57:C57
-par=Scen_IncomeFuel                 rng=Overblik!C89         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!C89:C89
+par=Scen_Progn_Transpose            rng=Overblik!C4          cdim=1  rdim=1
+par=Scen_Overview                   rng=Overblik!C14         cdim=1  rdim=1
+text="Nøgletal"                     rng=Overblik!C14:C14
+par=Scen_Q                          rng=Overblik!C59         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!C59:C59
+par=Scen_FuelDeliv                  rng=Overblik!C67         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!C67:C67
+par=Scen_IncomeFuel                 rng=Overblik!C99         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!C99:C99
 *end
 
 $offecho
