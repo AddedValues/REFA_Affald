@@ -151,6 +151,7 @@ Scalar    NactiveM                  'Antal aktive måneder';
 
 Scalar    dbup, dbupa;
 Scalar    db, qdeliv;
+Scalar    Nfbiogen                  'Antal biogene affaldsfraktioner';
 
 Parameter IncludeOwner(owner)       '<>0 => Ejer med i OBJ'     / refa 1, gsf 0 /;
 Parameter IncludePlant(u);
@@ -351,6 +352,7 @@ $If not errorfree $exit
 # Initialisering af arbejdsvariable som anvendes i Equations.
 Parameter Phi(phiKind,moall)      'Aktuel værdi af Phi = Fbiogen/F';
 Parameter QtotalAffMax(moall)     'Max. aff-varme';
+Parameter QbypassMax(moall)       'Max. bypass-varme';
 Parameter StoCostLoadMax(s)       'Max. lageromkostning';
 
 mo(moall) = yes;
@@ -717,10 +719,10 @@ ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo) / ShareAvailU('Ov
 #--- ZQ_Pbrut(mo)    $OnU('Ovn3') .. Pbrut(mo)    =L=  PbrutMax(mo);   # Egetforbruget dækkes kun når turbinen er til rådighed.
 ZQ_Pnet(mo)     $OnU('Ovn3')     .. Pnet(mo)     =E=  Pbrut(mo) - Peget(mo); 
 ZQ_Qbypass(mo)  $OnU('Ovn3')     .. Qbypass(mo)  =E=  PbrutMax(mo) - Pbrut(mo);  # Antager 100 pct. effektiv bypass-drift.
-                                 
+
 ZQ_Qdemand(mo)                   ..  Qdemand(mo)   =E=  sum(up $OnU(up), Q(up,mo)) - sum(uv $OnU(uv), Q(uv,mo)) + [QInfeas('source',mo) - QInfeas('drain',mo)] $OnQInfeas;
 ZQ_Qaff(ua,mo)     $OnU(ua)      ..  Q(ua,mo)      =E=  [QaffM(ua,mo) + Qrgk(ua,mo)] + Qbypass(mo) $sameas(ua,'Ovn3');
-ZQ_QaffM(ua,mo)    $OnU(ua)      ..  QaffM(ua,mo)  =E=  [sum(fa $(OnF(fa) AND u2f(ua,fa)), EtaQ(ua) * FuelConsT(ua,fa,mo) * LhvMWh(fa))] $OnU(ua);
+ZQ_QaffM(ua,mo)    $OnU(ua)      ..  QaffM(ua,mo)  =E=  EtaQ(ua) * [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelConsT(ua,fa,mo) * LhvMWh(fa))] $OnU(ua);
 ZQ_QaffMmax(ua,mo) $OnU(ua)      ..  QAffM(ua,mo)  =L=  QaffMmax(ua,mo);    
 ZQ_Qrgk(ua,mo)     $OnU(ua)      ..  Qrgk(ua,mo)   =L=  KapRgk(ua) / KapNom(ua) * QaffM(ua,mo);
 ZQ_QrgkMax(ua,mo)  $OnU(ua)      ..  Qrgk(ua,mo)   =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);
@@ -1236,7 +1238,8 @@ Loop (u $OnU(u),
   );
 );
 
-AvailDaysTurb(mo)  = Prognoses(mo,'Turbine') $(OnU('Ovn3') AND OnM(mo));
+# Turbinens rådighed kan højst være lig med Ovn3-rådigheden.
+AvailDaysTurb(mo)  = min(AvailDaysU(mo,'Ovn3'), Prognoses(mo,'Turbine') $(OnU('Ovn3')));
 ShareAvailTurb(mo) = max(0.0, min(1.0, AvailDaysTurb(mo) / Prognoses(mo,'Ndage') ));
 
 # Ovn3 er KV-anlæg med mulighed for turbine-bypass-drift.
@@ -1355,10 +1358,12 @@ TaxNOxPeakTon(mo) = Prognoses(mo,'NOxPeak');
 # Special-haandtering af oevre graense for Nordic Sugar varme.
 FuelBounds('NSvarme','max',moall) = Prognoses(moall,'NS');
 
-QtotalAffMax(mo)  = sum(ua $OnU(ua), (EtaQ(ua) + EtaRgk(ua)) * sum(fa $(OnF(fa) AND u2f(ua,fa)), LhvMWh(fa) * FuelBounds(fa,'max',mo)) );
+# Diversen øvre grænser for varmeproduktion og lageromkostning.
+QbypassMax(mo)    = ShareAvailTurb(mo) * Hours(mo) * KapE('Ovn3',mo)  - Peget(mo); 
+QtotalAffMax(mo)  = sum(ua $OnU(ua), (EtaQ(ua) + EtaRgk(ua)) * sum(fa $(OnF(fa) AND u2f(ua,fa)), LhvMWh(fa) * FuelBounds(fa,'max',mo)) ) + QbypassMax(mo);
 StoCostLoadMax(s) = smax(mo, StoLoadMax(s,mo) * StoLoadCostRate(s,mo));
 
-display QtotalAffMax, StoCostLoadMax;
+display QtotalAffMax, QbypassMax, StoCostLoadMax;
 
 # EaffGross skal være mininum af energiindhold af rådige mængder affald hhv. affaldsanlæggets fuldlastkapacitet.
 #--- QaffMmax(ua,moall)  = min(ShareAvailU(ua,moall) * Hours(moall) * KapNom(ua), [sum(fa $(OnF(fa) AND u2f(ua,fa)), FuelBounds(fa,'max',moall) * EtaQ(ua) * LhvMWh(fa))]) $OnU(ua);
@@ -1388,33 +1393,29 @@ $If not errorfree $exit
 
 # Fiksering af ikke-forbundne anlæg+drivmidler, samt af ikke-aktive anlaeg og ikke-aktive drivmidler.
 # Først løsnes variable, som kunne være blevet fikseret i forrige scenarie.
-if (nScen GE 2 AND FALSE,
-  bOnU.up(u,mo)              =  1;
-  bOnSto.up(s,mo)            =  1; 
-  bOnRgk.up(ua,mo)           =  1; 
-  bOnRgkRabat.up(mo)         =  1; 
-  Q.fx(u,mo)                 = Big;
-  CostsU.fx(u,mo)            = Big;
-  FuelConsT.fx(u,f,mo)       = Big;
-  Pbrut.fx(mo)               = Big;
-  Pnet.fx(mo)                = Big;
-  Qbypass.fx(mo)             = Big;
-  StoLoad.up(s,mo)           = Big;
-  StoLoss.up(s,mo)           = Big;
-  StoDLoad.up(s,mo)          = Big;
-  StoDLoadAbs.up(s,mo)       = Big;
-  StoCostAll.up(s,mo)        = Big;
-  StoDLoadF.up(s,f,mo)       = Big;
-  CostsPurchaseF.up(f,mo)    = Big;
-  IncomeAff.up(f,mo)         = Big;
-  CO2emisF.up(f,mo,typeCO2)  = Big;
-  FuelDelivT.up(f,mo)        = Big;
-  FuelConsT.up(u,f,mo)       = Big;
-  FuelConsP.up(f,mo)         = Big;
-  StoDLoadF.up(s,f,mo)       = Big;
-  CostsPurchaseF.up(f,mo)    = Big;
-  IncomeAff.up(f,mo)         = Big;
-  StoLoad.up(s,mo)           = Big;
+if (nScen GE 2,
+  bOnU.up(u,moall)              =  1;
+  bOnSto.up(s,moall)            =  1; 
+  bOnRgk.up(ua,moall)           =  1; 
+  bOnRgkRabat.up(moall)         =  1; 
+  IncomeAff.up(f,moall)         = Big;
+  CostsPurchaseF.up(f,moall)    = Big;
+  CostsU.up(u,moall)            = Big;
+  Pbrut.up(moall)               = Big;
+  Pnet.up(moall)                = Big;
+  Q.up(u,moall)                 = Big;
+  Qbypass.up(moall)             = Big;
+  StoLoad.up(s,moall)           = Big;
+  StoLoss.up(s,moall)           = Big;
+  StoDLoad.up(s,moall)          = Big;
+  StoDLoadAbs.up(s,moall)       = Big;
+  StoCostAll.up(s,moall)        = Big;
+  StoDLoadF.up(s,f,moall)       = Big;
+  CO2emisF.up(f,moall,typeCO2)  = Big;
+  FuelDelivT.up(f,moall)        = Big;
+  FuelConsT.up(u,f,moall)       = Big;
+  FuelConsP.up(f,moall)         = Big;
+  StoDLoadF.up(s,f,moall)       = Big;
 );
 
 # Dernæst udføres fikseringer svarende til det aktuelle scenarie.
@@ -1487,11 +1488,15 @@ ConvergenceFound = FALSE;
 PhiIter(phiKind,mo,iter) = 0.0;
 dPhiIter(phiKind,mo,iter) = 0.0;
 
-Phi(phiKind,mo)             = 0.2;    # Startgæt (bør være positivt).
-PhiIter(phiKind,mo,'iter0') = Phi(phiKind,mo);
+Nfbiogen = 0;  # Initialisering nødvendig, hvis ingen biogene fraktioner er aktive.
+Loop (fbiogen $OnF(fbiogen), Nfbiogen = Nfbiogen + 1; );
+
+Phi(phiKind,mo)              = 0.2 $Nfbiogen;    # Startgæt: Bør være positivt når biogene fraktioner er aktive.
+PhiIter(phiKind,mo,'iter0')  = Phi(phiKind,mo);
 dPhiIter(phiKind,mo,'iter0') = 0.0;
 
-Loop (iter $(ord(iter) GE 2),
+# Der skal kun udføres én iteration, hvis der ikke er aktive biogene fraktioner.
+Loop (iter $(ord(iter) GE 2 AND ord(iter) LE 2 + (card(iter)-2) $Nfbiogen),
   IterNo = ord(iter) - 1;
   display "Før SOLVE i Iteration no.", IterNo;
   
