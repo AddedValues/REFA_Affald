@@ -757,7 +757,7 @@ ZQ_FuelMin(f,mo) $(OnF(f) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  Fue
 ZQ_FuelMax(f,mo) $(OnF(f) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'max',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 ZQ_FuelMinYear(f)  $(OnF(f) AND fdis(f)) ..  sum(mo, FuelDelivT(f,mo) + FuelResaleT(f,mo))  =G=  MinTonnageYear(f) * card(mo) / 12;
-ZQ_FuelMaxYear(fa)  $(OnF(fa))             ..  sum(mo, FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonnageYear(fa) * [(card(mo) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
+ZQ_FuelMaxYear(fa)  $(OnF(fa))           ..  sum(mo, FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonnageYear(fa) * [(card(mo) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
@@ -1704,12 +1704,12 @@ Loop (mo $(NOT sameas(mo,'mo0')),
 
 
   Loop (f,
-    FuelDeliv_V(f,mo) = max(tiny, FuelDelivT.L(f,mo));
-    IncomeFuel_V(f,mo) = IncomeAff.L(f,mo) - CostsPurchaseF.L(f,mo);
+    FuelDeliv_V(f,mo) = max(tiny, FuelDelivT.L(f,mo)) $OnF(f) - tiny $(NOT OnF(f));
+    IncomeFuel_V(f,mo) = (IncomeAff.L(f,mo) - CostsPurchaseF.L(f,mo)) $OnF(f) - tiny $(NOT OnF(f));
     if (IncomeFuel_V(f,mo) EQ 0.0, IncomeFuel_V(f,mo) = tiny; );
   );
   
-  FuelConsT_V(u,f,mo) = max(tiny, FuelConsT.L(u,f,mo));
+  FuelConsT_V(u,f,mo) = max(tiny, FuelConsT.L(u,f,mo)) $(OnF(f) AND OnU(u) AND u2f(u,f))  - tiny $(OnF(f) AND OnU(u) AND u2f(u,f));
   FuelConsP_V(u,f,mo) = max(tiny, FuelConsT.L(u,f,mo) * LhvMWh(f));
   
   Loop (f $(OnF(f) AND fa(f) AND fsto(f)),
@@ -1721,8 +1721,8 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   
 
   Q_V(u,mo)  = ifthen (Q.L(u,mo) EQ 0.0, tiny, Q.L(u,mo));
-  Q_V(uv,mo) = -Q_V(uv,mo);  # Negation aht. afbildning i sheet Overblik.
-  #--- RefaRgkProd_V(mo) = sum(ua, Qrgk.L(ua,mo));
+  Q_V(uv,mo) = -Q_V(uv,mo);         # Negation aht. afbildning i sheet Overblik.
+  Q_V(u,mo) $(NOT OnU(u)) = -tiny;  # Markerer ikke-rådige anlæg.
   Loop (u $OnU(u),
     if (Q.L(u,mo) GT 0.0,
       Usage_V(u,mo) = Q.L(u,mo) / (KapNom(u) * ShareAvailU(u,mo) * Hours(mo));
@@ -1910,32 +1910,32 @@ text="FuelBounds"         rng=Inputs!T43:T43
 * Overview is the last sheet to be written hence becomes the actual sheet when opening Excel file.
 
 *begin sheet Overblik
-par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
-text="Tidsstempel"                  rng=Overblik!A1:A1
-par=VirtualUsed                     rng=Overblik!B1:B1
-par=PerStart                        rng=Overblik!B2:B2
-par=PerSlut                         rng=Overblik!C2:C2
-par=NPV_Total_V                     rng=Overblik!B3:B3
-text="Total-NPV"                    rng=Overblik!A3:A3
-par=NPV_REFA_V                      rng=Overblik!B4:B4
-text="REFA-NPV"                     rng=Overblik!A4:A4
-par=OverView                        rng=Overblik!C6          cdim=1  rdim=1
-text="Overblik"                     rng=Overblik!C6:C6
-par=Q_V                             rng=Overblik!C49         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!A49:A49
-par=FuelDeliv_V                     rng=Overblik!C57         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!A57:A57
-par=IncomeFuel_V                    rng=Overblik!C89         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!A89:A89
-par=Usage_V                         rng=Overblik!C121        cdim=1  rdim=1
-text="Kapacitetsudnyttelse"         rng=Overblik!A121:A121
-par=StoLoadAll_V                    rng=Overblik!C130        cdim=1 rdim=1
-text="Lagerbeholdning totalt"       rng=Overblik!A130:A130   
-text="Lager"                        rng=Overblik!C130:C130   
-par=StoLoadF_V                      rng=Overblik!B138        cdim=1 rdim=2
-text="Lagerbeh. pr fraktion"        rng=Overblik!A138:A138   
-text="Lager"                        rng=Overblik!B138:B138   
-text="Fraktion"                     rng=Overblik!C138:C138   
+par=TimeOfWritingMasterResults      rng=Overblik!C2:C2
+text="Tidsstempel"                  rng=Overblik!A2:A2
+par=VirtualUsed                     rng=Overblik!B2:B2
+par=PerStart                        rng=Overblik!B3:B3
+par=PerSlut                         rng=Overblik!C3:C3
+par=NPV_Total_V                     rng=Overblik!B4:B4
+text="Total-NPV"                    rng=Overblik!A4:A4
+par=NPV_REFA_V                      rng=Overblik!B5:B5
+text="REFA-NPV"                     rng=Overblik!A5:A5
+par=OverView                        rng=Overblik!C7          cdim=1  rdim=1
+text="Overblik"                     rng=Overblik!C7:C7
+par=Q_V                             rng=Overblik!C50         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!A50:A50
+par=FuelDeliv_V                     rng=Overblik!C58         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!A58:A58
+par=IncomeFuel_V                    rng=Overblik!C90         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!A90:A90
+par=Usage_V                         rng=Overblik!C122        cdim=1  rdim=1
+text="Kapacitetsudnyttelse"         rng=Overblik!A122:A122
+par=StoLoadAll_V                    rng=Overblik!C131        cdim=1 rdim=1
+text="Lagerbeholdning totalt"       rng=Overblik!A131:A131   
+text="Lager"                        rng=Overblik!C131:C131   
+par=StoLoadF_V                      rng=Overblik!B139        cdim=1 rdim=2
+text="Lagerbeh. pr fraktion"        rng=Overblik!A139:A139   
+text="Lager"                        rng=Overblik!B139:B139   
+text="Fraktion"                     rng=Overblik!C139:C139   
 *end
 
 $offecho
