@@ -1037,7 +1037,8 @@ PrognosesSaved(moall,labPrognScen) = Prognoses(moall,labPrognScen);
 
 nScen = 0;
 Scen_Progn('scen0','Aktiv') = 1;                    # Reference-scenariet beregnes altid.
-Scen_Progn_Transpose(labPrognScen,'scen0') = tiny;
+Scen_Progn_Transpose(labPrognScen,'scen0') = tiny;  # Sikrer at scen0 også bliver overført, da nul-værdier ikke overføres.
+
 
 Loop (scen $Scen_Progn(scen,'Aktiv'),               # Begin-of-scenario Loop
 actScen(scen) = yes;
@@ -1803,9 +1804,10 @@ Loop (topicSummable,
 # Følgende topic giver ikke mening som sumtal.
 Scen_Overview('REFA-RGK-Andel',actScen) = 0.0;
 
-Scen_Progn_Transpose(labProgn,actScen) = 0.0;
-Loop (labPrognScen $(Scen_Progn(actScen,labPrognScen) NE NaN),  #---  AND NOT sameas(labPrognScen,'Aktiv')),
-  Scen_Progn_Transpose(labPrognScen,actScen) = Scen_Progn(actScen,labPrognScen);
+if (NOT sameas(actScen,'scen0'),
+  Loop (labPrognScen $(Scen_Progn(actScen,labPrognScen) NE NaN),  #---  AND NOT sameas(labPrognScen,'Aktiv')),
+    Scen_Progn_Transpose(labPrognScen,actScen) = Scen_Progn(actScen,labPrognScen);
+  );
 );
 
 
@@ -2000,7 +2002,7 @@ if (RunScenarios,
   bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, 
   labDataU, labDataFuel, labScheduleRow, labScheduleCol, labProgn, taxkind, topic, typeCO2,
   PerStart, PerSlut, nScen, nScenActive, VirtualUsed,
-  Scen_Progn, Scen_Progn_Transpose, #--- Scen_TimeStamp, 
+  Scen_Progn, Scen_Progn_Transpose, 
   Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel;
   
   #TODO: Udskriv til Excel-fil REFAOutputScens.xlsm 
