@@ -218,7 +218,7 @@ Parameter Qdemand(moall)                 'FJV-behov';
 Parameter PowerPrice(moall)              'El-pris DKK/MWhe';
 Parameter TariffElProd(moall)            'Tarif på elproduktion [DKK/MWhe]';
 Parameter TaxAfvMWh(moall)               'Affaldsvarmeafgift [DKK/MWhq]';
-Parameter TaxAtlMWh(moall)               'Affaldstillaegsafgift [DKK/MWhf]';
+Parameter TaxAtlMWh(moall)               'Affaldstillaegsafgift [DKK/MWhq]';
 Parameter TaxEtsTon(moall)               'CO2 Kvotepris [DKK/tom]';
 Parameter TaxCO2TonF(f,moall)            'CO2-afgift på brændselsniveau [DKK/tonCO2]';
 Parameter CO2ContentAff(moall)           'CO2 indhold affald [kgCO2 / tonAffald]';
@@ -403,7 +403,7 @@ Positive variable Qrgk(u,moall)                 'RGK produktion MWq';
 Positive variable Qafv(moall)                   'Varme pålagt affaldvarmeafgift';
 Positive variable QRgkMiss(moall)               'Slack variabel til beregning om RGK-rabat kan opnaas';
                                                 
-Positive variable FEBiogen(u,moall)             'Indfyret biogen affaldsenergi [GJ]';
+Positive variable FEBiogen(u,moall)             'Indfyret biogen affaldsenergi [MWhf]';
 Positive variable FuelHeatAff(moall)            'Afgiftspligtigt affald medgået til varmeproduktion';
 Positive variable QBiogen(u,moall)              'Biogen affaldsvarme [GJ]';
                                                 
@@ -560,14 +560,17 @@ ZQ_TaxAFV(mo)     .. TaxAFV(mo)     =E=  TaxAfvMWh(mo) * Qafv(mo);
 ZQ_Qafv(mo)       .. Qafv(mo)       =E=  sum(ua $OnU(ua), Q(ua,mo) - 0.85 * FEBiogen(ua,mo)) - sum(uv $OnU(uv), Q(uv,mo));   # Antagelse: Kun affaldsanlaeg giver anledning til bortkoeling.
 
 # Fælles for affaldstillægs- og CO2-afgift.
-ZQ_QUdenRgk(mo)   .. QudenRgk(mo)  =E=  [QtotalAff(mo) * (1 - Phi('85',mo))] / 1.2;
-ZQ_QMedRgk(mo)    .. QmedRgk(mo)   =E=  [QtotalAff(mo) - 0.1 * EtotalAff(mo) * (1 - Phi('95',mo))] / 1.2;
+ZQ_QUdenRgk(mo)   .. QudenRgk(mo)  =E=  (1 - Phi('85',mo)) * [QtotalAff(mo)                      ] / 1.2;
+ZQ_QMedRgk(mo)    .. QmedRgk(mo)   =E=  (1 - Phi('95',mo)) * [QtotalAff(mo) - 0.1 * EtotalAff(mo)] / 1.2;
+#--- BUGFIX: ZQ_QMedRgk(mo)    .. QmedRgk(mo)   =E=  [QtotalAff(mo) - 0.1 * EtotalAff(mo) * (1 - Phi('95',mo))] / 1.2;
 
 # Beregn produktet af bOnRgkRabat * QmedRgk hhv (1 - bOnRgkRabat) * QudenRgk. 
 # Produktet bruges i ZQ_TaxATL hhv. ZQ_TaxCO2Aff.
 
 # Afgiftspligtig affaldsmængde henført til varmeproduktion.
-ZQ_QtotalAfgift(phiKind,mo) .. QtotalAfgift(phiKind,mo)  =E=  [QtotalAff(mo) - 0.1 * EtotalAff(mo) $sameas(phiKind,'95') ] * (1 - phi(phiKind,mo)); 
+#Bugfix: Mangler faktor 1.2:  
+#--- ZQ_QtotalAfgift(phiKind,mo) .. QtotalAfgift(phiKind,mo)  =E=  [QtotalAff(mo) - 0.1 * EtotalAff(mo) $sameas(phiKind,'95') ] * (1 - phi(phiKind,mo)); 
+ZQ_QtotalAfgift(phiKind,mo) .. QtotalAfgift(phiKind,mo)  =E=  (1 - phi(phiKind,mo)) * [QtotalAff(mo) - 0.1 * EtotalAff(mo) $sameas(phiKind,'95')] / 1.2 ; 
 
 # Beregning af afgiftspligtig varme når bOnRgkRabat == 0, dvs. når (1 - bOnRgkRabat) == 1.
 ZQ_QudenRgkProductMax1(mo) .. Quden_X_bOnRgkRabat(mo)                          =L=  (1 - bOnRgkRabat(mo)) * QtotalAffMax(mo);
@@ -586,7 +589,9 @@ ZQ_TaxATL(mo)     .. TaxATL(mo)    =E=  TaxAtlMWh(mo) * (Quden_X_bOnRgkRabat(mo)
 ZQ_TaxCO2total(mo) .. TaxCO2total(mo)  =E=  TaxCO2Aff(mo) + TaxCO2Aux(mo);
 
 # CO2-afgift af affald baseret på SKAT's administrative satser:
-ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * (Quden_X_bOnRgkRabat(mo) + Qmed_X_bOnRgkRabat(mo));
+#Bugfix: EY-beregninger inddrager ikke elproduktionen (ER IKKE CHECKET OM DET STEMMER OVERENS MED CO2-AFGIFTSLOVEN)
+#--- ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * (Quden_X_bOnRgkRabat(mo) + Qmed_X_bOnRgkRabat(mo));
+ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * QudenrGK(mo);
 
 ZQ_CostsETS(mo)  ..  CostsETS(mo)   =E=   TaxEtsTon(mo) * sum(fa $OnF(fa), CO2emisF(fa,mo,'kvote'));  # Kun affaldsanlægget er kvoteomfattet.
 
@@ -978,7 +983,7 @@ $OnText
  men de har så deres egne afgifter i modsætning til biogene brændsler.
  Bemærk, at Fenergi beregnes forskelligt afh. af RGK-produktion eller ej:
    Fenergi = (Qtotal + P) / 0.85   uden RGK-produktion.
-   Fenergu = (Qtotal + P) / 0.95   med  RGK-produktion.
+   Fenergi = (Qtotal + P) / 0.95   med  RGK-produktion.
    
  Da regnetiden for modellen er på få sekunder, anvendes i stedet for en iterativ metode.
  I første iteration sættes phi := 0 og afgifterne beregnes nu ved lineære ligninger.
@@ -1314,7 +1319,7 @@ TariffElProd(mo)  = 4.00;
 TaxAfvMWh(mo)     = Prognoses(mo,'afv') * 3.6;
 TaxAtlMWh(mo)     = Prognoses(mo,'atl') * 3.6;
 TaxEtsTon(mo)     = Prognoses(mo,'ets');
-CO2ContentAff(mo) = Prognoses(mo,'CO2aff') / 1E3;   # CO2-indhold i generisk affald [ton CO2 / GJf]
+CO2ContentAff(mo) = Prognoses(mo,'CO2aff') * 3.6 / 1E3;   # CO2-indhold i generisk affald [ton CO2 / MWhq] med ref. til den afgiftspligtige varme/energi.
 TaxCO2AffTon(mo)  = Prognoses(mo,'CO2afgAff');
 TaxNOxAffkg(mo)   = Prognoses(mo,'NOxAff');
 TaxNOxFlisTon(mo) = Prognoses(mo,'NOxFlis') * DataFuel('flis','brandv');
