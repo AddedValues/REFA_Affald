@@ -24,26 +24,34 @@ Loop (scRec,
   actScRec(scRec) = yes;
   ActualScRec(labScenRec) = ScenRecs(actScRec,labScenRec);
   ScenId = ActualScRec('ScenId');
-  display "RECORD: ", actScRec, ActualScRec, ScenId, ActualScenId;
+  display "RECORD: ", actScRec, ActualScRec;    #---, ActualScRec, ScenId, ActualScenId;
   break $(ScenId GT ActualScenId);
   continue $(ActualScRec('Aktiv') EQ 0);
-
-  NScenRecFound = NScenRecFound + 1;
 
   # Inspicér niveau 1: Data typer, som i scenarie-record er angivet med ordinal position.
   Level1 = ActualScRec('Niveau1');
   Level2 = ActualScRec('Niveau2');
   Level3 = ActualScRec('Niveau3');
 
-  FirstPeriod = max(1, min(card(mo), ActualScRec('FirstPeriod')));
-  LastPeriod  = max(1, min(card(mo), ActualScRec('LastPeriod')));
+  #TODO: CHECK periodeangivelser op mod sekvenset mo(moall).
+  FirstPeriod = max(1, ActualScRec('FirstPeriod'));
+  LastPeriod  = max(1, ActualScRec('LastPeriod'));
   FirstValue  = ActualScRec('FirstValue');
   LastValue   = ActualScRec('LastValue');
-  display Level1, Level2, Level3;  # Bruges til debug, hvis fejl detekteres nedstrøms denne parsing.
+  #--- display Level1, Level2, Level3;  # Bruges til debug, hvis fejl detekteres nedstrøms denne parsing.
 
   # Check gyldighed af periodeangivelser: Angives med løbende måned fra først måned angivet i Schedule('Aar','FirstYear') .. Schedule('Aar','LastYear').
   if (FirstPeriod GT LastPeriod, abort "Scenarie: FirstPeriod er større end LastPeriod.", ActualScRec; );
+  if (FirstPeriod GT card(mo), 
+    display "IGNORED: Periodeangivelse 'FirstPeriod' udenfor range(mo).", ActualScRec; 
+	continue;  # Tag næste scenarie-record.
+  elseif (LastPeriod LT card(mo)),
+    display "IGNORED: Periodeangivelse 'LastPeriod' udenfor range(mo).", ActualScRec;
+	continue;  # Tag næste scenarie-record.
+  );
 
+  NScenRecFound = NScenRecFound + 1;
+  
   # Check gyldighed af ordinaler. Ordinal = -1 angiver fejl i record.
   # OBS: Niveau2 og Niveau3 er successivt betingede af valget af Niveau1.
   if (Level1 LE 0 OR Level1 GT card(droot),
@@ -218,9 +226,9 @@ $OnOrder
     );
 
   elseif (sameas(actRoot,'FuelBounds')),
-    if (Level2 LE 0 OR Level2 GT card(f), abort "Fejl i niveau 2 på scenarie record actScRec", actScRec; );
-    actFuelBounds2(f) = ord(f) EQ Level2;
+    if (Level2 LE 0 OR Level2 GT card(f),        abort "Fejl i niveau 2 på scenarie record actScRec", actScRec; );
     if (Level3 LE 0 OR Level3 GT card(fuelItem), abort "Fejl i niveau 3 på scenarie record actScRec", actScRec; );
+    actFuelBounds2(f)        = ord(f) EQ Level2;
     actFuelBounds3(fuelItem) = ord(fuelItem) EQ Level3;
     display actFuelBounds2, actFuelBounds3;
 

@@ -16,7 +16,7 @@ if (RunScenarios,
   scen, actScen,
   bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, fuelItem,
   labDataU, labDataFuel, labSchRow, labSchCol, labDataProgn, taxkind, topic, typeCO2,
-  PerStart, PerSlut, nScen, nScenActive, VirtualUsed,
+  PerStart, PerSlut, nScen, NScenSpec, VirtualUsed, 
   ScenRecs, #--- Scen_Progn, Scen_Progn_Transpose,
   Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel;
 

@@ -36,9 +36,13 @@ EgetforbrugKVV      = DataCtrl('EgetforbrugKVV');
 RunScenarios        = DataCtrl('RunScenarios') NE 0;
 FixAffald           = DataCtrl('FixAffald') NE 0;
 
-
 # Initialisering af overordnet rådighed af anlæg, lagre, brændsler og måneder.
-OnM(moall)   = DataProgn(moall,'aktiv');
+# Initialisering af aktive perioder (maaneder).
+mo(moall)  = no;
+OnM(moall) = DataProgn(moall,'aktiv');
+mo(moall)  = OnM(moall);
+NactiveM   = sum(moall, OnM(moall));
+
 DvMWhq(u,mo) = DataU(u,'DVMWhq');
 DvTime(u,mo) = DataU(u,'DvTime');
 EtaQ(u,mo)   = DataU(u,'EtaQ');
@@ -51,11 +55,6 @@ OnGS(s)   = sum(mo, OnS(s,mo)) GE 1;
 OnGF(f)   = sum(mo, OnF(f,mo)) GE 1;
 
 Hours(moall) = 24 * DataProgn(moall,'Ndage');
-
-# Initialisering af aktive perioder (maaneder).
-mo(moall) = no;
-mo(moall) = OnM(moall);
-NactiveM  = sum(moall, OnM(moall));
 
 # Anlægsprioriteter og kompatibilitet.
 uprio(up) = no;

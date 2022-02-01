@@ -191,6 +191,7 @@ Parameter IncludeFuel(f);
 
 Parameter ScenRecs(scRec,labScenRec) 'Scenarie-forskrifter';
 Parameter ActualScRec(labScenRec);
+Parameter NScenSpec(scen);
 
 #--- Parameter Scen_Progn(scen,labDataProgn)            'Scenarier på prognoser';
 #--- Parameter Scen_Progn_Transpose(labDataProgn,scen)  'Transponering af Scen_Progn';
@@ -303,7 +304,7 @@ $call "GDXXRW REFAinputM.xlsm RWait=1 Trace=3 @REFAinput.txt"
 
 $GDXIN REFAinputM.gdx
 
-$LOAD   labPrognScen
+*--- $LOAD   labPrognScen
 *--- $LOAD   Scen_Progn
 $LOAD   ScenRecs
 $LOAD   DataCtrl
@@ -1148,7 +1149,7 @@ $OnOrder
 #begin Initialisering af scenarie Loop.
 
 # Tag backup af parametre i DataProgn, som er aktive i Scen_Progn.
-DataPrognSaved(moall,labPrognScen) = DataProgn(moall,labPrognScen);
+DataPrognSaved(moall,labDataProgn) = DataProgn(moall,labDataProgn);
 DataCtrlSaved(labDataCtrl)         = DataCtrl(labDataCtrl);
 ScheduleSaved(labSchRow,labSchCol) = Schedule(labSchRow,labSchCol);
 DataUSaved(u,labDataU)             = DataU(u,labDataU);
@@ -1158,28 +1159,29 @@ DataFuelSaved(f,labDataFuel)       = DataFuel(f,labDataFuel);
 FuelBoundsSaved(f,fuelItem,moall)  = FuelBounds(f,fuelItem,moall);
 
 #TODO: Fjern Scen_Progn, som erstattes af ScenRecs.
-nScen = 0;
 #--- Scen_Progn('scen0','Aktiv') = 1;                    # Reference-scenariet beregnes altid.
 #--- Scen_Progn_Transpose(labPrognScen,'scen0') = tiny;  # Sikrer at scen0 også bliver overført, da nul-værdier ikke overføres.
 
-Parameter NScenSpec(scen);
 NScenSpec(scen) = 0;
 Loop (scRec,
   if (ScenRecs(scRec,'Aktiv') GT 0,
     ScenId = ScenRecs(scRec,'ScenId');
-	Loop (scen $(ord(scen) EQ ScenId + 1),
-      NScenRec(scen) = NScenRec(scen) + 1;
-    );  
-  );  
+    Loop (scen $(ord(scen) EQ ScenId + 1),
+      NScenSpec(scen) = NScenSpec(scen) + 1;
+    );
+  );
 );
-display NScenRec;
+display NScenSpec;
 
+execute_unload "RefaMain.gdx";
+
+nScen = 0;
 
 #end   Initialisering af scenarie Loop.
 
 # ===================================================  BEGIN SCENARIE LOOP  =============================================================
 
-Loop (scen $(NScenRec(scen) GT 0), 
+Loop (scen $(NScenSpec(scen) GT 0),
 actScen(scen) = yes;
 nScen = nScen + 1;
 # Check om der er defineret aktive records for det aktuelle scenarie.
@@ -1194,7 +1196,7 @@ display actScen, nScen;
 # Indlæs kode til tilbagestilling af anlægsdata mv. til udgangspunktet.
 $Include RefaDataReset.gms
 
-# Indlæs kode til parsing af scenarie-records.
+# Indlæs kode til parsing af scenarie-records.                             a
 $Include RefaScenParsing.gms
 
 # Indlæs kode til opsætning af afledte parametre, hvis kilde kan være ændret af scenarie-specifikationen.
@@ -1203,12 +1205,14 @@ $Include RefaDataSetup.gms
 # Indlæs kode til initialisering af variable.
 $Include RefaInitVars.gms
 
+execute_unload "RefaMain.gdx";
+abort.noerror "BEVIDST STOP aht. DEBUG";
+
 # Indlæs kode til optimering af modellen, herunder ulineær iteration på afgiftsberegning.
 $Include RefaSolveModel.gms
 
 # Indlæs kode til udskrivning af resultater for aktuelt scenarie.
 $Include RefaWriteOutput.gms
-
 
 if (NOT RunScenarios, display "Scenarier udover referencen skal ikke beregnes";);
 break $(NOT RunScenarios);
