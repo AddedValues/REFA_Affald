@@ -44,10 +44,10 @@ Loop (scRec,
   if (FirstPeriod GT LastPeriod, abort "Scenarie: FirstPeriod er større end LastPeriod.", ActualScRec; );
   if (FirstPeriod GT card(mo), 
     display "IGNORED: Periodeangivelse 'FirstPeriod' udenfor range(mo).", ActualScRec; 
-	continue;  # Tag næste scenarie-record.
+    continue;  # Tag næste scenarie-record.
   elseif (LastPeriod LT card(mo)),
     display "IGNORED: Periodeangivelse 'LastPeriod' udenfor range(mo).", ActualScRec;
-	continue;  # Tag næste scenarie-record.
+    continue;  # Tag næste scenarie-record.
   );
 
   NScenRecFound = NScenRecFound + 1;

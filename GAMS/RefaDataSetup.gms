@@ -55,10 +55,10 @@ Loop (up $(DataU(up,'aktiv') NE 0 AND DataU(up,'prioritet') GT 0),
   );
 );
 
-u2f(ua,fa) = no;
+u2f(ua,fa,moall) = no;
 Loop (fa, 
-  u2f('Ovn2',fa) = DataFuel(fa,'TilOvn2') NE 0;
-  u2f('Ovn3',fa) = DataFuel(fa,'TilOvn3') NE 0;
+  u2f('Ovn2',fa,mo) = DataFuel(fa,'TilOvn2') NE 0;
+  u2f('Ovn3',fa,mo) = DataFuel(fa,'TilOvn3') NE 0;
 );
 
 Loop (u,
@@ -145,9 +145,9 @@ DoFixAffT(mo) = FixAffald AND (FixValueAffT(mo) NE NaN);
 
 # Emissionsopgørelsen for affald er som udgangspunkt efter skorstensmetoden, hvor CO2-indholdet af  hver fraktion er kendt.
 # Men uden skorstensmetoden anvendes i stedet for SKATs emissionssatser, som desuden er forskellige efter om det er CO2-afgift eller CO2-kvoteforbruget, som skal opgøres !!!
-CO2potenTon(f,typeCO2,mo) = DataFuel(f,'LHV') * DataFuel(f,'CO2kgGJ') / 1000;  # ton CO2 / ton brændsel.
+CO2potenTon(f,typeCO2,mo) = FuelBounds(f,'LHV',mo) * FuelBounds(f,'CO2kgGJ',mo) / 1000;  # ton CO2 / ton brændsel.
 if (NOT SkorstensMetode,
-  CO2potenTon(fa,typeCO2,mo) = DataFuel(fa,'LHV') * [DataProgn(mo,'CO2aff') $sameas(typeCO2,'afgift') + DataProgn(mo,'ETSaff') $sameas(typeCO2,'kvote')] / 1000;
+  CO2potenTon(fa,typeCO2,mo) = FuelBounds(fa,'LHV',mo) * [DataProgn(mo,'CO2aff') $sameas(typeCO2,'afgift') + DataProgn(mo,'ETSaff') $sameas(typeCO2,'kvote')] / 1000;
 );
 CO2potenTon(fbiogen,typeCO2,mo) = 0.0;
 
@@ -161,8 +161,8 @@ TaxEtsTon(mo)     = DataProgn(mo,'ETS');
 CO2ContentAff(mo) = DataProgn(mo,'CO2aff') * 3.6 / 1E3;   # CO2-indhold i generisk affald [ton CO2 / MWhq] med ref. til den afgiftspligtige varme/energi.
 TaxCO2AffTon(mo)  = DataProgn(mo,'CO2afgAff');
 TaxNOxAffkg(mo)   = DataProgn(mo,'NOxAff');
-TaxNOxFlisTon(mo) = DataProgn(mo,'NOxFlis') * DataFuel('flis','LHV');
-TaxEnrPeakTon(mo) = DataProgn(mo,'EnrPeak') * DataFuel('peakfuel','LHV');
+TaxNOxFlisTon(mo) = DataProgn(mo,'NOxFlis') * FuelBounds('flis','LHV',mo);
+TaxEnrPeakTon(mo) = DataProgn(mo,'EnrPeak') * FuelBounds('peakfuel','LHV',mo);
 TaxCO2peakTon(mo) = DataProgn(mo,'CO2peak');
 TaxNOxPeakTon(mo) = DataProgn(mo,'NOxPeak');
 #--- display MinTonnageYear, MaxTonnageYear, LhvMWh, Qdemand, PowerProd, PowerPrice, IncomeElec, TaxAfvMWh, TaxAtlMWh, TaxEtsTon, TaxCO2AffTon, TaxCO2peakTon;
@@ -170,16 +170,19 @@ TaxNOxPeakTon(mo) = DataProgn(mo,'NOxPeak');
 # Special-haandtering af oevre graense for Nordic Sugar varme.
 FuelBounds('NSvarme','MaxTonnage',moall) = DataProgn(moall,'NS');
 
-# Diversen øvre grænser for varmeproduktion og lageromkostning.
-QbypassMax(mo)    = ShareAvailTurb(mo) * Hours(mo) * KapE('Ovn3',mo)  - Peget(mo);  # Peget har taget højde for turbinens rådighed.
-QtotalAffMax(mo)  = sum(ua $OnU(ua,mo), (EtaQ(ua,mo) + EtaRgk(ua,mo)) * sum(fa $(OnF(fa,mo) AND u2f(ua,fa)), LhvMWh(fa,mo) * LhvMWh(fa,mo)) ) + QbypassMax(mo);
+# Diverse øvre grænser for varmeproduktion og lageromkostning.
+# QbypassMax er baseret på el-kapaciteten af Ovn3
+# QtotalAffMax er baseret på rådig affaldstonnage.
+QbypassMax(mo)    = ShareAvailTurb(mo) * Hours(mo) * KapE('Ovn3',mo) - Peget(mo);  # Peget har taget højde for turbinens rådighed.
+QtotalAffMax(mo)  = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * (EtaQ(ua,mo) + EtaRgk(ua,mo)) 
+                                         * sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), LhvMWh(fa,mo) * FuelBounds(fa,'MaxTonnage',mo)) ) + QbypassMax(mo);
 StoCostLoadMax(s) = smax(mo, StoLoadMax(s,mo) * StoLoadCostRate(s,mo));
-
+display ShareAvailU, EtaQ, EtaRgk, LhvMwh, FuelBounds;
 display QtotalAffMax, QbypassMax, StoCostLoadMax;
 
 # EaffGross skal være mininum af energiindhold af rådige mængder affald hhv. affaldsanlæggets fuldlastkapacitet.
 # Hvis affaldstonnager er fikseret, skal begrænsningen i QaffMmax lempes.
-QaffMmax(ua,mo) = min(ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo), [sum(fa $(OnF(fa,mo) AND u2f(ua,fa)), FuelBounds(fa,'MaxTonnage',mo) * EtaQ(ua,mo) * LhvMWh(fa,mo))]) $OnU(ua,mo);
+QaffMmax(ua,mo) = min(ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo), [sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), EtaQ(ua,mo) * LhvMWh(fa,mo) * FuelBounds(fa,'MaxTonnage',mo) )]) $OnU(ua,mo);
 Loop (mo $DoFixAffT(mo), 
   QaffMmax(ua,mo) =  ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo);
 );

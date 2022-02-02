@@ -17,7 +17,7 @@ if (RunScenarios,
   bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, fuelItem,
   labDataU, labDataFuel, labSchRow, labSchCol, labDataProgn, taxkind, topic, typeCO2,
   PerStart, PerSlut, nScen, NScenSpec, VirtualUsed, 
-  ScenRecs, #--- Scen_Progn, Scen_Progn_Transpose,
+  Scen_Recs, #--- Scen_Progn, Scen_Progn_Transpose,
   Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel;
 
   #TODO: Udskriv til Excel-fil REFAOutputScens.xlsm
@@ -28,7 +28,7 @@ filter=0
 * OBS: Vaerdier udskrives i basale enheder, men formatteres i Excel til visning af fx. tusinder fremfor enere.
 
 *begin sheet Overblik
-par=ScenRecs                        rng=ScenRecs!C1          cdim=1 rdim=1
+par=Scen_Recs                       rng=ScenInput!AD5         cdim=1 rdim=1
 par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
 par=VirtualUsed                     rng=Overblik!B1:B1
 par=PerStart                        rng=Overblik!B2:B2

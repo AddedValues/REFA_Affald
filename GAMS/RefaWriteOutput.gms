@@ -137,7 +137,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
     if (IncomeFuel_V(f,mo) EQ 0.0, IncomeFuel_V(f,mo) = tiny; );
   );
 
-  FuelConsT_V(u,f,mo) = max(tiny, FuelConsT.L(u,f,mo)) $(OnF(f,mo) AND OnU(u,mo) AND u2f(u,f))  - tiny $(OnF(f,mo) AND OnU(u,mo) AND u2f(u,f));
+  FuelConsT_V(u,f,mo) = max(tiny, FuelConsT.L(u,f,mo)) $(OnF(f,mo) AND OnU(u,mo) AND u2f(u,f,mo))  - tiny $(OnF(f,mo) AND OnU(u,mo) AND u2f(u,f,mo));
   FuelConsP_V(u,f,mo) = max(tiny, FuelConsT.L(u,f,mo) * LhvMWh(f,mo));
 
   Loop (f $(OnF(f,mo) AND fa(f) AND fsto(f)),
@@ -159,14 +159,14 @@ Loop (mo $(NOT sameas(mo,'mo0')),
     );
     if (up(u),
       # Realiseret brændværdi.
-      tmp1 = sum(f $(OnF(f,mo) AND u2f(u,f)), FuelConsT.L(u,f,mo));
+      tmp1 = sum(f $(OnF(f,mo) AND u2f(u,f,mo)), FuelConsT.L(u,f,mo));
       if (tmp1 GT 0.0,
-        LhvCons_V(u,mo) = 3.6 * sum(f $(OnF(f,mo) AND u2f(u,f)), FuelConsT.L(u,f,mo) * LhvMWh(f,mo)) / tmp1;
+        LhvCons_V(u,mo) = 3.6 * sum(f $(OnF(f,mo) AND u2f(u,f,mo)), FuelConsT.L(u,f,mo) * LhvMWh(f,mo)) / tmp1;
       );
       # Tonnage indfyret.
       tmp2 = ShareAvailU(u,mo) * Hours(mo);
       if (tmp2 GT 0.0,
-        FuelConsumed_V(u,mo) = sum(f $(OnF(f,mo) AND u2f(u,f)), FuelConsT.L(u,f,mo)) / tmp2;
+        FuelConsumed_V(u,mo) = sum(f $(OnF(f,mo) AND u2f(u,f,mo)), FuelConsT.L(u,f,mo)) / tmp2;
       );
     );
   );
@@ -230,6 +230,11 @@ Loop (topicSummable,
 );
 # Følgende topic giver ikke mening som sumtal.
 Scen_Overview('REFA-RGK-Andel',actScen) = 0.0;
+
+#TODO Afgrænses til scenarie records for actuelt scenarie.
+actRecs(scRec) = (ScenRecs(scRec,'ScenId') EQ ord(scen));
+Scen_Recs(actRecs,labScenRec) = ifthen(ScenRecs(scRec) EQ 0.0, tiny, ScenRecs(scRec));
+
 
 #--- if (NOT sameas(actScen,'scen0'),
 #---   Loop (labPrognScen $(Scen_Progn(actScen,labPrognScen) NE NaN),  #---  AND NOT sameas(labPrognScen,'Aktiv')),
