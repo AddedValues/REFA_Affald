@@ -232,9 +232,9 @@ Loop (topicSummable,
 Scen_Overview('REFA-RGK-Andel',actScen) = 0.0;
 
 #TODO Afgrænses til scenarie records for actuelt scenarie.
-actRecs(scRec) = (ScenRecs(scRec,'ScenId') EQ ord(scen));
-Scen_Recs(actRecs,labScenRec) = ifthen(ScenRecs(scRec) EQ 0.0, tiny, ScenRecs(scRec));
-
+actScenRecs(scRec) = (ScenRecs(scRec,'ScenId') EQ ord(scen) - 1) AND (ScenRecs(scRec,'Aktiv') NE 0);
+Scen_Recs(actScenRecs,labScenRec) = ifthen(ScenRecs(actScenRecs,labScenRec) EQ 0.0, tiny, ScenRecs(actScenRecs,labScenRec));
+display actScen, actScenRecs;
 
 #--- if (NOT sameas(actScen,'scen0'),
 #---   Loop (labPrognScen $(Scen_Progn(actScen,labPrognScen) NE NaN),  #---  AND NOT sameas(labPrognScen,'Aktiv')),

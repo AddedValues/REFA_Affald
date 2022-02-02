@@ -34,14 +34,14 @@ par=VirtualUsed                     rng=Overblik!B1:B1
 par=PerStart                        rng=Overblik!B2:B2
 par=PerSlut                         rng=Overblik!C2:C2
 *--- par=Scen_Progn_Transpose            rng=Overblik!C4          cdim=1  rdim=1
-par=Scen_Overview                   rng=Overblik!C14         cdim=1  rdim=1
-text="Nøgletal"                     rng=Overblik!C14:C14
-par=Scen_Q                          rng=Overblik!C59         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!C59:C59
-par=Scen_FuelDeliv                  rng=Overblik!C67         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!C67:C67
-par=Scen_IncomeFuel                 rng=Overblik!C99         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!C99:C99
+par=Scen_Overview                   rng=Overblik!C4          cdim=1  rdim=1
+text="Nøgletal"                     rng=Overblik!C4:C4
+par=Scen_Q                          rng=Overblik!C49         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!C49:C49
+par=Scen_FuelDeliv                  rng=Overblik!C57         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!C57:C57
+par=Scen_IncomeFuel                 rng=Overblik!C89         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!C89:C89
 *end
 
 $offecho
