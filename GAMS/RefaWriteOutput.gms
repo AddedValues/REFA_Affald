@@ -344,7 +344,7 @@ par=DataProgn_V           rng=Inputs!T15        cdim=1  rdim=1
 text="Prognoser"          rng=Inputs!T15:T15
 par=FuelBounds_V          rng=Inputs!T43        cdim=1  rdim=2
 text="FuelBounds"         rng=Inputs!T43:T43
-* Fuld tidsafhængige anvendte data (som modificeret af aktuelle scenarie).
+* Fuldt tidsafhængige anvendte data (som modificeret af aktuelle scenarie).
 par=DataUFull_V           rng=DataU!B10         cdim=1  rdim=2
 par=DataStoFull_V         rng=DataSto!B10       cdim=1  rdim=2
 par=DataFuelFull_V        rng=DataFuel!B10      cdim=1  rdim=2

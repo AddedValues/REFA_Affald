@@ -28,12 +28,11 @@ filter=0
 * OBS: Vaerdier udskrives i basale enheder, men formatteres i Excel til visning af fx. tusinder fremfor enere.
 
 *begin sheet Overblik
-par=Scen_Recs                       rng=ScenInput!AD5         cdim=1 rdim=1
+par=Scen_Recs                       rng=ScenInput!AT5         cdim=1 rdim=1
 par=TimeOfWritingMasterResults      rng=Overblik!C1:C1
 par=VirtualUsed                     rng=Overblik!B1:B1
 par=PerStart                        rng=Overblik!B2:B2
 par=PerSlut                         rng=Overblik!C2:C2
-*--- par=Scen_Progn_Transpose            rng=Overblik!C4          cdim=1  rdim=1
 par=Scen_Overview                   rng=Overblik!C4          cdim=1  rdim=1
 text="Nøgletal"                     rng=Overblik!C4:C4
 par=Scen_Q                          rng=Overblik!C49         cdim=1  rdim=1

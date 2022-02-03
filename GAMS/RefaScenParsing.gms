@@ -59,6 +59,10 @@ Loop (scRec,
   NVal = sum(mo, (abs(ParmValues(mo) - NaN) GT 1E-8)); 
   if (DEBUG, display ParmValues, NVal; );
 
+  # Statuskode tildeles hvor der er tvetydigt input i specifikationen.
+  # Statuskode = NaN (-9.99): Intet at bemærke
+  #            = 1          : Både FastVaerdi og periode-data er angivet (FastVaerdi anvendes).
+
   # Udgrening afh. af Niveau1-valget.
   
   if (sameas(actRoot,'Control'),
@@ -99,6 +103,7 @@ Loop (scRec,
     # Principielt er alle anlægsparametre tidsafhængige.
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
     if (GivenFastVaerdi,
+      if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
       DataU(actPlant2,actPlant3,mo) = FastVaerdi;
     else 
       DataU(actPlant2,actPlant3,moparm) = ParmValues(moparm);
@@ -141,6 +146,7 @@ Loop (scRec,
 
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
     if (GivenFastVaerdi,
+      if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
       DataSto(actStorage2,actStorage3,mo) = FastVaerdi;
     else 
       DataSto(actStorage2,actStorage3,moparm) = ParmValues(moparm);
@@ -151,6 +157,7 @@ Loop (scRec,
     Loop (labDataSto $sameas(labDataSto,actStorage3),
       if (stoItem(labDataSto),
         if (GivenFastVaerdi,
+        if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
           DataSto(actStorage2,actStorage3,mo) = FastVaerdi;
         else 
           DataSto(actStorage2,actStorage3,moparm) = ParmValues(moparm);
@@ -198,11 +205,12 @@ $OnOrder
     if (sameas(actPrognoses2,'Aktiv'),
       abort "Fejl i implementering af scenarie prognoses: Aktiv er ikke tilladt, da den styres af Schedule.", ActualScRec;
     elseif (sameas(actPrognoses2,'ELprod')),
-      abort "FEJL i Scanrie-spec: Elprod kan ikke angives.", ActualScRec;
+      abort "FEJL i Scenarie-spec: Elprod kan ikke angives.", ActualScRec;
     );
 
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
     if (GivenFastVaerdi,
+      if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
       DataProgn(actPrognoses2,mo) = FastVaerdi
   else 
       DataProgn(actPrognoses2,moparm) = ParmValues(moparm);
@@ -221,6 +229,7 @@ $OnOrder
     Loop (labDataFuel $sameas(labDataFuel,actFuel3),
      if (fuelItem(labDataFuel),
        if (GivenFastVaerdi,
+         if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
          DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
        else 
          DataFuel(actFuel2,actFuel3,moparm) = ParmValues(moparm);

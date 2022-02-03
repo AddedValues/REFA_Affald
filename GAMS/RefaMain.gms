@@ -39,7 +39,7 @@ VirtualUsed = FALSE;
 # Erklaering af sets
 # ------------------------------------------------------------------------------------------------
 
-set labScenFirst  'Sekvens styring' / ScenId, Aktiv, Niveau1, Niveau2, Niveau3, FastVaerdi /;
+set labScenFirst  'Sekvens styring' / StatusKode, ScenId, Aktiv, Niveau1, Niveau2, Niveau3, FastVaerdi /;
 set bound         'Bounds'          / Min, Max /;
 set dir           'Flowretning'     / drain, source /;
 set phiKind       'Type phi-faktor' / 85, 95 /;
