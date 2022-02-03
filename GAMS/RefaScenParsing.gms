@@ -24,7 +24,7 @@ Loop (scRec,
   actScRec(scRec) = yes;
   ActualScRec(labScenRec) = ScenRecs(actScRec,labScenRec);
   ScenId = ActualScRec('ScenId');
-  if (DEBUG, display  "RECORD: ", actScRec, ActualScRec;  );   #---, ActualScRec, ScenId, ActualScenId;
+  if (DEBUG, display  "RECORD: ------------------------------------------------", actScRec, ActualScRec;  );   
   break $(ScenId GT ActualScenId);
   continue $(ActualScRec('Aktiv') EQ 0);
 
@@ -106,7 +106,7 @@ Loop (scRec,
       if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
       DataU(actPlant2,actPlant3,mo) = FastVaerdi;
     else 
-      DataU(actPlant2,actPlant3,moparm) = ParmValues(moparm);
+      DataU(actPlant2,actPlant3,mo) = ParmValues(mo);
     );
 #---    if (sameas(actPlant3,'Aktiv'),
 #---      OnU(actPlant2,moparm) = ParmValues(moparm);
@@ -149,7 +149,7 @@ Loop (scRec,
       if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
       DataSto(actStorage2,actStorage3,mo) = FastVaerdi;
     else 
-      DataSto(actStorage2,actStorage3,moparm) = ParmValues(moparm);
+      DataSto(actStorage2,actStorage3,mo) = ParmValues(mo);
     );
     
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
@@ -160,7 +160,7 @@ Loop (scRec,
         if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
           DataSto(actStorage2,actStorage3,mo) = FastVaerdi;
         else 
-          DataSto(actStorage2,actStorage3,moparm) = ParmValues(moparm);
+          DataSto(actStorage2,actStorage3,mo) = ParmValues(mo);
         );
       else 
         DataSto(actStorage2,actStorage3,mo) = FastVaerdi;
@@ -213,7 +213,7 @@ $OnOrder
       if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
       DataProgn(actPrognoses2,mo) = FastVaerdi
   else 
-      DataProgn(actPrognoses2,moparm) = ParmValues(moparm);
+      DataProgn(actPrognoses2,mo) = ParmValues(mo);
     );
 
   elseif (sameas(actRoot,'Fuel')),
@@ -227,16 +227,27 @@ $OnOrder
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
     # En stor del af Fuel-attributter er ikke implementeret som tidsafhængige, de øvrige optræder i set fuelItem.
     Loop (labDataFuel $sameas(labDataFuel,actFuel3),
-     if (fuelItem(labDataFuel),
-       if (GivenFastVaerdi,
-         if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
-         DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
-       else 
-         DataFuel(actFuel2,actFuel3,moparm) = ParmValues(moparm);
-       );
-     else 
-       DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
-     );
+      if (fuelItem(labDataFuel),
+        if (GivenFastVaerdi AND NVal GT 0,
+          ScenRecs(scRec,'Statuskode') = 1;
+          DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
+          if (DEBUG, display "Assign FastVaerdi til FuelItem";);
+        else 
+          if (DEBUG, display "Assign ParmValues til FuelItem";);
+          DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo);
+        );
+      else 
+#---        if (DEBUG, display "Assign ParmValues til Non-FuelItem";);
+#---        DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
+        if (GivenFastVaerdi AND NVal GT 0,
+          ScenRecs(scRec,'Statuskode') = 1;
+          DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
+          if (DEBUG, display "Assign FastVaerdi til Non-FuelItem";);
+        else 
+          if (DEBUG, display "Assign ParmValues til Non-FuelItem";);
+          DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo);
+        );
+      );
     );
 
 #---    DataFuel(actFuel2,actFuel3) = FirstValue;
@@ -288,8 +299,8 @@ if (DEBUG, display  NScenRecFound; );
 
 #end   Parsing af scenarie records.
 
-#--- execute_unload "RefaMain.gdx";
-#--- abort.noerror "BEVIDST STOP";
+execute_unload "RefaMain.gdx";
+abort.noerror "BEVIDST STOP";
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  END SCENARIO PARSING  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
