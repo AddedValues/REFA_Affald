@@ -75,7 +75,7 @@ IncomeAff.fx(f,mo)      $fnegpris(f,mo) = 0.0;
 # Fiksering (betinget) af lagerbeholdning i sidste måned.
 $OffOrder
 Loop (s $OnGS(s),
-  if (DataSto(s,'ResetLast') NE 0,
+  if (DataSto(s,'ResetLast',moFirst) NE 0,
     bOnSto.fx(s,mo)  $(ord(mo) EQ NactiveM) = 0;
     StoLoad.fx(s,mo) $(ord(mo) EQ NactiveM) = 0.0;
   );

@@ -8,7 +8,7 @@ $log Entering file: %system.incName%
 # Efterbehandling af resultater for aktuelt scenarie.
 # ------------------------------------------------------------------------------------------------
 
-# Tilbageføring til NPV af penalty costs og omkostninger fra ikke-inkluderede anlaeg og braendsler samt gevinst for Ovn3-varme.
+# Tilbagef�ring til NPV af penalty costs og omkostninger fra ikke-inkluderede anlaeg og braendsler samt gevinst for Ovn3-varme.
 Penalty_bOnUTotal           = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
 Penalty_QRgkMissTotal       = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
 Penalty_AffaldsGensalgTotal = Penalty_AffaldsGensalg * sum(mo, sum(f $OnF(f,mo), FuelResaleT.L(f,mo)));
@@ -16,12 +16,12 @@ Penalty_QInfeasTotal        = Penalty_QInfeas    * sum(dir, sum(mo, QInfeas.L(di
 Penalty_AffTInfeasTotal     = Penalty_AffTInfeas * sum(dir, sum(mo, AffTInfeas.L(dir,mo)));
 Gain_QaffTotal              = sum(ua, Gain_Qaff(ua) * sum(mo, Q.L(ua,mo)));
 
-# NPV_Total_V er den samlede NPV med tilbageførte penalties.
+# NPV_Total_V er den samlede NPV med tilbagef�rte penalties.
 NPV_Total_V = NPV.L + [Penalty_QInfeasTotal + Penalty_AffTInfeasTotal]
                     + [Penalty_bOnUTotal + Penalty_QRgkMissTotal + Penalty_AffaldsGensalgTotal]
                     - [Gain_QaffTotal];
 
-# NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
+# NPV_REFA_V er REFAs andel af NPV med tilbagef�rte penalties og tilbagef�rte GSF-omkostninger.
 NPV_REFA_V  = NPV_Total_V + sum(mo, CostsTotalOwner.L('gsf',mo));
 
 #--- display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
@@ -67,7 +67,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-Total-Var-Omkostning',mo) = max(tiny, RefaTotalVarOmk_V(mo) );
   OverView('REFA-Daekningsbidrag',mo)      = ifthen(RefaDaekningsbidrag_V(mo) EQ 0.0, tiny, RefaDaekningsbidrag_V(mo));
 
-# TODO: Skal tilrettes ændrede CO2-opgørelser.
+# TODO: Skal tilrettes �ndrede CO2-opg�relser.
   RefaCO2emission_V(mo,typeCO2)            = max(tiny, sum(frefa $OnF(frefa,mo), CO2emisF.L(frefa,mo,typeCO2)) );
   RefaElproduktionBrutto_V(mo)             = max(tiny, Pbrut.L(mo));
   RefaElproduktionNetto_V(mo)              = max(tiny, Pnet.L(mo));
@@ -76,7 +76,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-El-produktion-Brutto',mo) = RefaElproduktionBrutto_V(mo);
   OverView('REFA-El-produktion-Netto',mo)  = RefaElproduktionNetto_V(mo);
 
-  AffaldAvail_V(mo)     = max(tiny, sum(fa $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)));
+  AffaldAvail_V(mo)     = max(tiny, sum(fa $OnF(fa,mo), DataFuel(fa,'MaxTonnage',mo)));
   AffaldConsTotal_V(mo) = max(tiny, sum(fa, sum(ua, FuelConsT.L(ua,fa,mo))));
   AffaldUudnyttet_V(mo) = max(tiny, sum(fa, FuelResaleT.L(fa,mo)));
   AffaldLagret_V(mo)    = max(tiny, sum(s, StoLoad.L(s,mo)));
@@ -150,7 +150,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
 
   Q_V(u,mo)  = ifthen (Q.L(u,mo) EQ 0.0, tiny, Q.L(u,mo));
   Q_V(uv,mo) = -Q_V(uv,mo);            # Negation aht. afbildning i sheet Overblik.
-  Q_V(u,mo) $(NOT OnU(u,mo)) = -tiny;  # Markerer ikke-rådige anlæg.
+  Q_V(u,mo) $(NOT OnU(u,mo)) = -tiny;  # Markerer ikke-rådige anl�g.
   Loop (u $OnU(u,mo),
     if (Q.L(u,mo) GT 0.0,
       Usage_V(u,mo) = Q.L(u,mo) / (KapQNom(u,mo) * ShareAvailU(u,mo) * Hours(mo));
@@ -158,7 +158,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
       Usage_V(u,mo) = tiny;
     );
     if (up(u),
-      # Realiseret brændværdi.
+      # Realiseret br�ndv�rdi.
       tmp1 = sum(f $(OnF(f,mo) AND u2f(u,f,mo)), FuelConsT.L(u,f,mo));
       if (tmp1 GT 0.0,
         LhvCons_V(u,mo) = 3.6 * sum(f $(OnF(f,mo) AND u2f(u,f,mo)), FuelConsT.L(u,f,mo) * LhvMWh(f,mo)) / tmp1;
@@ -171,8 +171,8 @@ Loop (mo $(NOT sameas(mo,'mo0')),
     );
   );
 
-  # VPO_V: Varmeproduktionsomkostning pr. aggregeret anlæg og måned.
-  # Affaldsanlæg
+  # VPO_V: Varmeproduktionsomkostning pr. aggregeret anl�g og måned.
+  # Affaldsanl�g
   db = RefaAffaldModtagelse_V(mo) + RefaRgkRabat_V(mo) + RefaElsalg_V(mo)
        - sum(ua, CostsU.L(ua,mo))
        - sum(fa, CostsPurchaseF.L(fa,mo))
@@ -197,43 +197,47 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   if (qdeliv GT 1E-8, VPO_V('SR-kedel',mo) = -db/qdeliv; );
 );
 
-DataCtrl_V(labDataCtrl)         = ifthen(DataCtrl(labDataCtrl)   EQ 0.0, tiny, DataCtrl(labDataCtrl));
-DataU_V(u,labDataU)             = ifthen(DataU(u,labDataU)       EQ 0.0, tiny, DataU(u,labDataU));
-DataU_V(u,'MinLast')            = 0.0;
-DataU_V(u,'KapMin')             = 0.0;
-DataSto_V(s,labDataSto)         = ifthen(DataSto(s,labDataSto)   EQ 0.0, tiny, DataSto(s,labDataSto));
-DataFuel_V(f,labDataFuel)       = ifthen(DataFuel(f,labDataFuel) EQ 0.0, tiny, DataFuel(f,labDataFuel));
-DataProgn_V(labDataProgn,mo)    = ifthen(DataProgn(mo,labDataProgn) EQ 0.0, tiny, DataProgn(mo,labDataProgn));
-DataProgn_V(labDataProgn,'mo0') = tiny;  # Sikrer udskrivning af tom kolonne i output-udgaven af DataProgn.
-FuelBounds_V(f,fuelItem,mo)     = max(tiny, FuelBounds(f,fuelItem,mo));
-FuelBounds_V(f,fuelItem,'mo0')  = 0.0;   # Sikrer at kolonne 'mo0' ikke udskrives til Excel.
-FuelDeliv_V(f,'mo0')            = 0.0;   # Sikrer at kolonne 'mo0' ikke udskrives til Excel.
-StoDLoadF_V(s,f,'mo0')          = 0.0;
-FuelConsT_V(u,f,'mo0')          = 0.0;
+DataCtrl_V(labDataCtrl)            = ifthen(DataCtrlRead(labDataCtrl)   EQ 0.0, tiny, DataCtrlRead(labDataCtrl));
+DataU_V(u,labDataU)                = ifthen(DataURead(u,labDataU)       EQ 0.0, tiny, DataURead(u,labDataU));
+DataU_V(u,'MinLast')               = 0.0;
+DataU_V(u,'KapMin')                = 0.0;
+DataSto_V(s,labDataSto)            = ifthen(DataStoRead(s,labDataSto)   EQ 0.0, tiny, DataStoRead(s,labDataSto));
+DataFuel_V(f,labDataFuel)          = ifthen(DataFuelRead(f,labDataFuel) EQ 0.0, tiny, DataFuelRead(f,labDataFuel));
+DataProgn_V(labDataProgn,mo)       = ifthen(DataPrognRead(mo,labDataProgn) EQ 0.0, tiny, DataPrognRead(mo,labDataProgn));
+FuelBounds_V(f,fuelItem,mo)        = max(tiny, DataFuel(f,fuelItem,mo));
+DataUFull_V(u,labDataU,mo)         = ifthen(DataU(u,labDataU,mo)       EQ 0.0, tiny, DataU(u,labDataU,mo));
+DataStoFull_V(s,labDataSto,mo)     = ifthen(DataSto(s,labDataSto,mo)   EQ 0.0, tiny, DataSto(s,labDataSto,mo));
+DataFuelFull_V(f,labDataFuel,mo)   = ifthen(DataFuel(f,labDataFuel,mo) EQ 0.0, tiny, DataFuel(f,labDataFuel,mo));
 
+# Sikre at kolonne 'mo0' ikke udskrives til Excel.
+DataProgn_V(labDataProgn,'mo0')     = tiny;  
+DataFuelFull_V(f,labDataFuel,'mo0') = 0.0;   
+FuelDeliv_V(f,'mo0')                = 0.0;   
+StoDLoadF_V(s,f,'mo0')              = 0.0;
+FuelConsT_V(u,f,'mo0')              = 0.0;
 
 VirtualUsed = VirtualUsed OR sum(dir, sum(mo, QInfeas.L(dir,mo))) GT tiny OR sum(dir, sum(mo, AffTInfeas.L(dir,mo))) GT tiny;
 
-# Overførsel af aktuelt scenaries nøgletal til opsamlings-array.
-#--- Scen_TimeStamp(actScen) = mod(TimeOfWritingMasterResults, 1);  # Gemmer kun tidspunktet, men ikke døgnet.
+# Overf�rsel af aktuelt scenaries n�gletal til opsamlings-array.
+#--- Scen_TimeStamp(actScen) = mod(TimeOfWritingMasterResults, 1);  # Gemmer kun tidspunktet, men ikke d�gnet.
 
 Scen_Q(u,actScen)          = sum(mo, Q_V(u,mo));
 Scen_FuelDeliv(f,actScen)  = sum(mo, FuelDeliv_V(f,mo));
 Scen_IncomeFuel(f,actScen) = sum(mo, IncomeFuel_V(f,mo));
 
-Scen_Overview('Tidsstempel',actScen) = frac(TimeOfWritingMasterResults);  # Gemmer kun tidspunktet, men ikke døgnet.
+Scen_Overview('Tidsstempel',actScen) = frac(TimeOfWritingMasterResults);  # Gemmer kun tidspunktet, men ikke d�gnet.
 Scen_Overview('Total-NPV',actScen) = NPV_Total_V;
 Scen_Overview('REFA-NPV', actScen) = NPV_REFA_V;
 
 Loop (topicSummable,
   Scen_Overview(topicSummable,actScen) = sum(mo, OverView(topicSummable,mo));
 );
-# Følgende topic giver ikke mening som sumtal.
+# F�lgende topic giver ikke mening som sumtal.
 Scen_Overview('REFA-RGK-Andel',actScen) = 0.0;
 
-#TODO Afgrænses til scenarie records for actuelt scenarie.
+#TODO Afgr�nses til scenarie records for actuelt scenarie.
 actScenRecs(scRec) = (ScenRecs(scRec,'ScenId') EQ ord(scen) - 1) AND (ScenRecs(scRec,'Aktiv') NE 0);
-Scen_Recs(actScenRecs,labScenRec) = ifthen(ScenRecs(actScenRecs,labScenRec) EQ 0.0, tiny, ScenRecs(actScenRecs,labScenRec));
+Scen_Recs(actScenRecs,labScenRec) = ScenRecs(actScenRecs,labScenRec);
 display actScen, actScenRecs;
 
 #--- if (NOT sameas(actScen,'scen0'),
@@ -250,6 +254,7 @@ labDataU, labDataFuel, labSchRow, labSchCol, labDataProgn, taxkind, topic, typeC
 Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel,
 ScenRecs, #--- Scen_Progn, 
 Schedule, DataCtrl_V, DataU_V, DataSto_V, DataProgn_V, AvailDaysU, DataFuel_V, FuelBounds_V,
+DataUFull_V, DataStoFull_V, DataFuelFull_V,
 OnGU, OnGF, OnM, OnGS, OnU, OnS, OnF, Hours, ShareAvailU, EtaQ, KapMin, KapQNom, KapRgk, KapMax, Qdemand, LhvMWh,
 Pbrut, Pnet, Qbypass,
 TaxAfvMWh, TaxAtlMWh, TaxCO2AffTon, TaxCO2peakTon,
@@ -339,6 +344,10 @@ par=DataProgn_V           rng=Inputs!T15        cdim=1  rdim=1
 text="Prognoser"          rng=Inputs!T15:T15
 par=FuelBounds_V          rng=Inputs!T43        cdim=1  rdim=2
 text="FuelBounds"         rng=Inputs!T43:T43
+* Fuld tidsafh�ngige anvendte data (som modificeret af aktuelle scenarie).
+par=DataUFull_V           rng=DataU!B10         cdim=1  rdim=2
+par=DataStoFull_V         rng=DataSto!B10       cdim=1  rdim=2
+par=DataFuelFull_V        rng=DataFuel!B10      cdim=1  rdim=2
 
 *end   Individuelle dataark
 
@@ -357,11 +366,11 @@ text="REFA-NPV"                     rng=Overblik!A5:A5
 par=OverView                        rng=Overblik!C7          cdim=1  rdim=1
 text="Overblik"                     rng=Overblik!C7:C7
 par=Q_V                             rng=Overblik!C50         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!A50:A50
+text="Varmem�ngder"                 rng=Overblik!A50:A50
 par=FuelDeliv_V                     rng=Overblik!C58         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!A58:A58
+text="Br�ndselsforbrug"             rng=Overblik!A58:A58
 par=IncomeFuel_V                    rng=Overblik!C90         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!A90:A90
+text="Br�ndselsindkomst"            rng=Overblik!A90:A90
 par=Usage_V                         rng=Overblik!C122        cdim=1  rdim=1
 text="Kapacitetsudnyttelse"         rng=Overblik!A122:A122
 par=StoLoadAll_V                    rng=Overblik!C131        cdim=1 rdim=1

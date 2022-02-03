@@ -27,6 +27,7 @@ Scalar FoundError      'Angiver at fejl er fundet';
 Scalar tiny / 1E-14 /;
 Scalar Big  / 1E+9  /;
 Scalar NaN             'Bruges til at angive void input fra Excel' / -9.99 /;
+Scalar IsNaN;
 Scalar tmp1, tmp2, tmp3;
 Scalar DEBUG, PrevDEBUG;
 
@@ -38,6 +39,7 @@ VirtualUsed = FALSE;
 # Erklaering af sets
 # ------------------------------------------------------------------------------------------------
 
+set labScenFirst  'Sekvens styring' / ScenId, Aktiv, Niveau1, Niveau2, Niveau3, FastVaerdi /;
 set bound         'Bounds'          / Min, Max /;
 set dir           'Flowretning'     / drain, source /;
 set phiKind       'Type phi-faktor' / 85, 95 /;
@@ -103,6 +105,12 @@ set sq(s) 'Varmelagre';
 set u2f(u,f,moall)        'Gyldige kombinationer af anlæg og drivmidler';  # På månedsniveau, da tilknytning er tidsafh. scenarie parameter.
 set s2f(s,f)              'Gyldige kombinationer af lagre og drivmidler';
 
+set dummy1                'seq of labels'       / FirstYear, LastYear /;  # Bruges kun til at styre rækkefølgen af labels i udskrifter.
+#--- set labScenRec            'Scen-records'        / ScenId, Aktiv, Niveau1, Niveau2, Niveau3, FirstPeriod, LastPeriod, FirstValue, LastValue /;
+set labScenRec            'Scen-records'        / set.labScenFirst, set.moall /;
+set droot                 'Data på niveau 1'    / Control, Schedule, Plant, Storage, Prognoses, Fuel, FuelBounds /;
+set drootPermitted(droot)                       / Control,           Plant, Storage, Prognoses, Fuel, FuelBounds /;
+
 set labDataCtrl           'Styringparms'       / RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald, RgkRabatSats, RgkAndelRabat, Varmesalgspris, EgetforbrugKVV /;
 set labSchCol             'Periodeomfang'      / FirstYear, LastYear, FirstPeriod, LastPeriod /;
 set labSchRow             'Periodeomfang'      / aar, maaned, dato /;
@@ -115,17 +123,18 @@ set labDataProgn          'Prognose labels'    / Aktiv, set.labDataPrognUniq, se
 set labDataFuel           'DataFuel labels'    / Aktiv, set.labDataFuelUniq /;
 set taxkind(labDataProgn) 'Omkostningstyper'   / ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 
-set fuelItem(labDataFuel) 'Brændselsdata som kan periodiseres ' / TilOvn2, TilOvn3, MinTonnage, MaxTonnage, Pris, LHV, Co2kgGJ /; #--- Lagerbar, Fri, Flex,
+
+set stoItem(labDataSto)   'Lagerdata som kan periodiseres     ' / LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost /;
+set fuelItem(labDataFuel) 'Brændselsdata som kan periodiseres ' / TilOvn2, TilOvn3, MinTonnage, MaxTonnage, Pris, LHV, Co2kgGJ /; 
 
 set labPrognScen(labDataProgn) 'Aktive prognose scenarie-parms';
 
 set scRec          'Scen-records'        / screc1 * screc50 /;
 set actScenRecs(scRec) 'Scenarie records for aktuelt scenarie';
 
-set labScenRec     'Scen-records'        / ScenId, Aktiv, Niveau1, Niveau2, Niveau3, FirstPeriod, LastPeriod, FirstValue, LastValue /;
-set droot          'Data på niveau 1'    / Control, Schedule, Plant, Storage, Prognoses, Fuel, FuelBounds /;
-set drootPermitted(droot)                / Control,           Plant, Storage, Prognoses, Fuel, FuelBounds /;
-
+Singleton set moFirst(moall) 'Første tidspunkt i perioden';
+Singleton set actU(u);
+Singleton set actF(f);
 Singleton set ufparm(u,f);
 Singleton set sfparm(s,f);
 Singleton set labPrognSingle(labDataProgn);
@@ -142,9 +151,11 @@ Singleton set actStorage3(labDataSto);
 Singleton set actPrognoses2(labDataProgn);
 Singleton set actFuel2(f);
 Singleton set actFuel3(labDataFuel);
-Singleton set actFuelBounds2(f);
-Singleton set actFuelBounds3(fuelItem);
+#--- Singleton set actFuelBounds2(f);
+#--- Singleton set actFuelBounds3(fuelItem);
 
+actU(u) = no;
+actF(f) = no;
 actScen(scen)   = no;
 actScRec(scRec) = no;
 
@@ -170,8 +181,10 @@ Scalar ActualScenId;
 Scalar NScenRecFound 'Antal aktive scenarie records for aktuelle scenarie';
 Scalar Level1, Level2, Level3;  # Ordinale positioner af data typer i scenarie record.
 Scalar FirstPeriod, LastPeriod, FirstValue, LastValue;  # Ordinale positioner af perioder hhv. værdier i scenarie record.
+Scalar FastVaerdi;
 Scalar NVal;
 Scalar FirstYear, LastYear, Ofz;
+Scalar GivenFastVaerdi;
 
 # Indlæses via DataCtrl.
 Scalar    RgkRabatSats              'Rabatsats på ATL'          / 0.10    /;
@@ -201,16 +214,30 @@ Parameter NScenSpec(scen);
 #--- Parameter Scen_Progn(scen,labDataProgn)            'Scenarier på prognoser';
 #--- Parameter Scen_Progn_Transpose(labDataProgn,scen)  'Transponering af Scen_Progn';
 
+# Indlæste data før modifikation af scenarier.
+Parameter DataCtrlRead(labDataCtrl)            'Periode start/stop';
+Parameter ScheduleRead(labSchRow,labSchCol)    'Data for styringsparametre';
+Parameter DataURead(u,labDataU)                'Data for anlaeg';
+Parameter DataStoRead(s,labDataSto)            'Lagerspecifikationer';
+Parameter DataPrognRead(moall,labDataProgn)    'Data for prognoser';
+Parameter DataFuelRead(f,labDataFuel)          'Data for drivmidler';
+Parameter FuelBoundsRead(f,fuelItem,moall)     'Maengdegraenser for drivmidler';
+
+# Tids-uafhængige inputdata.
 Parameter Schedule(labSchRow,labSchCol)  'Periode start/stop';
 Parameter DataCtrl(labDataCtrl)          'Data for styringsparametre';
-Parameter DataU(u,labDataU)              'Data for anlaeg';
-Parameter DataSto(s,labDataSto)          'Lagerspecifikationer';
-Parameter DataProgn(moall,labDataProgn)  'Data for prognoser';
-Parameter DataFuel(f,labDataFuel)        'Data for drivmidler';
-Parameter FuelBounds(f,fuelItem,moall)   'Maengdegraenser for drivmidler';
+# Tids-afhængige inputdata.
+Parameter DataU(u,labDataU,moall)        'Data for anlaeg';
+Parameter DataSto(s,labDataSto,moall)    'Lagerspecifikationer';
+Parameter DataProgn(labDataProgn,moall)  'Data for prognoser';
+Parameter DataFuel(f,labDataFuel,moall)  'Data for drivmidler';
+#--- Parameter FuelBounds(f,fuelItem,moall)   'Maengdegraenser for drivmidler';
+
+# FixValueAffT er input, men kan ikke modificeres af scenarier, da parameteren p.t. kun bruges til verifikation.
 Parameter FixValueAffT(moall)            'Fikserede månedstonnager på affald';
 Parameter DoFixAffT(moall)               'Angiver True/False at månedstonnagen på affald skal fikseres';
 
+# Parametre afledt fra inputdata.
 Parameter OnGU(u)                        'Angiver om anlaeg er til raadighed overhovedet';
 Parameter OnGS(s)                        'Angiver om lager er til raadighed overhovedet';
 Parameter OnGF(f)                        'Angiver om drivmiddel er til raadighed overhovedet';
@@ -252,8 +279,8 @@ Parameter StoLossRate(s,moall)           'Max. lagertab ift. forrige periodes be
 Parameter StoFirstReset(s)               'Antal initielle perioder som omslutter første nulstiling af lagerstand';
 Parameter StoIntvReset(s)                'Antal perioder som omslutter første nulstiling af lagerstand, efter første nulstilling';
 
-Parameter MinTonnageYear(f)              'Braendselstonnage min aarsniveau [ton/aar]';
-Parameter MaxTonnageYear(f)              'Braendselstonnage max aarsniveau [ton/aar]';
+Parameter MinTonPeriod(f)              'Braendselstonnage min aarsniveau [ton/aar]';
+Parameter MaxTonPeriod(f)              'Braendselstonnage max aarsniveau [ton/aar]';
 Parameter LhvMWh(f,moall)                'Braendvaerdi [MWf]';
 Parameter CO2potenTon(f,typeCO2,moall)   'CO2-emission [tonCO2/tonBrændsel]';
 Parameter Qdemand(moall)                 'FJV-behov';
@@ -288,14 +315,15 @@ $If not errorfree $exit
 $onecho > REFAinput.txt
 *--- set=labPrognScen        rng=Scen!C7:J7                      cdim=1
 *--- par=Scen_Progn          rng=Scen!A7:J37              rdim=1 cdim=1
-par=ScenRecs            rng=Scen!N5:W100             rdim=1 cdim=1
-par=DataCtrl            rng=DataCtrl!B4:C20          rdim=1 cdim=0
-par=Schedule            rng=DataU!A3:E6              rdim=1 cdim=1
-par=DataU               rng=DataU!A11:O17            rdim=1 cdim=1
-par=DataSto             rng=DataU!Q11:AC17           rdim=1 cdim=1
-par=DataProgn           rng=DataU!D22:AC58           rdim=1 cdim=1
-par=DataFuel            rng=DataFuel!C4:T33          rdim=1 cdim=1
-par=FuelBounds          rng=DataFuel!B39:AM250       rdim=2 cdim=1
+
+par=ScenRecs            rng=Scen!AU5:CK45            rdim=1 cdim=1
+par=DataCtrlRead        rng=DataCtrl!B4:C20          rdim=1 cdim=0
+par=ScheduleRead        rng=DataU!A3:E6              rdim=1 cdim=1
+par=DataURead           rng=DataU!A11:O17            rdim=1 cdim=1
+par=DataStoRead         rng=DataU!Q11:AC17           rdim=1 cdim=1
+par=DataPrognRead       rng=DataU!D22:AC58           rdim=1 cdim=1
+par=DataFuelRead        rng=DataFuel!C4:T33          rdim=1 cdim=1
+par=FuelBoundsRead      rng=DataFuel!B39:AM250       rdim=2 cdim=1
 par=FixValueAffT        rng=DataFuel!D254:AM255      rdim=0 cdim=1
 $offecho
 
@@ -309,16 +337,14 @@ $call "GDXXRW REFAinputM.xlsm RWait=1 Trace=3 @REFAinput.txt"
 
 $GDXIN REFAinputM.gdx
 
-*--- $LOAD   labPrognScen
-*--- $LOAD   Scen_Progn
 $LOAD   ScenRecs
-$LOAD   DataCtrl
-$LOAD   Schedule
-$LOAD   DataU
-$LOAD   DataSto
-$LOAD   DataProgn
-$LOAD   DataFuel
-$LOAD   FuelBounds
+$LOAD   DataCtrlRead
+$LOAD   ScheduleRead
+$LOAD   DataURead
+$LOAD   DataStoRead
+$LOAD   DataPrognRead
+$LOAD   DataFuelRead
+$LOAD   FuelBoundsRead
 $LOAD   FixValueAffT
 
 $GDXIN   # Close GDX file.
@@ -329,36 +355,39 @@ $log  LOG: Finished loading input data from GDXIN.
 
 #begin Opsætning af subsets, som IKKE afledes af inputdata.
 
-# Braendselstyper: Disse kan ikke ændres af scenarier.
+# Braendselstyper: Disse kan ikke ændres af scenarier, da det kan give indre modelkonflikt fx hvis lagerbar-attr ændres indenfor perioden.
 # fsto:  Brændsler, som må lagres (bemærk af tømning af lagre er en særskilt restriktion)
 # fdis:  Brændsler, som skal modtages og forbrændes hhv. om muligt lagres.
 # ffri:  Brændsler, hvor den øvre grænse aftagemængde er en optimeringsvariabel.
 # fflex: Brændsler, hvor månedstonnagen er fri, men årstonnagen skal respekteres.
 # fx:  Brændsler, som ikke er affaldsbrændsler.
 
-fa(f)    = DataFuel(f,'fkind') EQ 1;
-fb(f)    = DataFuel(f,'fkind') EQ 2;
-fc(f)    = DataFuel(f,'fkind') EQ 3;
-fr(f)    = DataFuel(f,'fkind') EQ 4;
-fx(f)    = NOT fa(f);
-fsto(f)  = DataFuel(f,'Lagerbar') NE 0;
-fdis(f)  = DataFuel(f,'Bortskaf') NE 0;
-ffri(f)  = DataFuel(f,'Fri')      NE 0 AND fa(f);
-fflex(f) = DataFuel(f,'Flex')     NE 0 AND fa(f);
+OnM(moall) = DataPrognRead(moall,'Aktiv') NE 0;
+mo(moall)  = OnM(moall);
 
-# Identifikation af lagertyper.
-sa(s) = DataSto(s,'stoKind') EQ 1;
-sq(s) = DataSto(s,'stoKind') EQ 2;
+fa(f)    = DataFuelRead(f,'fkind') EQ 1;
+fb(f)    = DataFuelRead(f,'fkind') EQ 2;
+fc(f)    = DataFuelRead(f,'fkind') EQ 3;
+fr(f)    = DataFuelRead(f,'fkind') EQ 4;
+fx(f)    = NOT fa(f);
+fsto(f)  = DataFuelRead(f,'Lagerbar') NE 0;
+fdis(f)  = DataFuelRead(f,'Bortskaf') NE 0;
+ffri(f)  = DataFuelRead(f,'Fri')      NE 0 AND fa(f);
+fflex(f) = DataFuelRead(f,'Flex')     NE 0 AND fa(f);
+
+# Identifikation af lagertyper. Disse kan ikke ændres af scenarier, da det ikke vil give mening.
+sa(s) = DataStoRead(s,'stoKind') EQ 1;
+sq(s) = DataStoRead(s,'stoKind') EQ 2;
 
 # Tilknytning af affaldsfraktioner til lagre.
 # Brugergivne restriktioner på kombinationer af lagre og brændselsfraktioner.
 s2f(s,f)   = no;
-s2f(sa,fa) = DataFuel(fa,'lagerbar') AND DataSto(sa,'aktiv');
+s2f(sa,fa) = DataFuelRead(fa,'lagerbar') AND DataStoRead(sa,'aktiv');
 
 # Brugergivet tilknytning af lagre til affaldsfraktioner kræver oprettelse af nye elementer i labDataFuel.
 Loop (fa,
-  s2f('sto1',fa) = s2f('sto1',fa) AND (DataFuel(fa,'InitSto1') GE 0);
-  s2f('sto2',fa) = s2f('sto2',fa) AND (DataFuel(fa,'InitSto2') GE 0);
+  s2f('sto1',fa) = s2f('sto1',fa) AND (DataFuelRead(fa,'InitSto1') GE 0);
+  s2f('sto2',fa) = s2f('sto2',fa) AND (DataFuelRead(fa,'InitSto2') GE 0);
 );
 
 # Kompabilitet mellem anlæg og brændsler.
@@ -396,19 +425,43 @@ IncludeFuel(fgsf)   = IncludeOwner('gsf');
 #end Opsætning af subsets, som IKKE afledes af inputdata.
 
 # Overførsel af parametre på overordnet modelniveau.
-IncludeOwner('gsf') = DataCtrl('IncludeGSF') NE 0;
-OnQInfeas           = DataCtrl('VirtuelVarme') NE 0;
-OnAffTInfeas        = DataCtrl('VirtuelAffald') NE 0;
-RgkRabatSats        = DataCtrl('RgkRabatSats');
-RgkRabatMinShare    = DataCtrl('RgkAndelRabat');
-VarmeSalgspris      = DataCtrl('VarmeSalgspris');
-SkorstensMetode     = DataCtrl('SkorstensMetode');
-EgetforbrugKVV      = DataCtrl('EgetforbrugKVV');
-RunScenarios        = DataCtrl('RunScenarios') NE 0;
-FixAffald           = DataCtrl('FixAffald') NE 0;
-
+IncludeOwner('gsf') = DataCtrlRead('IncludeGSF') NE 0;
+OnQInfeas           = DataCtrlRead('VirtuelVarme') NE 0;
+OnAffTInfeas        = DataCtrlRead('VirtuelAffald') NE 0;
+RgkRabatSats        = DataCtrlRead('RgkRabatSats');
+RgkRabatMinShare    = DataCtrlRead('RgkAndelRabat');
+VarmeSalgspris      = DataCtrlRead('VarmeSalgspris');
+SkorstensMetode     = DataCtrlRead('SkorstensMetode');
+EgetforbrugKVV      = DataCtrlRead('EgetforbrugKVV');
+RunScenarios        = DataCtrlRead('RunScenarios') NE 0;
+FixAffald           = DataCtrlRead('FixAffald') NE 0;
 
 $If not errorfree $exit
+
+#begin Overførsel af indlæste data til arbejdsparametre med tidsdimension, hvor relevant.
+
+DataCtrl(labDataCtrl)          = DataCtrlRead(labDataCtrl);         
+Schedule(labSchRow,labSchCol)  = ScheduleRead(labSchRow,labSchCol); 
+DataU(u,labDataU,mo)           = DataURead(u,labDataU);             
+DataSto(s,labDataSto,mo)       = DataStoRead(s,labDataSto);         
+DataProgn(labDataProgn,mo)     = DataPrognRead(mo,labDataProgn); 
+DataFuel(f,labDataFuel,mo)     = DataFuelRead(f,labDataFuel);       
+
+# FuelBounds skal håndteres særskilt, da dens tonnage-værdier kan påvirke årstonnagen.
+# Reglen er her, at FuelBounds trumfer DataFuel, så sum af FuelBounds tonnager overskriver årstonnager i DataFuel.
+# Der gives en advis, hvis værdierne ikke stemmer overens.
+Loop (f,
+  actF(f) = yes;
+  tmp1 = sum(mo, FuelBoundsRead(f,'MinTonnage',mo));
+  if (abs(tmp1 - DataFuelRead(f,'MinTonnage')), display "Warning: Sum af tmp1=MinTonnage i FuelBoundsRead matcher ikke årstonnagen i DataFuel for fuel actF.", actF, tmp1; );
+  
+  tmp1 = sum(mo, FuelBoundsRead(f,'MaxTonnage',mo));
+  if (abs(tmp1 - DataFuelRead(f,'MaxTonnage')), display "Warning: Sum af tmp1=MaxTonnage i FuelBoundsRead matcher ikke årstonnagen i DataFuel for fuel actF.", actF, tmp1; );
+);
+# Efter notifikation af evt. uoverensstemmelser, overføres de tidsafhængige parametre til DataFuel.
+DataFuel(f,fuelItem,mo) = FuelBoundsRead(f,fuelItem,mo);
+
+#end Overførsel af indlæste data til arbejdsparametre med tidsdimension, hvor relevant.
 
 
 # Initialisering af arbejdsvariable som anvendes i Equations.
@@ -417,10 +470,11 @@ Parameter QtotalAffMax(moall)     'Max. aff-varme';
 Parameter QbypassMax(moall)       'Max. bypass-varme';
 Parameter StoCostLoadMax(s)       'Max. lageromkostning';
 
-mo(moall) = yes;
-OnGU(u)   = no;
-OnGS(s)   = no;
-OnGF(f)   = no;
+# Parametre, som bruges i equations, skal have tildelt en værdi inden specifikation af disse equations.
+mo(moall)       = yes;
+OnGU(u)         = no;
+OnGS(s)         = no;
+OnGF(f)         = no;
 OnU(u,moall)    = no;
 OnS(s,moall)    = no;
 OnF(f,moall)    = no;
@@ -588,7 +642,7 @@ ZQ_IncomeElec(mo)   ..  IncomeElec(mo)    =E=  Pnet(mo) * (PowerPrice(mo) - Tari
 
 ZQ_IncomeHeat(mo)   ..  IncomeHeat(mo)    =E=  VarmeSalgspris * sum(u $(OnU(u,mo) AND up(u) AND urefa(u)), Q(u,mo));
 
-ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDelivT(fa,mo) * FuelBounds(fa,'Pris',mo) $(OnF(fa,mo) AND fpospris(fa,mo));
+ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDelivT(fa,mo) * DataFuel(fa,'Pris',mo) $(OnF(fa,mo) AND fpospris(fa,mo));
 
 ZQ_CostsTotal(mo)    .. CostsTotal(mo)    =E= sum(owner, CostsTotalOwner(owner,mo));
 
@@ -605,7 +659,7 @@ ZQ_CostsTotalOwner(owner,mo) .. CostsTotalOwner(owner,mo)  =E=
 
 ZQ_CostsU(u,mo)      .. CostsU(u,mo)      =E=  [Q(u,mo) * DvMWhq(u,mo) + bOnU(u,mo) * DvTime(u,mo)] $OnU(u,mo);
 
-ZQ_CostsPurchaseF(f,mo) $(OnF(f,mo) AND fnegpris(f,mo)) .. CostsPurchaseF(f,mo)  =E=  FuelDelivT(f,mo) * (-FuelBounds(f,'Pris',mo));
+ZQ_CostsPurchaseF(f,mo) $(OnF(f,mo) AND fnegpris(f,mo)) .. CostsPurchaseF(f,mo)  =E=  FuelDelivT(f,mo) * (-DataFuel(f,'Pris',mo));
 
 # Beregning af afgiftspligtigt affald.
 
@@ -667,7 +721,7 @@ ZQ_CO2emisF(f,mo,typeCO2) $OnF(f,mo) .. CO2emisF(f,mo,typeCO2)  =E=  sum(u $(OnU
 ZQ_CO2emisAff(mo,typeCO2)            .. CO2emisAff(mo,typeCO2)  =E=  sum(fa, CO2emisF(fa,mo,typeCO2));
 
 # NOx-afgift:
-ZQ_TaxNOxF(f,mo) $OnF(f,mo) .. TaxNOxF(f,mo)  =E=  sum(ua $(OnU(ua,mo) AND u2f(ua,f,mo)), FuelConsT(ua,f,mo)) * DataFuel(f,'NOxKgTon') * TaxNOxAffkg(mo) $fa(f)
+ZQ_TaxNOxF(f,mo) $OnF(f,mo) .. TaxNOxF(f,mo)  =E=  sum(ua $(OnU(ua,mo) AND u2f(ua,f,mo)), FuelConsT(ua,f,mo)) * DataFuel(f,'NOxKgTon',mo) * TaxNOxAffkg(mo) $fa(f)
                                                  + sum(ub $(OnU(ub,mo) AND u2f(ub,f,mo)), FuelConsT(ub,f,mo)) * TaxNOxFlisTon(mo) $fb(f)
                                                  + sum(ur $(OnU(ur,mo) AND u2f(ur,f,mo)), FuelConsT(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
 
@@ -812,15 +866,17 @@ ZQ_FixAffDelivSumT(mo) $DoFixAffT(mo) .. sum(fa $OnF(fa,mo), FuelDelivT(fa,mo)) 
 # Grænser for leverancer, når fiksering af affaldstonnage IKKE er aktiv.
 Equation  ZQ_FuelMin(f,moall)   'Mindste drivmiddelforbrug på månedsniveau';
 Equation  ZQ_FuelMax(f,moall)   'Stoerste drivmiddelforbrug på månedsniveau';
-Equation  ZQ_FuelMinYear(f)     'Mindste braendselsforbrug på årsniveau';
-Equation  ZQ_FuelMaxYear(f)     'Stoerste braendselsforbrug på årsniveau';
+Equation  ZQ_FuelMinPeriod(f)     'Mindste braendselsforbrug på årsniveau';
+Equation  ZQ_FuelMaxPeriod(f)     'Stoerste braendselsforbrug på årsniveau';
 
 # Fleksible brændsler skal ikke overholde månedsgrænser, kun årsgrænser.
-ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'MinTonnage',mo);
-ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'MaxTonnage',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  DataFuel(f,'MinTonnage',mo);
+ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  DataFuel(f,'MaxTonnage',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
-ZQ_FuelMinYear(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonnageYear(f) * sum(mo $OnF(f,mo), 1) / 12;
-ZQ_FuelMaxYear(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonnageYear(fa) * [(sum(mo $OnF(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
+#--- ZQ_FuelMinPeriod(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonPeriod(f) * sum(mo $OnF(f,mo), 1) / 12;
+#--- ZQ_FuelMaxPeriod(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonPeriod(fa) * [(sum(mo $OnF(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
+ZQ_FuelMinPeriod(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonPeriod(f);
+ZQ_FuelMaxPeriod(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonPeriod(fa) * (1 + 1E-6);
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
@@ -952,15 +1008,6 @@ Scalar    TimeOfWritingMasterResults   'Tidsstempel for udskrivning af resultate
 Scalar    Gain_QaffTotal               'Samlede virtuelle gevinst for affaldsvarme';                        # Gain bidrag på objektfunktionen.
 #--- Parameter Scen_TimeStamp(scen)         'Tidsstempel for scenarier';
 
-# Kopi af data, som kan ændres af scenarieparametre
-Parameter DataPrognSaved(moall,labDataProgn)   'Kopi af referencedata for prognoser';
-Parameter DataCtrlSaved(labDataCtrl);
-Parameter ScheduleSaved(labSchRow,labSchCol);
-Parameter DataUSaved(u,labDataU);
-Parameter DataStoSaved(s,labDataSto);
-Parameter DataPrognSaved(moall,labDataProgn);
-Parameter DataFuelSaved(f,labDataFuel);
-Parameter FuelBoundsSaved(f,fuelItem,moall);
 
 Parameter Scen_Recs(scRec,labScenRec)  'Scenarie specikation';
 Parameter Scen_Overview(topic,scen)    'Nøgletal (sum) for scenarier';
@@ -970,9 +1017,12 @@ Parameter Scen_IncomeFuel(f,scen)      'Brændselsindtægt (sum) for scenarier';
 
 Parameter DataCtrl_V(labDataCtrl);
 Parameter DataU_V(u,labDataU);
+Parameter DataUFull_V(u,labDataU,moall);
 Parameter DataSto_V(s,labDataSto);
+Parameter DataStoFull_V(s,labDataSto,moall);
 Parameter DataFuel_V(f,labDataFuel);
 Parameter DataProgn_V(labDataProgn,moall)      'Prognoser transponeret';
+Parameter DataFuelFull_V(f,labDataFuel,moall);
 Parameter FuelBounds_V(f,fuelItem,moall);
 Parameter FuelDeliv_V(f,moall)             'Leveret brændsel';
 Parameter FuelConsT_V(u,f,moall)           'Afbrændt brændsel for givet anlæg';
@@ -1094,10 +1144,10 @@ Parameter dPhiChangeIter(phiKind,moall,iter) 'Ændring af Phi-ændring ift. forrig
 # End Erklæring af iterations Loop på Phi-faktorer.
 
 
-#begin Rimelighedskontrol af potentielt modificerede inputtabeller.
+#begin Rimelighedskontrol af potentielt modificerede inputtabeller. Skal sikre mod indlæsningsfejl via GDXXRW.
 
 Loop (labDataU $(NOT sameas(labDataU,'KapMin') AND NOT sameas(labDataU,'MinLast')),
-  tmp1 = sum(u, DataU(u,labDataU));
+  tmp1 = sum(u, DataURead(u,labDataU));
   tmp2 = ord(labDataU);
   if (tmp1 EQ 0,
   if (DEBUG, display  tmp2; );
@@ -1106,7 +1156,7 @@ Loop (labDataU $(NOT sameas(labDataU,'KapMin') AND NOT sameas(labDataU,'MinLast'
 );
 
 Loop (labDataSto $(NOT sameas(labDataSto,'Aktiv') AND NOT sameas(labDataSto,'LoadInit') AND NOT sameas(labDataSto,'LoadMin') AND NOT sameas(labDataSto,'LossRate')),
-  tmp1 = sum(s, DataSto(s,labDataSto));
+  tmp1 = sum(s, DataStoRead(s,labDataSto));
   tmp2 = ord(labDataSto);
   if (tmp1 EQ 0,
   if (DEBUG, display  tmp2; );
@@ -1117,7 +1167,7 @@ Loop (labDataSto $(NOT sameas(labDataSto,'Aktiv') AND NOT sameas(labDataSto,'Loa
 $OffOrder
 Loop (labDataProgn,
   labPrognSingle(labDataProgn) = yes;
-  tmp1 = sum(moall, DataProgn(moall,labDataProgn));
+  tmp1 = sum(moall, DataPrognRead(moall,labDataProgn));
   if (tmp1 EQ 0,
   if (DEBUG,  display  labPrognSingle; );
     abort "ERROR: Mindst én kolonne (se labPrognSingle) i DataProgn summer til nul.";
@@ -1126,7 +1176,7 @@ Loop (labDataProgn,
 $OnOrder
 
 Loop (labDataFuel,
-  tmp1 = sum(f, DataFuel(f,labDataFuel));
+  tmp1 = sum(f, DataFuelRead(f,labDataFuel));
   tmp2 = ord(labDataFuel);
   if (tmp1 EQ 0,
   if (DEBUG,  display  tmp2; );
@@ -1137,12 +1187,12 @@ Loop (labDataFuel,
 $OffOrder
 Loop (fuelItem $(sameas(fuelItem,'MaxTonnage')),
   tmp3 = ord(fuelItem);
-  Loop (fa $DataFuel(fa,'Aktiv'),
-    tmp1 = sum(moall, FuelBounds(fa,fuelItem,moall));
+  Loop (fa $DataFuelRead(fa,'Aktiv'),
+    tmp1 = sum(moall, FuelBoundsRead(fa,fuelItem,moall));
     tmp2 = ord(fa);
     if (tmp1 EQ 0,
     if (DEBUG,  display  tmp3, tmp2; );
-      abort "ERROR: Mindst én række (se fuelItem=tmp3, fa=tmp2) i FuelBounds summer til nul.";
+      abort "ERROR: Mindst én række (se fuelItem=tmp3, fa=tmp2) i FuelBoundsRead summer til nul.";
     );
   );
 );
@@ -1154,15 +1204,15 @@ $OnOrder
 
 #begin Initialisering af scenarie Loop.
 
-# Tag backup af parametre i DataProgn, som er aktive i Scen_Progn.
-DataPrognSaved(moall,labDataProgn) = DataProgn(moall,labDataProgn);
-DataCtrlSaved(labDataCtrl)         = DataCtrl(labDataCtrl);
-ScheduleSaved(labSchRow,labSchCol) = Schedule(labSchRow,labSchCol);
-DataUSaved(u,labDataU)             = DataU(u,labDataU);
-DataStoSaved(s,labDataSto)         = DataSto(s,labDataSto);
-DataPrognSaved(moall,labDataProgn) = DataProgn(moall,labDataProgn);
-DataFuelSaved(f,labDataFuel)       = DataFuel(f,labDataFuel);
-FuelBoundsSaved(f,fuelItem,moall)  = FuelBounds(f,fuelItem,moall);
+#--- # Tag backup af parametre i DataProgn, som er aktive i Scen_Progn.
+#--- DataPrognRead(moall,labDataProgn) = DataProgn(moall,labDataProgn);
+#--- DataCtrlRead(labDataCtrl)         = DataCtrl(labDataCtrl);
+#--- ScheduleRead(labSchRow,labSchCol) = Schedule(labSchRow,labSchCol);
+#--- DataURead(u,labDataU)             = DataU(u,labDataU);
+#--- DataStoRead(s,labDataSto)         = DataSto(s,labDataSto);
+#--- DataPrognRead(moall,labDataProgn) = DataProgn(moall,labDataProgn);
+#--- DataFuelRead(f,labDataFuel)       = DataFuel(f,labDataFuel);
+#--- FuelBoundsRead(f,fuelItem,moall)  = FuelBounds(f,fuelItem,moall);
 
 #TODO: Fjern Scen_Progn, som erstattes af ScenRecs.
 #--- Scen_Progn('scen0','Aktiv') = 1;                    # Reference-scenariet beregnes altid.

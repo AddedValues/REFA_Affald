@@ -7,14 +7,21 @@ $log Entering file: %system.incName%
 
 # OBS: Ændring af Schedule eksponeres IKKE som scenarie-variabel.
 
+# Initialisering af aktive perioder (maaneder).
+OnM(moall)     = DataProgn('aktiv',moall);
+mo(moall)      = no;
+mo(moall)      = OnM(moall);
+NactiveM       = sum(moall, OnM(moall));
+Hours(moall) = 24 * DataProgn('Ndage',moall);
+moFirst(moall) = no;
+moFirst(mo)    = mo.first;
+
 
 # Brændsels attributter.
-fsto(f)  = DataFuel(f,'Lagerbar') NE 0;
-fdis(f)  = DataFuel(f,'Bortskaf') NE 0;
-ffri(f)  = DataFuel(f,'Fri')      NE 0 AND fa(f);
-fflex(f) = DataFuel(f,'Flex')     NE 0 AND fa(f);
-
-OnM(moall)   = DataProgn(moall,'aktiv');
+fsto(f)  = DataFuel(f,'Lagerbar',moFirst) NE 0;
+fdis(f)  = DataFuel(f,'Bortskaf',moFirst) NE 0;
+ffri(f)  = DataFuel(f,'Fri',     moFirst) NE 0 AND fa(f);
+fflex(f) = DataFuel(f,'Flex',    moFirst) NE 0 AND fa(f);
 
 # Overførsel af parametre på overordnet modelniveau.
 IncludeOwner('gsf') = DataCtrl('IncludeGSF') NE 0;
@@ -30,26 +37,21 @@ FixAffald           = DataCtrl('FixAffald') NE 0;
 
 # SKIP: Initialisering af overordnet rådighed af anlæg, lagre, brændsler og måneder.
 # Kan være gjort i scenarie specifikationen.
-
-# SKIP: OnU, OnS og OnF kan være modificeret af scenariet specifikationen.
+OnU(u,mo) = DataU(u,'Aktiv',mo);
+OnS(s,mo) = DataSto(s,'Aktiv',mo);
+OnF(f,mo) = DataFuel(f,'Aktiv',mo);
 OnGU(u)   = sum(mo, OnU(u,mo)) GE 1;
 OnGS(s)   = sum(mo, OnS(s,mo)) GE 1;
 OnGF(f)   = sum(mo, OnF(f,mo)) GE 1;
 
-# SKIP: Hours(moall) = 24 * DataProgn(moall,'Ndage');
-
-# Initialisering af aktive perioder (maaneder).
-mo(moall) = no;
-mo(moall) = OnM(moall);
-NactiveM  = sum(moall, OnM(moall));
-
 # Anlægsprioriteter og kompatibilitet.
+# Prioriteter kan p.t. IKKE ændres via scenarier.
 uprio(up) = no;
 uprio2up(up,upa) = no;
-Loop (up $(DataU(up,'aktiv') NE 0 AND DataU(up,'prioritet') GT 0),
+Loop (up $(DataU(up,'aktiv',moFirst) NE 0 AND DataU(up,'prioritet',moFirst) GT 0),
   dbup = ord(up);
   uprio(up) = yes;
-  Loop (upa $(DataU(upa,'aktiv') NE 0 AND DataU(upa,'prioritet') LT DataU(up,'prioritet') AND NOT sameas(up,upa)),
+  Loop (upa $(OnGU(upa) NE 0 AND DataU(upa,'prioritet',moFirst) LT DataU(up,'prioritet',moFirst) AND NOT sameas(up,upa)),
     dbupa = ord(upa);
     uprio2up(up,upa) = yes;
   );
@@ -57,46 +59,45 @@ Loop (up $(DataU(up,'aktiv') NE 0 AND DataU(up,'prioritet') GT 0),
 
 u2f(ua,fa,moall) = no;
 Loop (fa, 
-  u2f('Ovn2',fa,mo) = DataFuel(fa,'TilOvn2') NE 0;
-  u2f('Ovn3',fa,mo) = DataFuel(fa,'TilOvn3') NE 0;
+  u2f('Ovn2',fa,mo) = DataFuel(fa,'TilOvn2',mo) NE 0;
+  u2f('Ovn3',fa,mo) = DataFuel(fa,'TilOvn3',mo) NE 0;
 );
 
 Loop (u,
   Loop (labDataProgn $sameas(u,labDataProgn),
-    AvailDaysU(mo,u)  = DataProgn(mo,labDataProgn) $(OnU(u,mo) AND OnM(mo));
-    ShareAvailU(u,mo) = max(0.0, min(1.0, AvailDaysU(mo,u) / DataProgn(mo,'Ndage') ));
+    AvailDaysU(mo,u)  = DataProgn(labDataProgn,mo) $(OnU(u,mo) AND OnM(mo));
+    ShareAvailU(u,mo) = max(0.0, min(1.0, AvailDaysU(mo,u) / DataProgn('Ndage',mo) ));
   );
 );
 
 # Turbinens rådighed kan højst være lig med Ovn3-rådigheden.
-AvailDaysTurb(mo)  = min(AvailDaysU(mo,'Ovn3'), DataProgn(mo,'Turbine') $(OnU('Ovn3',mo)));
-ShareAvailTurb(mo) = max(0.0, min(1.0, AvailDaysTurb(mo) / DataProgn(mo,'Ndage') ));
+AvailDaysTurb(mo)  = min(AvailDaysU(mo,'Ovn3'), DataProgn('Turbine',mo) $(OnU('Ovn3',mo)));
+ShareAvailTurb(mo) = max(0.0, min(1.0, AvailDaysTurb(mo) / DataProgn('Ndage',mo) ));
 
 # Ovn3 er KV-anlæg med mulighed for turbine-bypass-drift.
 #OBS: Bypass-drift ændret fra forskrift til optimerings-aspekt, dvs. styret af objektfunktionen.
 #     Underkastet en forskrift om bypass er tilladt eller ej i en given måned.
 #--- ShareBypass(mo) = max(0.0, min(1.0, DataProgn(mo,'Bypass') / (24 * DataProgn(mo,'Ovn3')) ));
 #--- HoursBypass(mo) = DataProgn(mo,'Bypass');
-OnBypass(mo) = DataProgn(mo,'Bypass');
-Peget(mo)    = EgetforbrugKVV * (AvailDaysTurb(mo));
-#--- Peget(mo)       = EgetforbrugKVV * (AvailDaysU(mo,'Ovn3'));  #---   - HoursBypass(mo));
+OnBypass(mo) = DataProgn('Bypass',mo);
+Peget(mo)    = EgetforbrugKVV * AvailDaysTurb(mo);
 #--- display mo, OnGU, OnGF, OnM, Hours, AvailDaysU, ShareAvailU, ShareBypass;
 
 
-# SKIP: Produktionsanlæg og kølere.
+# Produktionsanlæg og kølere.
 
-# SKIP: --- MinLhvMWh(ua,mo) = DataU(ua,'MinLhv') / 3.6;
-# SKIP: --- MaxLhvMWh(ua,mo) = DataU(ua,'MaxLhv') / 3.6;
-# SKIP: --- MinTon(ua,mo)    = DataU(ua,'MinTon');
-# SKIP: --- MaxTon(ua,mo)    = DataU(ua,'Maxton');
-# SKIP: --- KapMin(u,mo)     = DataU(u, 'KapMin');
-# SKIP: --- KapRgk(ua,mo)    = DataU(ua,'KapRgk');
-# SKIP: --- KapQNom(u,mo)    = DataU(u,'KapQNom');
-# SKIP: --- KapE(u,mo)       = DataU(u,'KapE');
-# SKIP: --- EtaE(u,mo)       = DataU(u,'EtaE');
-# SKIP: --- EtaQ(u,mo)       = DataU(u,'EtaQ');
-# SKIP: --- DvMWhq(u,mo)     = DataU(u,'DvMWhq');
-# SKIP: --- DvTime(u,mo)     = DataU(u,'DvTime');
+MinLhvMWh(ua,mo) = DataU(ua,'MinLhv',mo) / 3.6;
+MaxLhvMWh(ua,mo) = DataU(ua,'MaxLhv',mo) / 3.6;
+MinTon(ua,mo)    = DataU(ua,'MinTon',mo);
+MaxTon(ua,mo)    = DataU(ua,'Maxton',mo);
+KapMin(u,mo)     = DataU(u, 'KapMin',mo);
+KapRgk(ua,mo)    = DataU(ua,'KapRgk',mo);
+KapQNom(u,mo)    = DataU(u,'KapQNom',mo);
+KapE(u,mo)       = DataU(u,'KapE',mo);
+EtaE(u,mo)       = DataU(u,'EtaE',mo);
+EtaQ(u,mo)       = DataU(u,'EtaQ',mo);
+DvMWhq(u,mo)     = DataU(u,'DvMWhq',mo);
+DvTime(u,mo)     = DataU(u,'DvTime',mo);
 
 EtaRgk(u,mo) = KapRgk(u,mo) / KapQNom(u,mo) * EtaQ(u,mo);
 KapMax(u,mo) = KapQNom(u,mo) + KapRgk(u,mo);
@@ -114,75 +115,78 @@ if (FirstYear LE 2021 AND LastYear GE 2021,
 );
 
 # Lagre.
-# SKIP: --- Loop (fa, 
-# SKIP: ---   StoLoadInitF('sto1',fa) = DataFuel(fa,'InitSto1');  #--- $DataFuel(fa,'InitSto1') GE 0.0;      
-# SKIP: ---   StoLoadInitF('sto2',fa) = DataFuel(fa,'InitSto2');  #--- $DataFuel(fa,'InitSto2') GE 0.0;      
-# SKIP: --- );
-# SKIP: --- StoLoadInitQ(sq) = DataSto(sq,'LoadInit');
-# SKIP: --- StoLoadMin(s,mo)       = DataSto(s,'LoadMin');
-# SKIP: --- StoLoadMax(s,mo)       = DataSto(s,'LoadMax');
-# SKIP: --- StoDLoadMax(s,mo)      = DataSto(s,'DLoadMax');
-# SKIP: --- StoLossRate(s,mo)      = DataSto(s,'LossRate');
-# SKIP: --- StoLoadCostRate(s,mo)  = DataSto(s,'LoadCost');
-# SKIP: --- StoDLoadCostRate(s,mo) = DataSto(s,'DLoadCost');
-# SKIP: --- StoFirstReset(s)       = DataSto(s,'ResetFirst');
-# SKIP: --- StoIntvReset(s)        = DataSto(s,'ResetIntv');
-
+Loop (fa, 
+  StoLoadInitF('sto1',fa) = DataFuel(fa,'InitSto1',moFirst);
+  StoLoadInitF('sto2',fa) = DataFuel(fa,'InitSto2',moFirst);
+);
+# Tids-uafhængige parametre.
+StoLoadInitQ(sq)       = DataSto(sq,'LoadInit',moFirst);
+StoFirstReset(s)       = DataSto(s,'ResetFirst',moFirst);
+StoIntvReset(s)        = DataSto(s,'ResetIntv',moFirst);
 StoFirstReset(s)       = ifthen(StoFirstReset(s) EQ 0.0, StoIntvReset(s), min(StoFirstReset(s), StoIntvReset(s)) );
+
+# Tidsafhængige parametre.
+StoLoadMin(s,mo)       = DataSto(s,'LoadMin',mo);
+StoLoadMax(s,mo)       = DataSto(s,'LoadMax',mo);
+StoDLoadMax(s,mo)      = DataSto(s,'DLoadMax',mo);
+StoLossRate(s,mo)      = DataSto(s,'LossRate',mo);
+StoLoadCostRate(s,mo)  = DataSto(s,'LoadCost',mo);
+StoDLoadCostRate(s,mo) = DataSto(s,'DLoadCost',mo);
+
 
 # Brændsler.
 fpospris(f,mo) = yes;
-fpospris(f,mo) = FuelBounds(f,'pris',mo) GE 0.0;
+fpospris(f,mo) = DataFuel(f,'pris',mo) GE 0.0;
 fnegpris(f,mo) = NOT fpospris(f,mo);
-fbiogen(f)     = fa(f) AND (sum(mo, FuelBounds(f,'CO2kgGJ',mo)) EQ 0);
+fbiogen(f)     = fa(f) AND (sum(mo, DataFuel(f,'CO2kgGJ',mo)) EQ 0);
 
-MinTonnageYear(f) = DataFuel(f,'MinTonnage');
-MaxTonnageYear(f) = DataFuel(f,'MaxTonnage');
-LhvMWh(f,mo)      = FuelBounds(f,'LHV',mo) / 3.6;
-NSprod(mo)        = DataProgn(mo,'NSprod');
+MinTonPeriod(f) = sum(mo,DataFuel(f,'MinTonnage',mo));
+MaxTonPeriod(f) = sum(mo,DataFuel(f,'MaxTonnage',mo));
+LhvMWh(f,mo)    = DataFuel(f,'LHV',mo) / 3.6;
+NSprod(mo)      = DataProgn('NSprod',mo);
 
 DoFixAffT(mo) = FixAffald AND (FixValueAffT(mo) NE NaN);
 
 # Emissionsopgørelsen for affald er som udgangspunkt efter skorstensmetoden, hvor CO2-indholdet af  hver fraktion er kendt.
 # Men uden skorstensmetoden anvendes i stedet for SKATs emissionssatser, som desuden er forskellige efter om det er CO2-afgift eller CO2-kvoteforbruget, som skal opgøres !!!
-CO2potenTon(f,typeCO2,mo) = FuelBounds(f,'LHV',mo) * FuelBounds(f,'CO2kgGJ',mo) / 1000;  # ton CO2 / ton brændsel.
+CO2potenTon(f,typeCO2,mo) = DataFuel(f,'LHV',mo) * DataFuel(f,'CO2kgGJ',mo) / 1000;  # ton CO2 / ton brændsel.
 if (NOT SkorstensMetode,
-  CO2potenTon(fa,typeCO2,mo) = FuelBounds(fa,'LHV',mo) * [DataProgn(mo,'CO2aff') $sameas(typeCO2,'afgift') + DataProgn(mo,'ETSaff') $sameas(typeCO2,'kvote')] / 1000;
+  CO2potenTon(fa,typeCO2,mo) = DataFuel(fa,'LHV',mo) * [DataProgn('CO2aff',mo) $sameas(typeCO2,'afgift') + DataProgn('ETSaff',mo) $sameas(typeCO2,'kvote')] / 1000;
 );
 CO2potenTon(fbiogen,typeCO2,mo) = 0.0;
 
 #TODO: Tarif på indfødning af elproduktion på nettet skal flyttes til DataCtrl.
-Qdemand(mo)       = DataProgn(mo,'Varmebehov');
-PowerPrice(mo)    = DataProgn(mo,'ELpris');
+Qdemand(mo)       = DataProgn('Varmebehov',mo);
+PowerPrice(mo)    = DataProgn('ELpris',mo);
 TariffElProd(mo)  = 4.00;  
-TaxAfvMWh(mo)     = DataProgn(mo,'AFV') * 3.6;
-TaxAtlMWh(mo)     = DataProgn(mo,'ATL') * 3.6;
-TaxEtsTon(mo)     = DataProgn(mo,'ETS');
-CO2ContentAff(mo) = DataProgn(mo,'CO2aff') * 3.6 / 1E3;   # CO2-indhold i generisk affald [ton CO2 / MWhq] med ref. til den afgiftspligtige varme/energi.
-TaxCO2AffTon(mo)  = DataProgn(mo,'CO2afgAff');
-TaxNOxAffkg(mo)   = DataProgn(mo,'NOxAff');
-TaxNOxFlisTon(mo) = DataProgn(mo,'NOxFlis') * FuelBounds('flis','LHV',mo);
-TaxEnrPeakTon(mo) = DataProgn(mo,'EnrPeak') * FuelBounds('peakfuel','LHV',mo);
-TaxCO2peakTon(mo) = DataProgn(mo,'CO2peak');
-TaxNOxPeakTon(mo) = DataProgn(mo,'NOxPeak');
-#--- display MinTonnageYear, MaxTonnageYear, LhvMWh, Qdemand, PowerProd, PowerPrice, IncomeElec, TaxAfvMWh, TaxAtlMWh, TaxEtsTon, TaxCO2AffTon, TaxCO2peakTon;
+TaxAfvMWh(mo)     = DataProgn('AFV',mo) * 3.6;
+TaxAtlMWh(mo)     = DataProgn('ATL',mo) * 3.6;
+TaxEtsTon(mo)     = DataProgn('ETS',mo);
+CO2ContentAff(mo) = DataProgn('CO2aff',mo) * 3.6 / 1E3;   # CO2-indhold i generisk affald [ton CO2 / MWhq] med ref. til den afgiftspligtige varme/energi.
+TaxCO2AffTon(mo)  = DataProgn('CO2afgAff',mo);
+TaxNOxAffkg(mo)   = DataProgn('NOxAff',mo);
+TaxNOxFlisTon(mo) = DataProgn('NOxFlis',mo) * DataFuel('flis','LHV',mo);
+TaxEnrPeakTon(mo) = DataProgn('EnrPeak',mo) * DataFuel('peakfuel','LHV',mo);
+TaxCO2peakTon(mo) = DataProgn('CO2peak',mo);
+TaxNOxPeakTon(mo) = DataProgn('NOxPeak',mo);
+#--- display MinTonPeriod, MaxTonPeriod, LhvMWh, Qdemand, PowerProd, PowerPrice, IncomeElec, TaxAfvMWh, TaxAtlMWh, TaxEtsTon, TaxCO2AffTon, TaxCO2peakTon;
 
 # Special-haandtering af oevre graense for Nordic Sugar varme.
-FuelBounds('NSvarme','MaxTonnage',moall) = DataProgn(moall,'NS');
+DataFuel('NSvarme','MaxTonnage',mo) = DataProgn('NS',mo);
 
 # Diverse øvre grænser for varmeproduktion og lageromkostning.
 # QbypassMax er baseret på el-kapaciteten af Ovn3
 # QtotalAffMax er baseret på rådig affaldstonnage.
 QbypassMax(mo)    = ShareAvailTurb(mo) * Hours(mo) * KapE('Ovn3',mo) - Peget(mo);  # Peget har taget højde for turbinens rådighed.
 QtotalAffMax(mo)  = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * (EtaQ(ua,mo) + EtaRgk(ua,mo)) 
-                                         * sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), LhvMWh(fa,mo) * FuelBounds(fa,'MaxTonnage',mo)) ) + QbypassMax(mo);
+                                         * sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), LhvMWh(fa,mo) * DataFuel(fa,'MaxTonnage',mo)) ) + QbypassMax(mo);
 StoCostLoadMax(s) = smax(mo, StoLoadMax(s,mo) * StoLoadCostRate(s,mo));
-display ShareAvailU, EtaQ, EtaRgk, LhvMwh, FuelBounds;
+display ShareAvailU, EtaQ, EtaRgk, LhvMwh, DataFuel;
 display QtotalAffMax, QbypassMax, StoCostLoadMax;
 
 # EaffGross skal være mininum af energiindhold af rådige mængder affald hhv. affaldsanlæggets fuldlastkapacitet.
 # Hvis affaldstonnager er fikseret, skal begrænsningen i QaffMmax lempes.
-QaffMmax(ua,mo) = min(ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo), [sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), EtaQ(ua,mo) * LhvMWh(fa,mo) * FuelBounds(fa,'MaxTonnage',mo) )]) $OnU(ua,mo);
+QaffMmax(ua,mo) = min(ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo), [sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), EtaQ(ua,mo) * LhvMWh(fa,mo) * DataFuel(fa,'MaxTonnage',mo) )]) $OnU(ua,mo);
 Loop (mo $DoFixAffT(mo), 
   QaffMmax(ua,mo) =  ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo);
 );
@@ -196,19 +200,3 @@ QRgkMissMax(mo) = 2 * RgkRabatMinShare * sum(ua $OnU(ua,mo), 31 * 24 * KapQNom(u
 $If not errorfree $exit
 
 #end Opsætning af sets og parametre afledt fra inputdata.
-
-
- 
-#TODO: Fjern Scen_Progn, som erstattes af ScenRecs.
-
-#--- if (ord(scen) GT 1,
-#---   DataProgn(mo,labPrognScen) = DataPrognSaved(mo,labPrognScen);
-#--- 
-#---   # Kun ikke-NaN parametre overføres fra scenariet.
-#---   Loop (labPrognScen,
-#---     if (Scen_Progn(actScen,labPrognScen) NE NaN,
-#---       DataProgn(mo,labPrognScen) = Scen_Progn(actScen,labPrognScen);
-#---     );
-#---   );
-#--- );
-
