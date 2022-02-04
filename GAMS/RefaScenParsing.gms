@@ -226,69 +226,52 @@ $OnOrder
 
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
     # En stor del af Fuel-attributter er ikke implementeret som tidsafhængige, de øvrige optræder i set fuelItem.
-    Loop (labDataFuel $sameas(labDataFuel,actFuel3),
-      if (fuelItem(labDataFuel),
-        if (GivenFastVaerdi AND NVal GT 0,
-          ScenRecs(scRec,'Statuskode') = 1;
-          DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
-          if (DEBUG, display "Assign FastVaerdi til FuelItem";);
-        else 
-          if (DEBUG, display "Assign ParmValues til FuelItem";);
-          DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo);
-        );
-      else 
-#---        if (DEBUG, display "Assign ParmValues til Non-FuelItem";);
-#---        DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
-        if (GivenFastVaerdi AND NVal GT 0,
-          ScenRecs(scRec,'Statuskode') = 1;
-          DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
-          if (DEBUG, display "Assign FastVaerdi til Non-FuelItem";);
-        else 
-          if (DEBUG, display "Assign ParmValues til Non-FuelItem";);
-          DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo);
-        );
-      );
-    );
+    DataFuel(actFuel2,actFuel3) = FastVaerdi;
 
-#---    DataFuel(actFuel2,actFuel3) = FirstValue;
-#---
-#---    if (sameas(actFuel3,'Aktiv'),
-#---      OnF(actFuel2,moparm) = ParmValues(moparm);
-#---      DataFuel(actFuel2,'Aktiv')
-#---      
-#---    elseif (sameas(actFuel3,'Lagerbar')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    elseif (sameas(actFuel3,'Fri')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    elseif (sameas(actFuel3,'Flex')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    elseif (sameas(actFuel3,'Bortskaf')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    elseif (sameas(actFuel3,'TilOvn2')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    elseif (sameas(actFuel3,'TilOvn3')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    elseif (sameas(actFuel3,'InitSto1')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    elseif (sameas(actFuel3,'InitSto2')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;;
-#---    elseif (sameas(actFuel3,'NOxKgTon')),
-#---      DataFuel(actFuel2,actFuel3) = FirstValue;
-#---    
-#---    else
-#---      DataFuel(actFuel2,actFuel3,mo) = FirstValue;
+#---    Loop (labDataFuel $sameas(labDataFuel,actFuel3),
+#---      if (fuelItem(labDataFuel),
+#---        # Særskilt håndtering af tonnage-grænser.
+#---        if (sameas(labDataFuel,'MinTonnage'),
+#---          if (GivenFastVaerdi, MinTonSum(actFuel2)   = FastVaerdi; );
+#---          if (NVal GT 0, DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo); );
+#---        elseif (sameas(labDataFuel,'MaxTonnage')),
+#---          if (GivenFastVaerdi, MaxTonSum(actFuel2)   = FastVaerdi; );
+#---          if (NVal GT 0, DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo); );
+#---        elseif (GivenFastVaerdi AND NVal GT 0),
+#---          ScenRecs(scRec,'Statuskode') = 1;
+#---          DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
+#---          if (DEBUG, display "Assign FastVaerdi til FuelItem";);
+#---        else 
+#---          if (DEBUG, display "Assign FastVaerdi til FuelItem";);
+#---          DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo);
+#---        );
+#---      else 
+#---#---        if (DEBUG, display "Assign ParmValues til Non-FuelItem";);
+#---#---        DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
+#---        if (GivenFastVaerdi AND NVal GT 0,
+#---          ScenRecs(scRec,'Statuskode') = 1;
+#---          DataFuel(actFuel2,actFuel3,mo) = FastVaerdi;
+#---          if (DEBUG, display "Assign FastVaerdi til Non-FuelItem";);
+#---        else 
+#---          if (DEBUG, display "Assign ParmValues til Non-FuelItem";);
+#---          DataFuel(actFuel2,actFuel3,mo) = ParmValues(mo);
+#---        );
+#---      );
 #---    );
 
-#---  elseif (sameas(actRoot,'FuelBounds')),
-#---    if (Level2 LE 0 OR Level2 GT card(f),        abort "Fejl i niveau 2 på scenarie record actScRec", actScRec; );
-#---    if (Level3 LE 0 OR Level3 GT card(fuelItem), abort "Fejl i niveau 3 på scenarie record actScRec", actScRec; );
-#---    
-#---    actFuelBounds2(f)        = ord(f) EQ Level2;
-#---    actFuelBounds3(fuelItem) = ord(fuelItem) EQ Level3;
-#---    if (DEBUG, display  actFuelBounds2, actFuelBounds3; );
-#---
-#---    FuelBounds(actFuelBounds2,actFuelBounds3,moparm) = ParmValues(moparm);
-
+  elseif (sameas(actRoot,'FuelBounds')),
+    if (Level2 LE 0 OR Level2 GT card(f),        abort "Fejl i niveau 2 på scenarie record actScRec", actScRec; );
+    if (Level3 LE 0 OR Level3 GT card(fuelItem), abort "Fejl i niveau 3 på scenarie record actScRec", actScRec; );
+    
+    actFuelBounds2(f)        = ord(f) EQ Level2;
+    actFuelBounds3(fuelItem) = ord(fuelItem) EQ Level3;
+    if (DEBUG, display  actFuelBounds2, actFuelBounds3; );
+ 
+    if (GivenFastVaerdi,
+      FuelBounds(actFuelBounds2,actFuelBounds3,mo) = FastVaerdi;
+    else
+      FuelBounds(actFuelBounds2,actFuelBounds3,mo) = ParmValues(mo);
+    );
   else
     abort "Fejl i Niveau case-structure: Niveau1=actRoot ikke implementeret.", actRoot;
   );

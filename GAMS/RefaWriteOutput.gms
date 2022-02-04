@@ -14,11 +14,12 @@ Penalty_QRgkMissTotal       = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
 Penalty_AffaldsGensalgTotal = Penalty_AffaldsGensalg * sum(mo, sum(f $OnF(f,mo), FuelResaleT.L(f,mo)));
 Penalty_QInfeasTotal        = Penalty_QInfeas    * sum(dir, sum(mo, QInfeas.L(dir,mo)));
 Penalty_AffTInfeasTotal     = Penalty_AffTInfeas * sum(dir, sum(mo, AffTInfeas.L(dir,mo)));
+Penalty_QFlisKTotal         = Penalty_QFlisK     * sum(ub, sum(mo, Q.L(ub,mo)));
 Gain_QaffTotal              = sum(ua, Gain_Qaff(ua) * sum(mo, Q.L(ua,mo)));
 
 # NPV_Total_V er den samlede NPV med tilbageførte penalties.
 NPV_Total_V = NPV.L + [Penalty_QInfeasTotal + Penalty_AffTInfeasTotal]
-                    + [Penalty_bOnUTotal + Penalty_QRgkMissTotal + Penalty_AffaldsGensalgTotal]
+                    + [Penalty_bOnUTotal + Penalty_QRgkMissTotal + Penalty_AffaldsGensalgTotal + Penalty_QFlisKTotal]
                     - [Gain_QaffTotal];
 
 # NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
@@ -76,7 +77,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-El-produktion-Brutto',mo) = RefaElproduktionBrutto_V(mo);
   OverView('REFA-El-produktion-Netto',mo)  = RefaElproduktionNetto_V(mo);
 
-  AffaldAvail_V(mo)     = max(tiny, sum(fa $OnF(fa,mo), DataFuel(fa,'MaxTonnage',mo)));
+  AffaldAvail_V(mo)     = max(tiny, sum(fa $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)));
   AffaldConsTotal_V(mo) = max(tiny, sum(fa, sum(ua, FuelConsT.L(ua,fa,mo))));
   AffaldUudnyttet_V(mo) = max(tiny, sum(fa, FuelResaleT.L(fa,mo)));
   AffaldLagret_V(mo)    = max(tiny, sum(s, StoLoad.L(s,mo)));
@@ -204,17 +205,17 @@ DataU_V(u,'KapMin')                = 0.0;
 DataSto_V(s,labDataSto)            = ifthen(DataStoRead(s,labDataSto)   EQ 0.0, tiny, DataStoRead(s,labDataSto));
 DataFuel_V(f,labDataFuel)          = ifthen(DataFuelRead(f,labDataFuel) EQ 0.0, tiny, DataFuelRead(f,labDataFuel));
 DataProgn_V(labDataProgn,mo)       = ifthen(DataPrognRead(mo,labDataProgn) EQ 0.0, tiny, DataPrognRead(mo,labDataProgn));
-FuelBounds_V(f,fuelItem,mo)        = max(tiny, DataFuel(f,fuelItem,mo));
+FuelBounds_V(f,fuelItem,mo)        = max(tiny, FuelBounds(f,fuelItem,mo));
 DataUFull_V(u,labDataU,mo)         = ifthen(DataU(u,labDataU,mo)       EQ 0.0, tiny, DataU(u,labDataU,mo));
 DataStoFull_V(s,labDataSto,mo)     = ifthen(DataSto(s,labDataSto,mo)   EQ 0.0, tiny, DataSto(s,labDataSto,mo));
-DataFuelFull_V(f,labDataFuel,mo)   = ifthen(DataFuel(f,labDataFuel,mo) EQ 0.0, tiny, DataFuel(f,labDataFuel,mo));
+FuelBounds_V(f,fuelItem,mo)        = ifthen(FuelBounds(f,fuelItem,mo) EQ 0.0, tiny, FuelBounds(f,fuelItem,mo));
 
 # Sikre at kolonne 'mo0' ikke udskrives til Excel.
-DataProgn_V(labDataProgn,'mo0')     = tiny;  
-DataFuelFull_V(f,labDataFuel,'mo0') = 0.0;   
-FuelDeliv_V(f,'mo0')                = 0.0;   
-StoDLoadF_V(s,f,'mo0')              = 0.0;
-FuelConsT_V(u,f,'mo0')              = 0.0;
+DataProgn_V(labDataProgn,'mo0') = tiny;  
+FuelBounds_V(f,fuelItem,'mo0')  = 0.0;   
+FuelDeliv_V(f,'mo0')            = 0.0;   
+StoDLoadF_V(s,f,'mo0')          = 0.0;
+FuelConsT_V(u,f,'mo0')          = 0.0;
 
 VirtualUsed = VirtualUsed OR sum(dir, sum(mo, QInfeas.L(dir,mo))) GT tiny OR sum(dir, sum(mo, AffTInfeas.L(dir,mo))) GT tiny;
 
@@ -254,7 +255,7 @@ labDataU, labDataFuel, labSchRow, labSchCol, labDataProgn, taxkind, topic, typeC
 Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel,
 ScenRecs, #--- Scen_Progn, 
 Schedule, DataCtrl_V, DataU_V, DataSto_V, DataProgn_V, AvailDaysU, DataFuel_V, FuelBounds_V,
-DataUFull_V, DataStoFull_V, DataFuelFull_V,
+DataUFull_V, DataStoFull_V, FuelBounds_V,
 OnGU, OnGF, OnM, OnGS, OnU, OnS, OnF, Hours, ShareAvailU, EtaQ, KapMin, KapQNom, KapRgk, KapMax, Qdemand, LhvMWh,
 Pbrut, Pnet, Qbypass,
 TaxAfvMWh, TaxAtlMWh, TaxCO2AffTon, TaxCO2peakTon,
@@ -347,7 +348,7 @@ text="FuelBounds"         rng=Inputs!T43:T43
 * Fuldt tidsafhængige anvendte data (som modificeret af aktuelle scenarie).
 par=DataUFull_V           rng=DataU!B10         cdim=1  rdim=2
 par=DataStoFull_V         rng=DataSto!B10       cdim=1  rdim=2
-par=DataFuelFull_V        rng=DataFuel!B10      cdim=1  rdim=2
+par=FuelBounds_V          rng=DataFuel!B10      cdim=1  rdim=2
 
 *end   Individuelle dataark
 

@@ -151,8 +151,8 @@ Singleton set actStorage3(labDataSto);
 Singleton set actPrognoses2(labDataProgn);
 Singleton set actFuel2(f);
 Singleton set actFuel3(labDataFuel);
-#--- Singleton set actFuelBounds2(f);
-#--- Singleton set actFuelBounds3(fuelItem);
+Singleton set actFuelBounds2(f);
+Singleton set actFuelBounds3(fuelItem);
 
 actU(u) = no;
 actF(f) = no;
@@ -165,15 +165,16 @@ alias(upa, up);
 # Erklaering af parametre
 # ------------------------------------------------------------------------------------------------
 # Penalty faktorer til objektfunktionen.
-Scalar    Penalty_bOnU              'Penalty på bOnU'           / 0000E+5 /;
-Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss'       /   10    /;      # Denne penalty må ikke være højere end tillaegsafgiften.
-Scalar    Penalty_QInfeas           'Penalty på QInfeas'        / 5000    /;      # Pålægges virtuel varmekilder og -dræn.
-Scalar    Penalty_AffTInfeas        'Penalty på AffTInfeas'     / 5000    /;      # Pålægges virtuel affaldstonnage kilde og -dræn.
-Scalar    Penalty_AffaldsGensalg    'Affald gensalgspris'       / 1500.00  /;     # Pålægges ikke-udnyttet affald.
-Scalar    OnQInfeas                 'On/Off på virtuel varme'   / 0       /;
-Scalar    OnAffTInfeas              'On/Off på virtuel affald'  / 0       /;
-Scalar    LhvMWhAffTInfeas          'LHV af virtuel affald'     / 3.0    /;                        # 3.0 MWhf/ton svarende til 10.80 GJ/ton.
-Parameter Gain_Qaff(u)              'Gevinst for affaldsvarme'  / 'Ovn2' 10.00, 'Ovn3' 10.00  /;   # Tillægges varmeproduktion på Ovn3 for at sikre udlastning før NS-varmen og flisvarme.
+Scalar    Penalty_bOnU              'Penalty på bOnU'              / 0000E+5 /;
+Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss kr/MWhq'  /   10    /;      # Denne penalty må ikke være højere end tillaegsafgiften.
+Scalar    Penalty_QInfeas           'Penalty på QInfeas kr/MWhq'   / 5000    /;      # Pålægges virtuel varmekilder og -dræn.
+Scalar    Penalty_AffTInfeas        'Penalty på AffTInfeas kr/ton' / 5000    /;      # Pålægges virtuel affaldstonnage kilde og -dræn.
+Scalar    Penalty_AffaldsGensalg    'Affald gensalgspris kr/ton'   / 1500.00  /;     # Pålægges ikke-udnyttet affald.
+Scalar    Penalty_QFlisK            'Penalty flisvarme kr/MWhq'    /  100.00  /;     # Pålægges varmeproduktion fra fliskedlen.
+Scalar    OnQInfeas                 'On/Off på virtuel varme'      / 0       /;
+Scalar    OnAffTInfeas              'On/Off på virtuel affald'     / 0       /;
+Scalar    LhvMWhAffTInfeas          'LHV af virtuel affald'        / 3.0    /;                        # 3.0 MWhf/ton svarende til 10.80 GJ/ton.
+Parameter Gain_Qaff(u)              'Gevinst for affaldsvarme'     / 'Ovn2' 10, 'Ovn3' 10  /;   # Tillægges varmeproduktion på Ovn3 for at sikre udlastning før NS-varmen og flisvarme.
 
 # Arbejdsparametre til scenarie håndtering
 Scalar ScenId;
@@ -230,8 +231,8 @@ Parameter DataCtrl(labDataCtrl)          'Data for styringsparametre';
 Parameter DataU(u,labDataU,moall)        'Data for anlaeg';
 Parameter DataSto(s,labDataSto,moall)    'Lagerspecifikationer';
 Parameter DataProgn(labDataProgn,moall)  'Data for prognoser';
-Parameter DataFuel(f,labDataFuel,moall)  'Data for drivmidler';
-#--- Parameter FuelBounds(f,fuelItem,moall)   'Maengdegraenser for drivmidler';
+Parameter DataFuel(f,labDataFuel)        'Data for drivmidler (ikke tidsafhængige)';
+Parameter FuelBounds(f,fuelItem,moall)   'Tidsbundne værdier for drivmidler';
 
 # FixValueAffT er input, men kan ikke modificeres af scenarier, da parameteren p.t. kun bruges til verifikation.
 Parameter FixValueAffT(moall)            'Fikserede månedstonnager på affald';
@@ -279,8 +280,8 @@ Parameter StoLossRate(s,moall)           'Max. lagertab ift. forrige periodes be
 Parameter StoFirstReset(s)               'Antal initielle perioder som omslutter første nulstiling af lagerstand';
 Parameter StoIntvReset(s)                'Antal perioder som omslutter første nulstiling af lagerstand, efter første nulstilling';
 
-Parameter MinTonPeriod(f)              'Braendselstonnage min aarsniveau [ton/aar]';
-Parameter MaxTonPeriod(f)              'Braendselstonnage max aarsniveau [ton/aar]';
+Parameter MinTonSum(f)              'Braendselstonnage min aarsniveau [ton/aar]';
+Parameter MaxTonSum(f)              'Braendselstonnage max aarsniveau [ton/aar]';
 Parameter LhvMWh(f,moall)                'Braendvaerdi [MWf]';
 Parameter CO2potenTon(f,typeCO2,moall)   'CO2-emission [tonCO2/tonBrændsel]';
 Parameter Qdemand(moall)                 'FJV-behov';
@@ -313,9 +314,6 @@ $If not errorfree $exit
 # Indlaesning af input parametre
 
 $onecho > REFAinput.txt
-*--- set=labPrognScen        rng=Scen!C7:J7                      cdim=1
-*--- par=Scen_Progn          rng=Scen!A7:J37              rdim=1 cdim=1
-
 par=ScenRecs            rng=Scen!AU5:CK45            rdim=1 cdim=1
 par=DataCtrlRead        rng=DataCtrl!B4:C20          rdim=1 cdim=0
 par=ScheduleRead        rng=DataU!A3:E6              rdim=1 cdim=1
@@ -445,7 +443,8 @@ Schedule(labSchRow,labSchCol)  = ScheduleRead(labSchRow,labSchCol);
 DataU(u,labDataU,mo)           = DataURead(u,labDataU);             
 DataSto(s,labDataSto,mo)       = DataStoRead(s,labDataSto);         
 DataProgn(labDataProgn,mo)     = DataPrognRead(mo,labDataProgn); 
-DataFuel(f,labDataFuel,mo)     = DataFuelRead(f,labDataFuel);       
+DataFuel(f,labDataFuel)        = DataFuelRead(f,labDataFuel);       
+FuelBounds(f,fuelItem,mo)      = FuelBoundsRead(f,fuelItem,mo);
 
 # FuelBounds skal håndteres særskilt, da dens tonnage-værdier kan påvirke årstonnagen.
 # Reglen er her, at FuelBounds trumfer DataFuel, så sum af FuelBounds tonnager overskriver årstonnager i DataFuel.
@@ -459,7 +458,7 @@ Loop (f,
   if (abs(tmp1 - DataFuelRead(f,'MaxTonnage')), display "Warning: Sum af tmp1=MaxTonnage i FuelBoundsRead matcher ikke årstonnagen i DataFuel for fuel actF.", actF, tmp1; );
 );
 # Efter notifikation af evt. uoverensstemmelser, overføres de tidsafhængige parametre til DataFuel.
-DataFuel(f,fuelItem,mo) = FuelBoundsRead(f,fuelItem,mo);
+#--- DataFuel(f,fuelItem,mo) = FuelBoundsRead(f,fuelItem,mo);
 
 #end Overførsel af indlæste data til arbejdsparametre med tidsdimension, hvor relevant.
 
@@ -634,6 +633,7 @@ ZQ_Obj  ..  NPV  =E=  sum(mo,
                              + [Penalty_QInfeas        * sum(dir, QInfeas(dir,mo))]    $OnQInfeas
                              + [Penalty_AffTInfeas     * sum(dir, AffTInfeas(dir,mo))] $OnAffTInfeas
                              + [Penalty_AffaldsGensalg * sum(f $OnF(f,mo), FuelResaleT(f,mo))]
+                             + [Penalty_QFlisK         * sum(ub $OnU(ub,mo), Q(ub,mo))]
                            ] );
 
 ZQ_IncomeTotal(mo)   .. IncomeTotal(mo)   =E=  sum(fa $OnF(fa,mo), IncomeAff(fa,mo)) + RgkRabat(mo) + IncomeElec(mo) + IncomeHeat(mo);
@@ -642,7 +642,7 @@ ZQ_IncomeElec(mo)   ..  IncomeElec(mo)    =E=  Pnet(mo) * (PowerPrice(mo) - Tari
 
 ZQ_IncomeHeat(mo)   ..  IncomeHeat(mo)    =E=  VarmeSalgspris * sum(u $(OnU(u,mo) AND up(u) AND urefa(u)), Q(u,mo));
 
-ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDelivT(fa,mo) * DataFuel(fa,'Pris',mo) $(OnF(fa,mo) AND fpospris(fa,mo));
+ZQ_IncomeAff(fa,mo)  .. IncomeAff(fa,mo)  =E=  FuelDelivT(fa,mo) * FuelBounds(fa,'Pris',mo) $(OnF(fa,mo) AND fpospris(fa,mo));
 
 ZQ_CostsTotal(mo)    .. CostsTotal(mo)    =E= sum(owner, CostsTotalOwner(owner,mo));
 
@@ -659,7 +659,7 @@ ZQ_CostsTotalOwner(owner,mo) .. CostsTotalOwner(owner,mo)  =E=
 
 ZQ_CostsU(u,mo)      .. CostsU(u,mo)      =E=  [Q(u,mo) * DvMWhq(u,mo) + bOnU(u,mo) * DvTime(u,mo)] $OnU(u,mo);
 
-ZQ_CostsPurchaseF(f,mo) $(OnF(f,mo) AND fnegpris(f,mo)) .. CostsPurchaseF(f,mo)  =E=  FuelDelivT(f,mo) * (-DataFuel(f,'Pris',mo));
+ZQ_CostsPurchaseF(f,mo) $(OnF(f,mo) AND fnegpris(f,mo)) .. CostsPurchaseF(f,mo)  =E=  FuelDelivT(f,mo) * (-FuelBounds(f,'Pris',mo));
 
 # Beregning af afgiftspligtigt affald.
 
@@ -721,7 +721,7 @@ ZQ_CO2emisF(f,mo,typeCO2) $OnF(f,mo) .. CO2emisF(f,mo,typeCO2)  =E=  sum(u $(OnU
 ZQ_CO2emisAff(mo,typeCO2)            .. CO2emisAff(mo,typeCO2)  =E=  sum(fa, CO2emisF(fa,mo,typeCO2));
 
 # NOx-afgift:
-ZQ_TaxNOxF(f,mo) $OnF(f,mo) .. TaxNOxF(f,mo)  =E=  sum(ua $(OnU(ua,mo) AND u2f(ua,f,mo)), FuelConsT(ua,f,mo)) * DataFuel(f,'NOxKgTon',mo) * TaxNOxAffkg(mo) $fa(f)
+ZQ_TaxNOxF(f,mo) $OnF(f,mo) .. TaxNOxF(f,mo)  =E=  sum(ua $(OnU(ua,mo) AND u2f(ua,f,mo)), FuelConsT(ua,f,mo)) * DataFuel(f,'NOxKgTon') * TaxNOxAffkg(mo) $fa(f)
                                                  + sum(ub $(OnU(ub,mo) AND u2f(ub,f,mo)), FuelConsT(ub,f,mo)) * TaxNOxFlisTon(mo) $fb(f)
                                                  + sum(ur $(OnU(ur,mo) AND u2f(ur,f,mo)), FuelConsT(ur,f,mo)) * TaxNOxPeakTon(mo) $fr(f);
 
@@ -866,17 +866,19 @@ ZQ_FixAffDelivSumT(mo) $DoFixAffT(mo) .. sum(fa $OnF(fa,mo), FuelDelivT(fa,mo)) 
 # Grænser for leverancer, når fiksering af affaldstonnage IKKE er aktiv.
 Equation  ZQ_FuelMin(f,moall)   'Mindste drivmiddelforbrug på månedsniveau';
 Equation  ZQ_FuelMax(f,moall)   'Stoerste drivmiddelforbrug på månedsniveau';
-Equation  ZQ_FuelMinPeriod(f)     'Mindste braendselsforbrug på årsniveau';
-Equation  ZQ_FuelMaxPeriod(f)     'Stoerste braendselsforbrug på årsniveau';
+Equation  ZQ_FuelMinSum(f)      'Mindste braendselsforbrug på årsniveau';
+Equation  ZQ_FuelMaxSum(f)      'Stoerste braendselsforbrug på årsniveau';
 
 # Fleksible brændsler skal ikke overholde månedsgrænser, kun årsgrænser.
-ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  DataFuel(f,'MinTonnage',mo);
-ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  DataFuel(f,'MaxTonnage',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+#--- ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'MinTonnage',mo);
+#--- ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'MaxTonnage',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'MinTonnage',mo) $(NOT fflex(f));
+ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'MaxTonnage',mo) * (1 + 1E-6) $(NOT fflex(f)) + MaxTonSum(f) $fflex(f);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
-#--- ZQ_FuelMinPeriod(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonPeriod(f) * sum(mo $OnF(f,mo), 1) / 12;
-#--- ZQ_FuelMaxPeriod(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonPeriod(fa) * [(sum(mo $OnF(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
-ZQ_FuelMinPeriod(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonPeriod(f);
-ZQ_FuelMaxPeriod(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonPeriod(fa) * (1 + 1E-6);
+#--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonSum(f) * sum(mo $OnF(f,mo), 1) / 12;
+#--- ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * [(sum(mo $On(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
+ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  MinTonSum(f)  * (sum(mo $OnF(f,mo), 1) / 12);
+ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * (sum(mo $OnF(fa,mo), 1) / 12) * (1 + 1E-6);
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
@@ -1002,6 +1004,7 @@ Scalar    NPV_REFA_V      'REFAs nutidsværdi';
 Scalar    NPV_Total_V     'Total nutidsværdi (REFA + GSF)';
 Scalar    Penalty_QInfeasTotal, Penalty_AffTInfeasTotal;                          # Penalty bidrag fra infeasibiliteter.
 Scalar    Penalty_bOnUTotal, Penalty_QRgkMissTotal, Penalty_AffaldsGensalgTotal;  # Penalty bidrag på objektfunktionen.
+Scalar    Penalty_QFlisKTotal  'Penalty på fliskedlens varmeproduktion';  
 Scalar    PerStart;
 Scalar    PerSlut;
 Scalar    TimeOfWritingMasterResults   'Tidsstempel for udskrivning af resultater for aktuelt scenarie';

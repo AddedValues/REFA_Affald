@@ -11,9 +11,8 @@ if (NOT sameas(actScen,'scen0'),
   DataU(u,labDataU,mo)            = DataURead(u,labDataU);   
   DataSto(s,labDataSto,mo)        = DataStoRead(s,labDataSto);  
   DataProgn(labDataProgn,mo)      = DataPrognRead(mo,labDataProgn);  
-  DataFuel(f,labDataFuel,mo)      = DataFuelRead(f,labDataFuel);  
-  DataFuel(f,fuelItem,mo)         = FuelBoundsRead(f,fuelItem,mo);
-  #--- FuelBounds(f,fuelItem,moall)    = FuelBoundsSaved(f,fuelItem,moall);   
+  DataFuel(f,labDataFuel)         = DataFuelRead(f,labDataFuel);  
+  FuelBounds(f,fuelItem,mo)       = FuelBoundsRead(f,fuelItem,mo);
 );
 # OBS: Ændring af Schedule eksponeres ikke som scenarie-variabel.
 
@@ -149,8 +148,8 @@ if (NOT sameas(actScen,'scen0'),
 #--- fnegpris(f,mo) = NOT fpospris(f,mo);
 #--- fbiogen(f)     = fa(f) AND (sum(mo, FuelBounds(f,'CO2kgGJ',mo)) EQ 0);
 #--- 
-#--- MinTonPeriod(f) = DataFuel(f,'MinTonnage');
-#--- MaxTonPeriod(f) = DataFuel(f,'MaxTonnage');
+#--- MinTonSum(f) = DataFuel(f,'MinTonnage');
+#--- MaxTonSum(f) = DataFuel(f,'MaxTonnage');
 #--- LhvMWh(f,mo)      = FuelBounds(f,'LHV',mo) / 3.6;
 #--- NSprod(mo)        = DataProgn(mo,'NSprod');
 #--- 
@@ -180,7 +179,7 @@ if (NOT sameas(actScen,'scen0'),
 #--- TaxEnrPeakTon(mo) = DataProgn(mo,'EnrPeak') * DataFuel('peakfuel','LHV');
 #--- TaxCO2peakTon(mo) = DataProgn(mo,'CO2peak');
 #--- TaxNOxPeakTon(mo) = DataProgn(mo,'NOxPeak');
-#--- #--- display MinTonPeriod, MaxTonPeriod, LhvMWh, Qdemand, PowerProd, PowerPrice, IncomeElec, TaxAfvMWh, TaxAtlMWh, TaxEtsTon, TaxCO2AffTon, TaxCO2peakTon;
+#--- #--- display MinTonSum, MaxTonSum, LhvMWh, Qdemand, PowerProd, PowerPrice, IncomeElec, TaxAfvMWh, TaxAtlMWh, TaxEtsTon, TaxCO2AffTon, TaxCO2peakTon;
 #--- 
 #--- # Special-haandtering af oevre graense for Nordic Sugar varme.
 #--- FuelBounds('NSvarme','MaxTonnage',moall) = DataProgn(moall,'NS');
