@@ -177,7 +177,11 @@ FuelBounds('NSvarme','MaxTonnage',mo) = DataProgn('NS',mo);
 # Diverse øvre grænser for varmeproduktion og lageromkostning.
 # QbypassMax er baseret på el-kapaciteten af Ovn3
 # QtotalAffMax er baseret på rådig affaldstonnage.
-QbypassMax(mo)    = ShareAvailTurb(mo) * Hours(mo) * KapE('Ovn3',mo) - Peget(mo);  # Peget har taget højde for turbinens rådighed.
+#BUGFIX: QbypassMax skal være uafhængig af turbinens rådighed, men blot afhængig af Ovn3-rådigheden.
+#        Når turbinen er ude, kan dampen fra el-egetforbruget også anvendes til bypass-varme.
+#        QbypassMax begrænser også QtotalAffMax og dermed modtryksproduktionen på ovnene.
+#--- QbypassMax(mo)    = ShareAvailTurb(mo) * Hours(mo) * KapE('Ovn3',mo) - Peget(mo);  # Peget har taget højde for turbinens rådighed.
+QbypassMax(mo)    = ShareAvailU('Ovn3',mo) * Hours(mo) * KapE('Ovn3',mo) - Peget(mo) + AvailDaysTurb(mo) * EgetforbrugKVV; 
 QtotalAffMax(mo)  = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * (EtaQ(ua,mo) + EtaRgk(ua,mo)) 
                                          * sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), LhvMWh(fa,mo) * FuelBounds(fa,'MaxTonnage',mo)) ) + QbypassMax(mo);
 StoCostLoadMax(s) = smax(mo, StoLoadMax(s,mo) * StoLoadCostRate(s,mo));

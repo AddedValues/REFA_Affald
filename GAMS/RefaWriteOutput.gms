@@ -9,27 +9,49 @@ $log Entering file: %system.incName%
 # ------------------------------------------------------------------------------------------------
 
 # Tilbageføring til NPV af penalty costs og omkostninger fra ikke-inkluderede anlaeg og braendsler samt gevinst for Ovn3-varme.
-Penalty_bOnUTotal           = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
-Penalty_QRgkMissTotal       = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
-Penalty_AffaldsGensalgTotal = Penalty_AffaldsGensalg * sum(mo, sum(f $OnF(f,mo), FuelResaleT.L(f,mo)));
+PenaltyTotal_bOnU           = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
+Penalty_TotalQRgkMiss       = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
+PenaltyTotal_AffaldsGensalg = Penalty_AffaldsGensalg * sum(mo, sum(f $OnF(f,mo), FuelResaleT.L(f,mo)));
 Penalty_QInfeasTotal        = Penalty_QInfeas    * sum(dir, sum(mo, QInfeas.L(dir,mo)));
-Penalty_AffTInfeasTotal     = Penalty_AffTInfeas * sum(dir, sum(mo, AffTInfeas.L(dir,mo)));
-Penalty_QFlisKTotal         = Penalty_QFlisK     * sum(ub, sum(mo, Q.L(ub,mo)));
-Gain_QaffTotal              = sum(ua, Gain_Qaff(ua) * sum(mo, Q.L(ua,mo)));
+PenaltyTotal_AffTInfeas     = Penalty_AffTInfeas * sum(dir, sum(mo, AffTInfeas.L(dir,mo)));
+PenaltyTotal_QFlisK         = Penalty_QFlisK     * sum(ub, sum(mo, Q.L(ub,mo)));
+GainTotal_Qaff              = sum(ua, Gain_Qaff(ua) * sum(mo, Q.L(ua,mo)));
 
 # NPV_Total_V er den samlede NPV med tilbageførte penalties.
-NPV_Total_V = NPV.L + [Penalty_QInfeasTotal + Penalty_AffTInfeasTotal]
-                    + [Penalty_bOnUTotal + Penalty_QRgkMissTotal + Penalty_AffaldsGensalgTotal + Penalty_QFlisKTotal]
-                    - [Gain_QaffTotal];
+NPV_Total_V = NPV.L + [Penalty_QInfeasTotal + PenaltyTotal_AffTInfeas]
+                    + [PenaltyTotal_bOnU + Penalty_TotalQRgkMiss + PenaltyTotal_AffaldsGensalg + PenaltyTotal_QFlisK]
+                    - [GainTotal_Qaff];
 
 # NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
 NPV_REFA_V  = NPV_Total_V + sum(mo, CostsTotalOwner.L('gsf',mo));
 
-#--- display Penalty_bOnUTotal, Penalty_QRgkMissTotal, NPV.L, NPV_Total_V, NPV_REFA_V;
+#--- display PenaltyTotal_bOnU, Penalty_TotalQRgkMiss, NPV.L, NPV_Total_V, NPV_REFA_V;
+
+# ------------------------------------------------------------------------------------------------
+# Beregn sammenfattende data til overordnet eftervisning af inputdata.
+#+++ FuelConsTsum_V(ua,mo) = sum(fa, FuelConsT.L(ua,fa,mo)); 
+#+++ FuelConsPsum_V(mo) = sum(f, FuelConsP.L(fa,mo)); 
+#+++ QaffMmax_V(ua,mo)  = EtaQ(ua,mo)     * FuelConsP.L(fa,mo);
+#+++ QrgkMax_V(ua,mo)   = EtaRgk(ua,mo)   * FuelConsP.L(fa,mo);
+#+++ PbrutMax_V(mo)     = EtaE('Ovn3',mo) * FuelConsP.L(fa,mo);
+#+++ 
+#+++ StatsMonth('FuelConsT',mo) = max(tiny, sum(ua, FuelConsTsum_V(mo))));
+#+++ StatsMonth('FuelConsP',mo) = max(tiny, FuelConsPsum_V(mo)));
+#+++ StatsMonth('QaffMmax',mo)  = max(tiny, sum(ua, QaffMmax_V(ua,mo)));
+#+++ StatsMonth('QrgkMax',mo)   = max(tiny, sum(ua, QrgkMax_V(ua,mo)));
+#+++ StatsMonth('PbrutMax',mo)  = max(tiny, sum(mo, PbrutMax_V(mo)));
+#+++ 
+#+++ Stats('Diff_FuelConsT') = Stats('FuelConsT') - sum(mo, sum(ua, sum(fa, FuelConstT.L(ua,fa,mo))));
+#+++ Stats('Diff_FuelConsP') = Stats('FuelConsP') - sum(mo, sum(fa, FuelConsP.L(fa,mo)));
+#+++ Stats('Diff_QaffMmax-Ovn2')  = Stats('QaffMmax')  - sum(mo, sum(ua))
+#+++ Stats('Diff_QrgkMax')   = Stats('QrgkMax')   
+#+++ Stats('Diff_PbrutMax')  = Stats('PbrutMax')  
 
 
 # ------------------------------------------------------------------------------------------------
-# Udskriv resultater til Excel output fil.
+
+# ------------------------------------------------------------------------------------------------
+# Sammenfat og udskriv resultater til Excel output fil.
 # ------------------------------------------------------------------------------------------------
 
 # Tidsstempel for beregningens udfoerelse.

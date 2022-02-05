@@ -1002,13 +1002,13 @@ topicSummable('REFA-NPV')    = no;
 Scalar    nScen           'Antal beregnede aktive scenarier';
 Scalar    NPV_REFA_V      'REFAs nutidsværdi';
 Scalar    NPV_Total_V     'Total nutidsværdi (REFA + GSF)';
-Scalar    Penalty_QInfeasTotal, Penalty_AffTInfeasTotal;                          # Penalty bidrag fra infeasibiliteter.
-Scalar    Penalty_bOnUTotal, Penalty_QRgkMissTotal, Penalty_AffaldsGensalgTotal;  # Penalty bidrag på objektfunktionen.
-Scalar    Penalty_QFlisKTotal  'Penalty på fliskedlens varmeproduktion';  
+Scalar    Penalty_QInfeasTotal, PenaltyTotal_AffTInfeas;                          # Penalty bidrag fra infeasibiliteter.
+Scalar    PenaltyTotal_bOnU, Penalty_TotalQRgkMiss, PenaltyTotal_AffaldsGensalg;  # Penalty bidrag på objektfunktionen.
+Scalar    PenaltyTotal_QFlisK  'Penalty på fliskedlens varmeproduktion';  
 Scalar    PerStart;
 Scalar    PerSlut;
 Scalar    TimeOfWritingMasterResults   'Tidsstempel for udskrivning af resultater for aktuelt scenarie';
-Scalar    Gain_QaffTotal               'Samlede virtuelle gevinst for affaldsvarme';                        # Gain bidrag på objektfunktionen.
+Scalar    GainTotal_Qaff               'Samlede virtuelle gevinst for affaldsvarme';                        # Gain bidrag på objektfunktionen.
 #--- Parameter Scen_TimeStamp(scen)         'Tidsstempel for scenarier';
 
 
@@ -1083,6 +1083,12 @@ Parameter GsfCO2emission_V(moall)          'Guldborgsund Forsyning CO2 emission 
 Parameter GsfTotalVarmeProd_V(moall)       'Guldborgsund Forsyning Total Varmeproduktion [MWhq]';
 
 Parameter NsTotalVarmeProd_V(moall)        'Nordic Sugar Total varmeproduktion [MWhq]';
+
+# Erklæring af parametre til check af data mv.
+#+++ Parameter Stats(topicStats)                'Statistik sum over realiserede og mulige produktioner';
+#+++ Parameter StatsMonth(topicStats)           'Statistik over realiserede og mulige produktioner';
+#+++ Parameter FuelConsPsum_V(moall)            'Sum af indfyret effekt på tværs af affaldsfraktioner';
+#+++ Parameter ActiveConstraints(*, moall)      'Constraints med .m > 0. Key er ligningsnavn';
 
 # Begin Erklæring af iterations Loop på Phi-faktorer.
 
