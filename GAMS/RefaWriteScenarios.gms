@@ -35,12 +35,12 @@ par=PerStart                        rng=Overblik!B2:B2
 par=PerSlut                         rng=Overblik!C2:C2
 par=Scen_Overview                   rng=Overblik!C4          cdim=1  rdim=1
 text="Nøgletal"                     rng=Overblik!C4:C4
-par=Scen_Q                          rng=Overblik!C49         cdim=1  rdim=1
-text="Varmemålinder"                rng=Overblik!C49:C49
-par=Scen_FuelDeliv                  rng=Overblik!C57         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!C57:C57
-par=Scen_IncomeFuel                 rng=Overblik!C89         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!C89:C89
+par=Scen_Q                          rng=Overblik!C54         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!C54:C54
+par=Scen_FuelDeliv                  rng=Overblik!C62         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!C62:C62
+par=Scen_IncomeFuel                 rng=Overblik!C94         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!C94:C94
 *end
 
 $offecho

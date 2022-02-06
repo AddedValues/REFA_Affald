@@ -211,7 +211,7 @@ $OnOrder
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
     if (GivenFastVaerdi,
       if (NVal > 0, ScenRecs(scRec,'Statuskode') = 1;);
-      DataProgn(actPrognoses2,mo) = FastVaerdi
+      DataProgn(actPrognoses2,mo) = FastVaerdi;
   else 
       DataProgn(actPrognoses2,mo) = ParmValues(mo);
     );
@@ -282,8 +282,8 @@ if (DEBUG, display  NScenRecFound; );
 
 #end   Parsing af scenarie records.
 
-execute_unload "RefaMain.gdx";
-abort.noerror "BEVIDST STOP";
+#--- execute_unload "RefaMain.gdx";
+#--- abort.noerror "BEVIDST STOP";
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  END SCENARIO PARSING  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

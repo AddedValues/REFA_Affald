@@ -983,7 +983,9 @@ $If not errorfree $exit
 set topic  / Tidsstempel, FJV-behov, Total-NPV, Total-Var-Varmeproduktions-Omk,
              REFA-NPV, REFA-Var-Varmeproduktions-Omk,
              REFA-Daekningsbidrag, REFA-Total-Var-Indkomst, REFA-Affald-Modtagelse, REFA-RGK-Rabat, REFA-Elsalg, REFA-Varmesalg,
-             REFA-Total-Var-Omkostning, REFA-AnlaegsVarOmk, REFA-BraendselOmk, REFA-Afgifter, REFA-CO2-Kvoteomk, REFA-Lageromkostning,
+             REFA-Total-Var-Omkostning, REFA-AnlaegsVarOmk, REFA-BraendselOmk, REFA-Afgifter, 
+             REFA-Affaldvarme-afgift, REFA-Tillaegs-Afgift, REFA-CO2-Afgift, REFA-NOx-Afgift,
+             REFA-CO2-Kvoteomk, REFA-Lageromkostning,
              REFA-CO2-Emission-Afgift, REFA-CO2-Emission-Kvote, REFA-El-produktion-Brutto, REFA-El-produktion-Netto,
              REFA-Total-Affald-Raadighed, REFA-Affald-anvendt, REFA-Affald-Uudnyttet, REFA-Affald-Lagret,
              REFA-Total-Varme-Produktion, REFA-Leveret-Varme, REFA-Modtryk-Varme, REFA-Bypass-Varme, REFA-RGK-Varme, REFA-RGK-Andel, REFA-Bortkoelet-Varme,
@@ -1048,6 +1050,10 @@ Parameter RefaTotalVarOmk_V(moall)         'REFA Total variabel indkomst [DKK]';
 Parameter RefaAnlaegsVarOmk_V(moall)       'REFA Var anlaegs omk [DKK]';
 Parameter RefaBraendselsVarOmk_V(moall)    'REFA Var braendsels omk. [DKK]';
 Parameter RefaAfgifter_V(moall)            'REFA afgifter [DKK]';
+Parameter RefaAfgiftAFV_V(moall)           'REFA AFV afgift [DKK]';
+Parameter RefaAfgiftATL_V(moall)           'REFA ATL afgift [DKK]';
+Parameter RefaAfgiftCO2_V(moall)           'REFA CO2 afgift [DKK]';
+Parameter RefaAfgiftNOx_V(moall)           'REFA NOx afgift [DKK]';
 Parameter RefaKvoteOmk_V(moall)            'REFA CO2 kvote-omk. [DKK]';
 Parameter RefaStoCost_V(moall)             'REFA Lageromkostning [DKK]';
 Parameter RefaCO2emission_V(moall,typeCO2) 'REFA CO2 emission [ton]';

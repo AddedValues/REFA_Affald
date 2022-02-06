@@ -77,6 +77,10 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   RefaAnlaegsVarOmk_V(mo)                  = sum(urefa $OnU(urefa,mo), CostsU.L(urefa,mo));
   RefaBraendselsVarOmk_V(mo)               = sum(frefa, CostsPurchaseF.L(frefa,mo));
   RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + TaxCO2Aff.L(mo) + sum(frefa, TaxNOxF.L(frefa,mo));
+  RefaAfgiftAFV_V(mo)                      = TaxAFV.L(mo);
+  RefaAfgiftATL_V(mo)                      = TaxATL.L(mo);
+  RefaAfgiftCO2_V(mo)                      = TaxCO2Aff.L(mo);
+  RefaAfgiftNOx_V(mo)                      = sum(frefa, TaxNOxF.L(frefa,mo));
   RefaKvoteOmk_V(mo)                       = max(tiny, CostsETS.L(mo));  # Kun REFA er kvoteomfattet.
   RefaStoCost_V(mo)                        = sum(s $OnS(s,mo), StoCostAll.L(s,mo));
   RefaTotalVarOmk_V(mo)                    = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo) + RefaStoCost_V(mo);
@@ -84,6 +88,10 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-AnlaegsVarOmk',mo)        = max(tiny, RefaAnlaegsVarOmk_V(mo) );
   OverView('REFA-BraendselOmk',mo)         = max(tiny, RefaBraendselsVarOmk_V(mo) );
   OverView('REFA-Afgifter',mo)             = max(tiny, RefaAfgifter_V(mo) );
+  OverView('REFA-Affaldvarme-afgift',mo)   = max(tiny, RefaAfgiftAFV_V(mo) );
+  OverView('REFA-Tillaegs-Afgift',mo)      = max(tiny, RefaAfgiftATL_V(mo) );
+  OverView('REFA-CO2-Afgift',mo)           = max(tiny, RefaAfgiftCO2_V(mo) );
+  OverView('REFA-NOx-Afgift',mo)           = max(tiny, RefaAfgiftNOx_V(mo) );
   OverView('REFA-CO2-Kvoteomk',mo)         = max(tiny, RefaKvoteOmk_V(mo) );
   OverView('REFA-Lageromkostning',mo)      = max(tiny, RefaStoCost_V(mo) );
   OverView('REFA-Total-Var-Indkomst',mo)   = max(tiny, RefaTotalVarIndkomst_V(mo) );
@@ -388,21 +396,21 @@ par=NPV_REFA_V                      rng=Overblik!B5:B5
 text="REFA-NPV"                     rng=Overblik!A5:A5
 par=OverView                        rng=Overblik!C7          cdim=1  rdim=1
 text="Overblik"                     rng=Overblik!C7:C7
-par=Q_V                             rng=Overblik!C50         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!A50:A50
-par=FuelDeliv_V                     rng=Overblik!C58         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!A58:A58
-par=IncomeFuel_V                    rng=Overblik!C90         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!A90:A90
-par=Usage_V                         rng=Overblik!C122        cdim=1  rdim=1
-text="Kapacitetsudnyttelse"         rng=Overblik!A122:A122
-par=StoLoadAll_V                    rng=Overblik!C131        cdim=1 rdim=1
-text="Lagerbeholdning totalt"       rng=Overblik!A131:A131
-text="Lager"                        rng=Overblik!C131:C131
-par=StoLoadF_V                      rng=Overblik!B139        cdim=1 rdim=2
-text="Lagerbeh. pr fraktion"        rng=Overblik!A139:A139
-text="Lager"                        rng=Overblik!B139:B139
-text="Fraktion"                     rng=Overblik!C139:C139
+par=Q_V                             rng=Overblik!C55         cdim=1  rdim=1
+text="Varmemængder"                 rng=Overblik!A55:A55
+par=FuelDeliv_V                     rng=Overblik!C63         cdim=1  rdim=1
+text="Brændselsforbrug"             rng=Overblik!A63:A63
+par=IncomeFuel_V                    rng=Overblik!C95         cdim=1  rdim=1
+text="Brændselsindkomst"            rng=Overblik!A95:A95
+par=Usage_V                         rng=Overblik!C127        cdim=1  rdim=1
+text="Kapacitetsudnyttelse"         rng=Overblik!A127:A127
+par=StoLoadAll_V                    rng=Overblik!C136        cdim=1 rdim=1
+text="Lagerbeholdning totalt"       rng=Overblik!A136:A136
+text="Lager"                        rng=Overblik!C136:C136
+par=StoLoadF_V                      rng=Overblik!B144        cdim=1 rdim=2
+text="Lagerbeh. pr fraktion"        rng=Overblik!A144:A144
+text="Lager"                        rng=Overblik!B144:B144
+text="Fraktion"                     rng=Overblik!C144:C144
 *end
 
 $offecho
