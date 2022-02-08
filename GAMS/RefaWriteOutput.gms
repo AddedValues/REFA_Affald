@@ -428,8 +428,13 @@ embeddedCode Python:
   import os
   import shutil
   import datetime
+  import numpy as np
   currentDate = datetime.datetime.today().strftime('%Y-%m-%d %Hh%Mm%Ss')
 
+  actScen = list(gams.get('actScen'))[0]
+  actScen = actScen.title()
+  gams.printLog('actScen = ' + str(actScen))
+  
   #--- actIter = list(gams.get('actIter'))[0]
   #--- per  = 'per' + str(int( list(gams.get('PeriodLast'))[0] ))
   #--- scenId = str(int( list(gams.get('ScenId'))[0] ))
@@ -439,16 +444,19 @@ embeddedCode Python:
   wkdir = os.getcwd()
   #--- gams.printLog('wkdir: '+ wkdir)
 
+  pathNew = 'Output\\' + actScen + ' REFAoutput (' + str(currentDate) + ').xlsm'
+  gams.printLog('pathNew : ' + pathNew)
+  
   # Copy Excel file assigning it a name including current iteration, no. of periods and a timestamp.
   fpathOld = os.path.join(wkdir, r'REFAoutput.xlsm')
-  fpathNew = os.path.join(wkdir, r'Output\REFAoutput (' + str(currentDate) + ').xlsm')
+  fpathNew = os.path.join(wkdir, 'Output\\' + actScen + ' REFAoutput (' + str(currentDate) + ').xlsm')
 
   shutil.copyfile(fpathOld, fpathNew)
   gams.printLog('Excel file "' + os.path.split(fpathNew)[1] + '" written to folder: ' + wkdir)
 
   # Copy gdx file assigning it a name including current iteration, no. of periods and a timestamp.
   fpathOld = os.path.join(wkdir, r'REFAmain.gdx')
-  fpathNew = os.path.join(wkdir, r'Output\REFAmain (' + str(currentDate) + ').gdx')
+  fpathNew = os.path.join(wkdir, 'Output\\' + actScen + ' REFAmain (' + str(currentDate) + ').gdx')
 
   shutil.copyfile(fpathOld, fpathNew)
   gams.printLog('GDX file "' + os.path.split(fpathNew)[1] + '" written to folder: ' + wkdir)

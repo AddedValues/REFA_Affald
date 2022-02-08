@@ -113,6 +113,10 @@ if (FirstYear LE 2021 AND LastYear GE 2021,
     KapE('Ovn3', moall) = 7.5;
   );
 );
+display FirstYear, LastYear, Ofz, EtaE, KapE;
+# Opdatér DataU med de tvangsgivne egenskaber.
+DataU('Ovn3','EtaE',mo) = EtaE('Ovn3',mo);
+DataU('Ovn3','KapE',mo) = KapE('Ovn3',mo);
 
 # Lagre.
 Loop (fa, 

@@ -348,8 +348,11 @@ $LOAD   FixValueAffT
 $GDXIN   # Close GDX file.
 $log  LOG: Finished loading input data from GDXIN.
 
+$If not errorfree $exit
+
 #--- display labPrognScen, Scen_Progn, DataCtrl, DataU, Schedule, DataProgn, DataFuel, FuelBounds, DataSto;
 #--- abort "BEVIDST STOP";
+
 
 #begin Opsætning af subsets, som IKKE afledes af inputdata.
 
