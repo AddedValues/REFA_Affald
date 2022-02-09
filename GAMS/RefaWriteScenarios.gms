@@ -22,6 +22,7 @@ if (RunScenarios,
 
   #TODO: Udskriv til Excel-fil REFAOutputScens.xlsm
 
+
 $onecho > REFAscens.txt
 filter=0
 
