@@ -709,12 +709,11 @@ ZQ_TaxATL(mo)     .. TaxATL(mo)    =E=  TaxAtlMWh(mo) * (Quden_X_bOnRgkRabat(mo)
 # CO2-afgift for alle anlæg:
 ZQ_TaxCO2total(mo) .. TaxCO2total(mo)  =E=  TaxCO2Aff(mo) + TaxCO2Aux(mo);
 
-# CO2-afgift af affald baseret på SKAT's administrative satser:
-#Bugfix: EY-beregninger inddrager ikke elproduktionen (ER IKKE CHECKET OM DET STEMMER OVERENS MED CO2-AFGIFTSLOVEN)
-#--- ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * (Quden_X_bOnRgkRabat(mo) + Qmed_X_bOnRgkRabat(mo));
+# CO2-afgift af affald baseret på SKAT's administrative satser. 
+# I modsætning til tillægsafgiften, som tilskrives energiudbyttet, skal der kun svares CO2-afgift af det emissionsgivende udbytte, og dermed ikke af RGK-varme.
 ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * QudenrGK(mo);
 
-ZQ_CostsETS(mo)  ..  CostsETS(mo)   =E=   TaxEtsTon(mo) * sum(fa $OnF(fa,mo), CO2emisF(fa,mo,'kvote'));  # Kun affaldsanlægget er kvoteomfattet.
+ZQ_CostsETS(mo)  ..  CostsETS(mo)   =E=  TaxEtsTon(mo) * sum(fa $OnF(fa,mo), CO2emisF(fa,mo,'kvote'));  # Kun affaldsanlægget er kvoteomfattet.
 
 # CO2-afgift på ikke-affaldsanlæg (p.t. ingen afgift på biomasse):
 ZQ_TaxCO2Aux(mo)  .. TaxCO2Aux(mo)  =E=  sum(fr $OnF(fr,mo), sum(ur $(OnU(ur,mo) AND u2f(ur,fr,mo)), FuelConsT(ur,fr,mo))) * TaxCO2peakTon(mo);
