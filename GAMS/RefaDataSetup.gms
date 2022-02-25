@@ -196,7 +196,7 @@ display QtotalAffMax, QbypassMax, StoCostLoadMax;
 # Hvis affaldstonnager er fikseret, skal begrænsningen i QaffMmax lempes.
 QaffMmax(ua,mo) = min(ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo), [sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), EtaQ(ua,mo) * LhvMWh(fa,mo) * FuelBounds(fa,'MaxTonnage',mo) )]) $OnU(ua,mo);
 Loop (mo $DoFixAffT(mo), 
-  QaffMmax(ua,mo) =  ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo);
+  QaffMmax(ua,mo) =  ShareAvailU(ua,mo) * Hours(mo) * KapQNom(ua,mo) $OnU(ua,mo);
 );
 QrgkMax(ua,mo)   = KapRgk(ua,mo) / KapQNom(ua,mo) * QaffMmax(ua,mo);
 QaffTotalMax(mo) = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * (QaffMmax(ua,mo) + QrgkMax(ua,mo)) );

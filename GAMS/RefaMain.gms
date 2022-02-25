@@ -25,7 +25,7 @@ Scalar VirtualUsed     'Angiver at virtuelle ressourcer er brugt (bløde infeasib
 Scalar Found           'Angiver at logisk betingelse er opfyldt';
 Scalar FoundError      'Angiver at fejl er fundet';
 Scalar tiny / 1E-14 /;
-Scalar Big  / 1E+9  /;
+Scalar Big  / 1E+9  /
 Scalar NaN             'Bruges til at angive void input fra Excel' / -9.99 /;
 Scalar IsNaN;
 Scalar tmp1, tmp2, tmp3;
@@ -280,8 +280,8 @@ Parameter StoLossRate(s,moall)           'Max. lagertab ift. forrige periodes be
 Parameter StoFirstReset(s)               'Antal initielle perioder som omslutter første nulstiling af lagerstand';
 Parameter StoIntvReset(s)                'Antal perioder som omslutter første nulstiling af lagerstand, efter første nulstilling';
 
-Parameter MinTonSum(f)              'Braendselstonnage min aarsniveau [ton/aar]';
-Parameter MaxTonSum(f)              'Braendselstonnage max aarsniveau [ton/aar]';
+Parameter MinTonSum(f)                   'Braendselstonnage min aarsniveau [ton/aar]';
+Parameter MaxTonSum(f)                   'Braendselstonnage max aarsniveau [ton/aar]';
 Parameter LhvMWh(f,moall)                'Braendvaerdi [MWf]';
 Parameter CO2potenTon(f,typeCO2,moall)   'CO2-emission [tonCO2/tonBrændsel]';
 Parameter Qdemand(moall)                 'FJV-behov';
@@ -354,7 +354,7 @@ $If not errorfree $exit
 #--- abort "BEVIDST STOP";
 
 
-#begin Opsætning af subsets, som IKKE afledes af inputdata.
+#begin Opsætning af subsets
 
 # Braendselstyper: Disse kan ikke ændres af scenarier, da det kan give indre modelkonflikt fx hvis lagerbar-attr ændres indenfor perioden.
 # fsto:  Brændsler, som må lagres (bemærk af tømning af lagre er en særskilt restriktion)
@@ -423,7 +423,8 @@ IncludeFuel(frefa)  = IncludeOwner('refa');
 IncludeFuel(fgsf)   = IncludeOwner('gsf');
 
 #--- display f, fa, fb, fc, fr, fsto, fdis, ffri, u2f, IncludeOwner, IncludePlant, IncludeFuel;
-#end Opsætning af subsets, som IKKE afledes af inputdata.
+
+#end Opsætning af subsets.
 
 # Overførsel af parametre på overordnet modelniveau.
 IncludeOwner('gsf') = DataCtrlRead('IncludeGSF') NE 0;
@@ -485,8 +486,8 @@ EtaRgk(u,moall) = 0.0;
 LhvMWh(f,moall) = 0.0;
 
 # ------------------------------------------------------------------------------------------------
-# Erklaering af variable.
-# ------------------------------------------------------------------------------------------------
+#begin Erklæring af variable.
+
 Free     variable NPV                           'Nutidsvaerdi af affaldsdisponering';
 
 Binary   variable bOnU(u,moall)                 'Anlaeg on-off';
@@ -501,7 +502,6 @@ Positive variable FuelDelivT(f,moall)           'Drivmiddel leverance på hvert a
 Positive variable FuelDelivFreeSumT(f)          'Samlet braendselsmængde frie fraktioner';
 
 Free     variable StoDLoadF(s,f,moall)          'Lagerført brændsel (pos. til lager)';
-
 Positive variable StoCostAll(s,moall)           'Samlet lageromkostning';
 Positive variable StoCostLoad(s,moall)          'Lageromkostning på beholdning';
 Positive variable StoCostDLoad(s,moall)         'Transportomk. til/fra lagre';
@@ -511,7 +511,6 @@ Positive variable StoLossF(s,f,moall)           'Lagertab på affaldsfraktioner [
 Free     variable StoDLoad(s,moall)             'Aktuel lagerændring positivt indgående i lager';
 Positive variable StoDLoadAbs(s,moall)          'Absolut værdi af StoDLoad';
 Positive variable StoLoadF(s,f,moall)           'Lagerbeholdning af givet brændsel på givet lager';
-
 
 Positive variable PbrutMax(moall)               'Max. mulige brutto elproduktion [MWhe]';
 Positive variable Pbrut(moall)                  'Brutto elproduktion [MWhe]';
@@ -564,15 +563,16 @@ Positive variable TotalAffEProd(moall)          'Samlet energiproduktion affalds
 
 Positive variable QInfeas(dir,moall)            'Virtual varmedraen og -kilde [MWhq]';
 Positive variable AffTInfeas(dir,moall)         'Virtual affaldstonnage kilde og dræn [ton]';
+#end Erklæring af variable 
+
 # ------------------------------------------------------------------------------------------------
-# Erklaering af ligninger.
+#begin Erklæring af ligninger.
+
 # RGK kan moduleres kontinuert: RGK deaktiveres hvis Qdemand < Qmodtryk
-# ------------------------------------------------------------------------------------------------
 # Fordeling af omkostninger mellem affalds- og varmesiden:
 # * AffaldsOmkAndel er andelen, som affaldssiden skal bære.
 # * Til affaldssiden 100 pct: Kvoteomkostning
 # * Til fordeling: Alle afgifter
-# ------------------------------------------------------------------------------------------------
 
 Equation  ZQ_Obj                           'Objective';
 Equation  ZQ_IncomeTotal(moall)            'Indkomst Total';
@@ -819,9 +819,9 @@ ZQ_Qbypass(mo)  $OnU('Ovn3',mo) .. Qbypass(mo)  =E=  PbrutMax(mo) - Pbrut(mo);  
 
 ZQ_Qdemand(mo)                  ..  Qdemand(mo)   =E=  sum(up $OnU(up,mo), Q(up,mo)) - sum(uv $OnU(uv,mo), Q(uv,mo)) + [QInfeas('source',mo) - QInfeas('drain',mo)] $OnQInfeas;
 ZQ_Qaff(ua,mo)     $OnU(ua,mo)  ..  Q(ua,mo)      =E=  [QaffM(ua,mo) + Qrgk(ua,mo)] + Qbypass(mo) $sameas(ua,'Ovn3');
-ZQ_QaffM(ua,mo)    $OnU(ua,mo)  ..  QaffM(ua,mo)  =E=  EtaQ(ua,mo) * [sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo) * LhvMWh(fa,mo))] $OnU(ua,mo);
-ZQ_QaffMmax(ua,mo) $OnU(ua,mo)  ..  QAffM(ua,mo)  =L=  QaffMmax(ua,mo);
-ZQ_Qrgk(ua,mo)     $OnU(ua,mo)  ..  Qrgk(ua,mo)   =L=  KapRgk(ua,mo) / KapQNom(ua,mo) * QaffM(ua,mo);
+ZQ_QaffM(ua,mo)                 ..  QaffM(ua,mo)  =E=  EtaQ(ua,mo) * [sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo) * LhvMWh(fa,mo))] $OnU(ua,mo);
+ZQ_QaffMmax(ua,mo)              ..  QAffM(ua,mo)  =L=  QaffMmax(ua,mo);
+ZQ_Qrgk(ua,mo)                  ..  Qrgk(ua,mo)   =L=  KapRgk(ua,mo) / KapQNom(ua,mo) * QaffM(ua,mo);
 ZQ_QrgkMax(ua,mo)  $OnU(ua,mo)  ..  Qrgk(ua,mo)   =L=  QrgkMax(ua,mo) * bOnRgk(ua,mo);
 
 ZQ_Qaux(upx,mo) $OnU(upx,mo)  ..  Q(upx,mo)  =E=  [sum(fx $(OnF(fx,mo) AND u2f(upx,fx,mo)), FuelConsT(upx,fx,mo) * EtaQ(upx,mo) * LhvMWh(fx,mo))] $OnU(upx,mo);
