@@ -886,8 +886,9 @@ ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,m
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
 Equation ZQ_FuelMinFreeNonStorable(f,moall)  'Ligeligt tonnageforbrug af ikke-lagerbare frie affaldsfraktioner';
 
-ZQ_FuelDelivFreeSum(ffri) $(OnGF(ffri) AND card(mo) GT 1)                               ..  FuelDelivFreeSumT(ffri)  =E=  sum(mo $OnF(ffri,mo), FuelDelivT(ffri,mo));
-ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri,mo) AND NOT fsto(ffri) AND card(mo) GT 1) ..  FuelDelivT(ffri,mo)      =E=  FuelDelivFreeSumT(ffri) / card(mo);
+ZQ_FuelDelivFreeSum(ffri) $(OnGF(ffri) AND card(mo) GT 1)                                                   ..  FuelDelivFreeSumT(ffri)  =E=  sum(mo $OnF(ffri,mo), FuelDelivT(ffri,mo));
+#BUGFIX Frie fraktioner er ikke underlagt månedsaftag, hvis de også er fleksible, da der så kun er krav til aftag på årsniveau.
+ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri,mo) AND NOT fsto(ffri) AND NOT fflex(ffri) AND card(mo) GT 1) ..  FuelDelivT(ffri,mo)      =E=  FuelDelivFreeSumT(ffri) / card(mo);
 
 # Restriktioner på tonnage og braendvaerdi for affaldsanlaeg.
 # OBS: Aktiveres kun, hvis affaldstonnagesumme ikke er fikseret.
@@ -899,7 +900,7 @@ ZQ_MinTonnage(ua,mo)   $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  sum(fa $(OnF(fa,
 ZQ_MaxTonnage(ua,mo)   $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * MaxTon(ua,mo);
 ZQ_MinLhvAffald(ua,mo) $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  MinLhvMWh(ua,mo) * sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo))  =L=  sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo) * LhvMWh(fa,mo));
 
-# Lagerdisponering.
+#begin Lagerdisponering.
 Equation ZQ_StoCostAll(s,moall)       'Samlet lageromkostning';
 Equation ZQ_StoCostLoad(s,moall)      'Lageromkostning opbevaring';
 Equation ZQ_StoCostDLoad(s,moall)     'Lageromkostning transport';
@@ -966,7 +967,7 @@ $OffOrder
 ZQ_StoFirstReset(s,mo) $OnS(s,mo)  ..  sum(moa $(ord(mo) EQ 1 AND ord(mo) LE StoFirstReset(s)), bOnSto(s,moa))  =L=  StoFirstReset(s) - 1;
 ZQ_StoResetIntv(s,mo)  $OnS(s,mo)  ..  sum(moa $(ord(mo) GT StoFirstReset(s) AND ord(moa) GE ord(mo) AND ord(moa) LE (ord(mo) - 1 + StoIntvReset(s))), bOnSto(s,moa))  =L=  StoIntvReset(s) - 1;
 $OnOrder
-
+#end Lagerdisponering.
 
 # Erklæring af optimeringsmodels ligninger.
 model modelREFA / all /;

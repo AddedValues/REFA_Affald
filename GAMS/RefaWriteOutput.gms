@@ -183,8 +183,9 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   Q_V(uv,mo) = -Q_V(uv,mo);            # Negation aht. afbildning i sheet Overblik.
   Q_V(u,mo) $(NOT OnU(u,mo)) = -tiny;  # Markerer ikke-rÃ¥dige anlæg.
   Loop (u $OnU(u,mo),
-    if (Q.L(u,mo) GT 0.0,
-      Usage_V(u,mo) = Q.L(u,mo) / (KapQNom(u,mo) * ShareAvailU(u,mo) * Hours(mo));
+    if (Q.L(u,mo) GT 0.0 AND ShareAvailU(u,mo) GT 0.0,
+      #--- Usage_V(u,mo) = Q.L(u,mo) / (KapMax(u,mo) * ShareAvailU(u,mo) * Hours(mo));
+      Usage_V(u,mo) = Q.L(u,mo) / (KapMax(u,mo) * Hours(mo));
     else
       Usage_V(u,mo) = tiny;
     );
@@ -403,7 +404,7 @@ text="Brændselsforbrug"             rng=Overblik!A63:A63
 par=IncomeFuel_V                    rng=Overblik!C95         cdim=1  rdim=1
 text="Brændselsindkomst"            rng=Overblik!A95:A95
 par=Usage_V                         rng=Overblik!C127        cdim=1  rdim=1
-text="Kapacitetsudnyttelse"         rng=Overblik!A127:A127
+text="Kapacitetsudnyttelse ift. KapMax"         rng=Overblik!A127:A127
 par=StoLoadAll_V                    rng=Overblik!C136        cdim=1 rdim=1
 text="Lagerbeholdning totalt"       rng=Overblik!A136:A136
 text="Lager"                        rng=Overblik!C136:C136

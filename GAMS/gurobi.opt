@@ -21,7 +21,8 @@ numericfocus=1
 *-numericfocus=2
 scaleflag=3
 seed=0
-sensitivity=1
+* sensitivity=1
+* rngrestart "C:\GitHub\REFA Affald\GAMS\sensitivity.gdx"
 threads=2
 *- concurrentmip=3
 *- timelimit=10800

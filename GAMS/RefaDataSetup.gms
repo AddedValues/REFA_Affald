@@ -22,6 +22,7 @@ fsto(f)  = DataFuel(f,'Lagerbar') NE 0;
 fdis(f)  = DataFuel(f,'Bortskaf') NE 0;
 ffri(f)  = DataFuel(f,'Fri')      NE 0 AND fa(f);
 fflex(f) = DataFuel(f,'Flex')     NE 0 AND fa(f);
+display "DEBUG: ffri, fflex =", ffri, fflex;
 
 # Overførsel af parametre på overordnet modelniveau.
 IncludeOwner('gsf') = DataCtrl('IncludeGSF') NE 0;

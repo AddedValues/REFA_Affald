@@ -24,6 +24,7 @@ Loop (iter $(ord(iter) GE 2 AND ord(iter) LE 2 + (card(iter)-2) $Nfbiogen),
 
   option MIP=gurobi;
   modelREFA.optFile = 1;
+  #--- option MIP=cplex;
   #--- option MIP=CBC;
   #--- modelREFA.optFile = 0;
 
