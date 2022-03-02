@@ -10,22 +10,23 @@ $log Entering file: %system.incName%
 
 # Tilbageføring til NPV af penalty costs og omkostninger fra ikke-inkluderede anlaeg og braendsler samt gevinst for Ovn3-varme.
 PenaltyTotal_bOnU           = Penalty_bOnU * sum(mo, sum(u, bOnU.L(u,mo)));
-Penalty_TotalQRgkMiss       = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
+PenaltyTotal_QrgkMiss       = Penalty_QRgkMiss * sum(mo, QRgkMiss.L(mo));
 PenaltyTotal_AffaldsGensalg = Penalty_AffaldsGensalg * sum(mo, sum(f $OnF(f,mo), FuelResaleT.L(f,mo)));
-Penalty_QInfeasTotal        = Penalty_QInfeas    * sum(dir, sum(mo, QInfeas.L(dir,mo)));
+PenaltyTotal_QInfeas        = Penalty_QInfeas    * sum(dir, sum(mo, QInfeas.L(dir,mo)));
 PenaltyTotal_AffTInfeas     = Penalty_AffTInfeas * sum(dir, sum(mo, AffTInfeas.L(dir,mo)));
+PenaltyTotal_TonInfeas      = Penalty_TonInfeas  * sum(dir, sum(ua, sum(mo, TonInfeas.L(ua,mo,dir))));
 PenaltyTotal_QFlisK         = Penalty_QFlisK     * sum(ub, sum(mo, Q.L(ub,mo)));
-GainTotal_Qaff              = sum(ua, Gain_Qaff(ua) * sum(mo, Q.L(ua,mo)));
+GainTotal_Qaff              = sum(ua, Gain_Qaff(ua) * sum(mo, QaffM.L(ua,mo)));
 
 # NPV_Total_V er den samlede NPV med tilbageførte penalties.
-NPV_Total_V = NPV.L + [Penalty_QInfeasTotal + PenaltyTotal_AffTInfeas]
-                    + [PenaltyTotal_bOnU + Penalty_TotalQRgkMiss + PenaltyTotal_AffaldsGensalg + PenaltyTotal_QFlisK]
+NPV_Total_V = NPV.L + [PenaltyTotal_QInfeas + PenaltyTotal_AffTInfeas + PenaltyTotal_TonInfeas 
+                    +  PenaltyTotal_bOnU + PenaltyTotal_QrgkMiss + PenaltyTotal_AffaldsGensalg + PenaltyTotal_QFlisK]
                     - [GainTotal_Qaff];
 
 # NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
 NPV_REFA_V  = NPV_Total_V + sum(mo, CostsTotalOwner.L('gsf',mo));
 
-#--- display PenaltyTotal_bOnU, Penalty_TotalQRgkMiss, NPV.L, NPV_Total_V, NPV_REFA_V;
+#--- display PenaltyTotal_bOnU, PenaltyTotal_QrgkMiss, NPV.L, NPV_Total_V, NPV_REFA_V;
 
 # ------------------------------------------------------------------------------------------------
 # Beregn sammenfattende data til overordnet eftervisning af inputdata.
@@ -153,13 +154,16 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('Virtuel-Affaldstonnage-Kilde',mo) = max(tiny, AffTInfeas.L('source',mo));
   OverView('Virtuel-Affaldstonnage-Draen',mo) = max(tiny, AffTInfeas.L('drain',mo));
 
-#---  VarmeVarProdOmkTotal_V(mo) = (sum(u $OnGU(u), CostsU.L(u,mo)) + sum(owner, CostsTotalF.L(owner,mo)) - IncomeTotal.L(mo)) / (sum(up, Q.L(up,mo) - sum(uv, Q.L(uv,mo))));
-#---  VarmeVarProdOmkRefa_V(mo)  = (sum(urefa, CostsU.L(urefa,mo)) + CostsTotalF.L('refa',mo) - IncomeTotal.L(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
-  VarmeVarProdOmkTotal_V(mo)  = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo) + GsfTotalVarOmk_V(mo)) / Qdemand(mo);
-  VarmeVarProdOmkRefa_V(mo)   = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
+#---  VarmeVarProdOmkTotal_V(mo)  = (sum(u $OnGU(u), CostsU.L(u,mo)) + sum(owner, CostsTotalF.L(owner,mo)) - IncomeTotal.L(mo)) / (sum(up, Q.L(up,mo) - sum(uv, Q.L(uv,mo))));
+#---  VarmeVarProdOmkRefa_V(mo)   = (sum(urefa, CostsU.L(urefa,mo)) + CostsTotalF.L('refa',mo) - IncomeTotal.L(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
+  VarmeVarProdOmkTotal_V(mo)      = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo) + GsfTotalVarOmk_V(mo)) / Qdemand(mo);
+  VarmeVarProdOmkRefaTotal_V(mo)  = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
+  #OBS: VPO beregnes også for affaldsanlæg alene, idet fliskedlen er tænkt som spidslast (billigere end oliekedler), men er ikke en del af REFAs hensigt/scope med denne model.
+  VarmeVarProdOmkRefaAffald_V(mo) = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo)) / (sum(ua, Q.L(ua,mo)) - sum(uv, Q.L(uv,mo)));
   Overview('FJV-behov',mo)                      = max(tiny, Qdemand(mo));
-  OverView('Total-Var-Varmeproduktions-Omk',mo) = ifthen(VarmeVarProdOmkTotal_V(mo) EQ 0.0, tiny, VarmeVarProdOmkTotal_V(mo));
-  OverView('REFA-Var-Varmeproduktions-Omk',mo)  = ifthen(VarmeVarProdOmkRefa_V(mo) EQ 0.0,  tiny, VarmeVarProdOmkRefa_V(mo));
+  OverView('Total-Var-VPO',mo)       = ifthen(VarmeVarProdOmkTotal_V(mo)      EQ 0.0, tiny, VarmeVarProdOmkTotal_V(mo));
+  OverView('REFA-Var-VPO-Total',mo)  = ifthen(VarmeVarProdOmkRefaTotal_V(mo)  EQ 0.0, tiny, VarmeVarProdOmkRefaTotal_V(mo));
+  OverView('REFA-Var-VPO-Affald',mo) = ifthen(VarmeVarProdOmkRefaAffald_V(mo) EQ 0.0, tiny, VarmeVarProdOmkRefaAffald_V(mo));
 
 
   Loop (f,
@@ -323,7 +327,8 @@ RefaRgkProd_V,
 RefaRgkShare_V,
 RefaBortkoeletVarme_V,
 VarmeVarProdOmkTotal_V,
-VarmeVarProdOmkRefa_V,
+VarmeVarProdOmkRefaTotal_V,
+VarmeVarProdOmkRefaAffald_V,
 RefaLagerBeholdning_V,
 StoLoadAll_V,
 Usage_V,

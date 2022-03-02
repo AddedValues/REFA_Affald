@@ -21,7 +21,7 @@ moFirst(mo)    = mo.first;
 fsto(f)  = DataFuel(f,'Lagerbar') NE 0;
 fdis(f)  = DataFuel(f,'Bortskaf') NE 0;
 ffri(f)  = DataFuel(f,'Fri')      NE 0 AND fa(f);
-fflex(f) = DataFuel(f,'Flex')     NE 0 AND fa(f);
+fflex(f) = DataFuel(f,'Flex')     NE 0 AND fa(f) AND NOT DataCtrl('FixAffald2021');
 display "DEBUG: ffri, fflex =", ffri, fflex;
 
 # Overførsel af parametre på overordnet modelniveau.
@@ -34,7 +34,8 @@ VarmeSalgspris      = DataCtrl('VarmeSalgspris');
 SkorstensMetode     = DataCtrl('SkorstensMetode');
 EgetforbrugKVV      = DataCtrl('EgetforbrugKVV');
 RunScenarios        = DataCtrl('RunScenarios') NE 0;
-FixAffald           = DataCtrl('FixAffald') NE 0;
+FixAffald2021       = DataCtrl('FixAffald2021') NE 0;
+FixAffaldSum        = DataCtrl('FixAffaldSum') NE 0;
 
 # SKIP: Initialisering af overordnet rådighed af anlæg, lagre, brændsler og måneder.
 # Kan være gjort i scenarie specifikationen.
@@ -150,7 +151,7 @@ MaxTonSum(f) = DataFuel(f,'MaxTonnage');
 LhvMWh(f,mo)    = FuelBounds(f,'LHV',mo) / 3.6;
 NSprod(mo)      = DataProgn('NSprod',mo);
 
-DoFixAffT(mo) = FixAffald AND (FixValueAffT(mo) NE NaN);
+DoFixAffT(mo) = FixAffaldSum AND (FixValueAffT(mo) NE NaN);
 
 # Emissionsopgørelsen for affald er som udgangspunkt efter skorstensmetoden, hvor CO2-indholdet af  hver fraktion er kendt.
 # Men uden skorstensmetoden anvendes i stedet for SKATs emissionssatser, som desuden er forskellige efter om det er CO2-afgift eller CO2-kvoteforbruget, som skal opgøres !!!

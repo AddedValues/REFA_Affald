@@ -111,7 +111,7 @@ set labScenRec            'Scen-records'        / set.labScenFirst, set.moall /;
 set droot                 'Data på niveau 1'    / Control, Schedule, Plant, Storage, Prognoses, Fuel, FuelBounds /;
 set drootPermitted(droot)                       / Control,           Plant, Storage, Prognoses, Fuel, FuelBounds /;
 
-set labDataCtrl           'Styringparms'       / RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald, RgkRabatSats, RgkAndelRabat, Varmesalgspris, EgetforbrugKVV /;
+set labDataCtrl           'Styringparms'       / RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald2021, FixAffaldSum, RgkRabatSats, RgkAndelRabat, Varmesalgspris, EgetforbrugKVV /;
 set labSchCol             'Periodeomfang'      / FirstYear, LastYear, FirstPeriod, LastPeriod /;
 set labSchRow             'Periodeomfang'      / aar, maaned, dato /;
 set labDataU              'DataU labels'       / Aktiv, Ukind, Prioritet, MinLhv, MaxLhv, MinTon, MaxTon, kapQNom, kapRgk, kapE, MinLast, KapMin, EtaE, EtaQ, DVMWhq, DVtime /;
@@ -167,16 +167,17 @@ alias(upa, up);
 # Erklaering af parametre
 # ------------------------------------------------------------------------------------------------
 # Penalty faktorer til objektfunktionen.
-Scalar    Penalty_bOnU              'Penalty på bOnU'              / 0000E+5 /;
-Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss kr/MWhq'  /   10    /;      # Denne penalty må ikke være højere end tillaegsafgiften.
-Scalar    Penalty_QInfeas           'Penalty på QInfeas kr/MWhq'   / 5000    /;      # Pålægges virtuel varmekilder og -dræn.
-Scalar    Penalty_AffTInfeas        'Penalty på AffTInfeas kr/ton' / 5000    /;      # Pålægges virtuel affaldstonnage kilde og -dræn.
-Scalar    Penalty_AffaldsGensalg    'Affald gensalgspris kr/ton'   / 1500.00  /;     # Pålægges ikke-udnyttet affald.
-Scalar    Penalty_QFlisK            'Penalty flisvarme kr/MWhq'    /  100.00  /;     # Pålægges varmeproduktion fra fliskedlen.
-Scalar    OnQInfeas                 'On/Off på virtuel varme'      / 0       /;
-Scalar    OnAffTInfeas              'On/Off på virtuel affald'     / 0       /;
-Scalar    LhvMWhAffTInfeas          'LHV af virtuel affald'        / 3.0    /;                        # 3.0 MWhf/ton svarende til 10.80 GJ/ton.
-Parameter Gain_Qaff(u)              'Gevinst for affaldsvarme'     / 'Ovn2' 10, 'Ovn3' 10  /;   # Tillægges varmeproduktion på Ovn3 for at sikre udlastning før NS-varmen og flisvarme.
+Scalar    Penalty_bOnU              'Penalty på bOnU'               / 0000E+5 /;
+Scalar    Penalty_QRgkMiss          'Penalty på QRgkMiss kr/MWhq'   /   10    /;      # Denne penalty må ikke være højere end tillaegsafgiften.
+Scalar    Penalty_QInfeas           'Penalty på QInfeas kr/MWhq'    / 5000    /;      # Pålægges virtuel varmekilder og -dræn.
+Scalar    Penalty_AffTInfeas        'Penalty på AffTInfeas kr/ton'  / 5000    /;      # Pålægges virtuel affaldstonnage kilde og -dræn.
+Scalar    Penalty_TonInfeas         'Penalty på ovn-tonnage kr/ton' / 5000    /;      # Pålægges virtuel affaldstonnage kilde og -dræn.
+Scalar    Penalty_AffaldsGensalg    'Affald gensalgspris kr/ton'    / 1500.00  /;     # Pålægges ikke-udnyttet affald.
+Scalar    Penalty_QFlisK            'Penalty flisvarme kr/MWhq'     /  100.00  /;     # Pålægges varmeproduktion fra fliskedlen.
+Scalar    OnQInfeas                 'On/Off på virtuel varme'       / 0       /;
+Scalar    OnAffTInfeas              'On/Off på virtuel affald'      / 0       /;
+Scalar    LhvMWhAffTInfeas          'LHV af virtuel affald'         / 3.0    /;                        # 3.0 MWhf/ton svarende til 10.80 GJ/ton.
+Parameter Gain_Qaff(u)              'Gevinst for affaldsvarme'      / 'Ovn2' 10, 'Ovn3' 10  /;   # Tillægges varmeproduktion på Ovn3 for at sikre udlastning før NS-varmen og flisvarme.
 
 # Arbejdsparametre til scenarie håndtering
 Scalar ScenId;
@@ -197,7 +198,8 @@ Scalar    AffaldsOmkAndel           'Affaldssiden omk.andel'    / 0.45    /;
 Scalar    SkorstensMetode           '0/1 for skorstensmetode'   / 0       /;
 Scalar    EgetforbrugKVV            'Angiver egetforbrug MWhe/døgn';
 Scalar    RunScenarios              'Angiver 0/1 om scenarier skal køres';
-Scalar    FixAffald                 'Angiver 0/1 om affaldsfraktioner skal fikseres på månedsniveau';
+Scalar    FixAffald2021             'Angiver 0/1 om hver affaldsfraktion er fikseret på månedsniveau (udføres i Excel)';
+Scalar    FixAffaldSum              'Angiver 0/1 om affaldsfraktioners sum skal fikseres på månedsniveau';
 Scalar    NactiveM                  'Antal aktive måneder';
 
 Scalar    dbup, dbupa;
@@ -376,7 +378,7 @@ fx(f)    = NOT fa(f);
 fsto(f)  = DataFuelRead(f,'Lagerbar') NE 0;
 fdis(f)  = DataFuelRead(f,'Bortskaf') NE 0;
 ffri(f)  = DataFuelRead(f,'Fri')      NE 0 AND fa(f);
-fflex(f) = DataFuelRead(f,'Flex')     NE 0 AND fa(f);
+fflex(f) = DataFuelRead(f,'Flex')     NE 0 AND fa(f) AND NOT DataCtrlRead('FixAffald2021');
 
 # Identifikation af lagertyper. Disse kan ikke ændres af scenarier, da det ikke vil give mening.
 sa(s) = DataStoRead(s,'stoKind') EQ 1;
@@ -438,7 +440,8 @@ VarmeSalgspris      = DataCtrlRead('VarmeSalgspris');
 SkorstensMetode     = DataCtrlRead('SkorstensMetode');
 EgetforbrugKVV      = DataCtrlRead('EgetforbrugKVV');
 RunScenarios        = DataCtrlRead('RunScenarios') NE 0;
-FixAffald           = DataCtrlRead('FixAffald') NE 0;
+FixAffald2021       = DataCtrlRead('FixAffald2021') NE 0;
+FixAffaldSum        = DataCtrlRead('FixAffaldSum') NE 0;
 
 $If not errorfree $exit
 
@@ -500,8 +503,9 @@ Binary   variable bOnSto(s,moall)               'Indikator for om et lager bruge
 Positive variable FuelConsT(u,f,moall)          'Drivmiddel forbrug på hvert anlaeg [ton]';
 Positive variable FuelConsP(f,moall)            'Effekt af drivmiddel forbrug [MWf]';
 Positive variable FuelResaleT(f,moall)          'Drivmiddel gensalg / ikke-udnyttet [ton]';
-Positive variable FuelDelivT(f,moall)           'Drivmiddel leverance på hvert anlaeg [ton]';
+Positive variable FuelDelivT(f,moall)           'Drivmiddel leverance til forbrænding [ton]';
 Positive variable FuelDelivFreeSumT(f)          'Samlet braendselsmængde frie fraktioner';
+Positive variable TonInfeas(ua,moall,dir)       'Virtuel tonnage-fleksibilitet på affaldsovne [ton]';
 
 Free     variable StoDLoadF(s,f,moall)          'Lagerført brændsel (pos. til lager)';
 Positive variable StoCostAll(s,moall)           'Samlet lageromkostning';
@@ -639,6 +643,7 @@ ZQ_Obj  ..  NPV  =E=  sum(mo,
                              + [Penalty_AffTInfeas     * sum(dir, AffTInfeas(dir,mo))] $OnAffTInfeas
                              + [Penalty_AffaldsGensalg * sum(f $OnF(f,mo), FuelResaleT(f,mo))]
                              + [Penalty_QFlisK         * sum(ub $OnU(ub,mo), Q(ub,mo))]
+                             + [Penalty_TonInfeas      * sum(dir, sum(ua, TonInfeas(ua,mo,dir)))]
                            ] );
 
 ZQ_IncomeTotal(mo)   .. IncomeTotal(mo)   =E=  sum(fa $OnF(fa,mo), IncomeAff(fa,mo)) + RgkRabat(mo) + IncomeElec(mo) + IncomeHeat(mo);
@@ -881,8 +886,14 @@ ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) 
 
 #--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonSum(f) * sum(mo $OnF(f,mo), 1) / 12;
 #--- ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * [(sum(mo $On(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
-ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  MinTonSum(f)  * (sum(mo $OnF(f,mo), 1) / 12);
-ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * (sum(mo $OnF(fa,mo), 1) / 12) * (1 + 1E-6);
+#--- ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))    ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * (sum(mo $OnF(fa,mo), 1) / 12) * (1 + 1E-6);
+
+#OBS Årstonnager i DataFuel skal ikke anvendes i modellen, kun tonnager angivet på månedsbasis i FuelBounds.
+#    Det skyldes, at der i praksis er væsentlige udsving på månedstonnager for alle fraktioner, også dagrenovation, som skal bortskaffes straks.
+#    Den øvre grænse på tonnagesummen for hver fraktion er kun relevant på frie hhv. fleksible fraktioner.
+#    Den nedre grænse på tonnagesummen for hver fraktion er kun relevant for fleksible fraktioner, da frie fraktioner har nedre grænse lig med nul (konvention for begrebet 'fri', kan skærpes så ikke-nul nedre grænse skal overholdes.)
+ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))) ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
+ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo));
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
@@ -898,8 +909,8 @@ Equation ZQ_MinTonnage(u,moall)    'Mindste tonnage for affaldsanlaeg';
 Equation ZQ_MaxTonnage(u,moall)    'Stoerste tonnage for affaldsanlaeg';
 Equation ZQ_MinLhvAffald(u,moall)  'Mindste braendvaerdi for affaldsblanding';
 
-ZQ_MinTonnage(ua,mo)   $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo))  =G=  ShareAvailU(ua,mo) * Hours(mo) * MinTon(ua,mo);
-ZQ_MaxTonnage(ua,mo)   $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * MaxTon(ua,mo);
+ZQ_MinTonnage(ua,mo)   $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo))  =G=  ShareAvailU(ua,mo) * Hours(mo) * (MinTon(ua,mo) - TonInfeas(ua,mo,'drain'));
+ZQ_MaxTonnage(ua,mo)   $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo))  =L=  ShareAvailU(ua,mo) * Hours(mo) * (MaxTon(ua,mo) + TonInfeas(ua,mo,'source'));
 ZQ_MinLhvAffald(ua,mo) $(OnU(ua,mo) AND NOT DoFixAffT(mo))  ..  MinLhvMWh(ua,mo) * sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo))  =L=  sum(fa $(OnF(fa,mo) AND u2f(ua,fa,mo)), FuelConsT(ua,fa,mo) * LhvMWh(fa,mo));
 
 #begin Lagerdisponering.
@@ -985,8 +996,8 @@ $If not errorfree $exit
 
 # Erklæring af scenario Loop
 
-set topic  / Tidsstempel, FJV-behov, Total-NPV, Total-Var-Varmeproduktions-Omk,
-             REFA-NPV, REFA-Var-Varmeproduktions-Omk,
+set topic  / Tidsstempel, FJV-behov, Total-NPV, Total-Var-VPO,
+             REFA-NPV, REFA-Var-VPO-Total, REFA-Var-VPO-Affald,
              REFA-Daekningsbidrag, REFA-Total-Var-Indkomst, REFA-Affald-Modtagelse, REFA-RGK-Rabat, REFA-Elsalg, REFA-Varmesalg,
              REFA-Total-Var-Omkostning, REFA-AnlaegsVarOmk, REFA-BraendselOmk, REFA-Afgifter, 
              REFA-Affaldvarme-afgift, REFA-Tillaegs-Afgift, REFA-CO2-Afgift, REFA-NOx-Afgift,
@@ -1009,8 +1020,8 @@ topicSummable('REFA-NPV')    = no;
 Scalar    nScen           'Antal beregnede aktive scenarier';
 Scalar    NPV_REFA_V      'REFAs nutidsværdi';
 Scalar    NPV_Total_V     'Total nutidsværdi (REFA + GSF)';
-Scalar    Penalty_QInfeasTotal, PenaltyTotal_AffTInfeas;                          # Penalty bidrag fra infeasibiliteter.
-Scalar    PenaltyTotal_bOnU, Penalty_TotalQRgkMiss, PenaltyTotal_AffaldsGensalg;  # Penalty bidrag på objektfunktionen.
+Scalar    PenaltyTotal_QInfeas, PenaltyTotal_AffTInfeas, PenaltyTotal_TonInfeas;  # Penalty bidrag fra infeasibiliteter.
+Scalar    PenaltyTotal_bOnU, PenaltyTotal_QrgkMiss, PenaltyTotal_AffaldsGensalg;  # Penalty bidrag på objektfunktionen.
 Scalar    PenaltyTotal_QFlisK  'Penalty på fliskedlens varmeproduktion';  
 Scalar    PerStart;
 Scalar    PerSlut;
@@ -1034,66 +1045,67 @@ Parameter DataFuel_V(f,labDataFuel);
 Parameter DataProgn_V(labDataProgn,moall)      'Prognoser transponeret';
 Parameter DataFuelFull_V(f,labDataFuel,moall);
 Parameter FuelBounds_V(f,fuelItem,moall);
-Parameter FuelDeliv_V(f,moall)             'Leveret brændsel';
-Parameter FuelConsT_V(u,f,moall)           'Afbrændt brændsel for givet anlæg';
-Parameter FuelConsP_V(u,f,moall)           'Effekt af afbrændt brændsel for givet anlæg';
-Parameter StoDLoadF_V(s,f,moall)           'Lagerændring for givet lager og brændsel';
-Parameter StoLoadF_V(s,f,moall)            'Lagerbeholdning for givet lager og brændsel';
-Parameter StoLoadAll_V(s,moall)            'Lagerbeholdning ialt for givet lager';
-Parameter IncomeFuel_V(f,moall);
-Parameter Q_V(u,moall);
+Parameter FuelDeliv_V(f,moall)               'Leveret brændsel';
+Parameter FuelConsT_V(u,f,moall)             'Afbrændt brændsel for givet anlæg';
+Parameter FuelConsP_V(u,f,moall)             'Effekt af afbrændt brændsel for givet anlæg';
+Parameter StoDLoadF_V(s,f,moall)             'Lagerændring for givet lager og brændsel';
+Parameter StoLoadF_V(s,f,moall)              'Lagerbeholdning for givet lager og brændsel';
+Parameter StoLoadAll_V(s,moall)              'Lagerbeholdning ialt for givet lager';
+Parameter IncomeFuel_V(f,moall);             
+Parameter Q_V(u,moall);                      
+                                             
+Parameter Overview(topic,moall);             
+Parameter RefaDaekningsbidrag_V(moall)       'Daekningsbidrag for REFA [DKK]';
+Parameter RefaTotalVarIndkomst_V(moall)      'REFA Total variabel indkomst [DKK]';
+Parameter RefaAffaldModtagelse_V(moall)      'REFA Affald modtageindkomst [DKK]';
+Parameter RefaRgkRabat_V(moall)              'REFA RGK-rabat for affald [DKK]';
+Parameter RefaElsalg_V(moall)                'REFA Indkomst elsalg [DKK]';
+Parameter RefaVarmeSalg_V(moall)             'REFA Indkomst varmesalg [DKK]';
+                                             
+Parameter RefaTotalVarOmk_V(moall)           'REFA Total variabel indkomst [DKK]';
+Parameter RefaAnlaegsVarOmk_V(moall)         'REFA Var anlaegs omk [DKK]';
+Parameter RefaBraendselsVarOmk_V(moall)      'REFA Var braendsels omk. [DKK]';
+Parameter RefaAfgifter_V(moall)              'REFA afgifter [DKK]';
+Parameter RefaAfgiftAFV_V(moall)             'REFA AFV afgift [DKK]';
+Parameter RefaAfgiftATL_V(moall)             'REFA ATL afgift [DKK]';
+Parameter RefaAfgiftCO2_V(moall)             'REFA CO2 afgift [DKK]';
+Parameter RefaAfgiftNOx_V(moall)             'REFA NOx afgift [DKK]';
+Parameter RefaKvoteOmk_V(moall)              'REFA CO2 kvote-omk. [DKK]';
+Parameter RefaStoCost_V(moall)               'REFA Lageromkostning [DKK]';
+Parameter RefaCO2emission_V(moall,typeCO2)   'REFA CO2 emission [ton]';
+Parameter RefaElproduktionBrutto_V(moall)    'REFA brutto elproduktion [MWhe]';
+Parameter RefaElproduktionNetto_V(moall)     'REFA netto elproduktion [MWhe]';
+                                             
+Parameter RefaVarmeProd_V(moall)             'REFA Total varmeproduktion [MWhq]';
+Parameter RefaVarmeLeveret_V(moall)          'REFA Leveret varme [MWhq]';
+Parameter RefaModtrykProd_V(moall)           'REFA Total modtryksvarmeproduktion [MWhq]';
+Parameter RefaBypassVarme_V(moall)           'REFA Bypass-varme på Ovn3 [MWhq]';
+Parameter RefaRgkProd_V(moall)               'REFA RGK-varmeproduktion [MWhq]';
+Parameter RefaRgkShare_V(moall)              'RGK-varmens andel af REFA energiproduktion';
+Parameter RefaBortkoeletVarme_V(moall)       'REFA bortkoelet varme [MWhq]';
+Parameter VarmeVarProdOmkTotal_V(moall)      'Variabel varmepris på tvaers af alle produktionsanlæg DKK/MWhq';
+Parameter VarmeVarProdOmkRefaTotal_V(moall)  'Variabel varmepris på tvaers af REFA-produktionsanlæg DKK/MWhq';
+Parameter VarmeVarProdOmkRefaAffald_V(moall) 'Variabel varmepris på tvaers af REFA-produktionsanlæg DKK/MWhq';
+Parameter RefaLagerBeholdning_V(s,moall)     'Lagerbeholdning [ton]';
 
-Parameter Overview(topic,moall);
-Parameter RefaDaekningsbidrag_V(moall)     'Daekningsbidrag for REFA [DKK]';
-Parameter RefaTotalVarIndkomst_V(moall)    'REFA Total variabel indkomst [DKK]';
-Parameter RefaAffaldModtagelse_V(moall)    'REFA Affald modtageindkomst [DKK]';
-Parameter RefaRgkRabat_V(moall)            'REFA RGK-rabat for affald [DKK]';
-Parameter RefaElsalg_V(moall)              'REFA Indkomst elsalg [DKK]';
-Parameter RefaVarmeSalg_V(moall)           'REFA Indkomst varmesalg [DKK]';
-
-Parameter RefaTotalVarOmk_V(moall)         'REFA Total variabel indkomst [DKK]';
-Parameter RefaAnlaegsVarOmk_V(moall)       'REFA Var anlaegs omk [DKK]';
-Parameter RefaBraendselsVarOmk_V(moall)    'REFA Var braendsels omk. [DKK]';
-Parameter RefaAfgifter_V(moall)            'REFA afgifter [DKK]';
-Parameter RefaAfgiftAFV_V(moall)           'REFA AFV afgift [DKK]';
-Parameter RefaAfgiftATL_V(moall)           'REFA ATL afgift [DKK]';
-Parameter RefaAfgiftCO2_V(moall)           'REFA CO2 afgift [DKK]';
-Parameter RefaAfgiftNOx_V(moall)           'REFA NOx afgift [DKK]';
-Parameter RefaKvoteOmk_V(moall)            'REFA CO2 kvote-omk. [DKK]';
-Parameter RefaStoCost_V(moall)             'REFA Lageromkostning [DKK]';
-Parameter RefaCO2emission_V(moall,typeCO2) 'REFA CO2 emission [ton]';
-Parameter RefaElproduktionBrutto_V(moall)  'REFA brutto elproduktion [MWhe]';
-Parameter RefaElproduktionNetto_V(moall)   'REFA netto elproduktion [MWhe]';
-
-Parameter RefaVarmeProd_V(moall)           'REFA Total varmeproduktion [MWhq]';
-Parameter RefaVarmeLeveret_V(moall)        'REFA Leveret varme [MWhq]';
-Parameter RefaModtrykProd_V(moall)         'REFA Total modtryksvarmeproduktion [MWhq]';
-Parameter RefaBypassVarme_V(moall)         'REFA Bypass-varme på Ovn3 [MWhq]';
-Parameter RefaRgkProd_V(moall)             'REFA RGK-varmeproduktion [MWhq]';
-Parameter RefaRgkShare_V(moall)            'RGK-varmens andel af REFA energiproduktion';
-Parameter RefaBortkoeletVarme_V(moall)     'REFA bortkoelet varme [MWhq]';
-Parameter VarmeVarProdOmkTotal_V(moall)    'Variabel varmepris på tvaers af alle produktionsanlæg DKK/MWhq';
-Parameter VarmeVarProdOmkRefa_V(moall)     'Variabel varmepris på tvaers af REFA-produktionsanlæg DKK/MWhq';
-Parameter RefaLagerBeholdning_V(s,moall)   'Lagerbeholdning [ton]';
-
-Parameter VPO_V(uaggr,moall)               'VPO_V DKK/MWhq';
-
-Parameter Usage_V(u,moall)                 'Kapacitetsudnyttelse af anlæg';
-Parameter LhvCons_V(u,moall)               'Realiseret brændværdi';
-Parameter FuelConsumed_V(u,moall)          'Tonnage afbrændt timebasis';
-Parameter AffaldConsTotal_V(moall)         'Tonnage totalt afbrændt';
-Parameter AffaldAvail_V(moall)             'Rådig affaldsmængde [ton]';
-Parameter AffaldUudnyttet_V(moall)         'Ikke-udnyttet affald [ton]';
-Parameter AffaldLagret_V(moall)            'Lagerstand [ton]';
-
-Parameter GsfTotalVarOmk_V(moall)          'Guldborgsund Forsyning Total indkomst [DKK]';
-Parameter GsfAnlaegsVarOmk_V(moall)        'Guldborgsund Forsyning Var anlaegs omk [DKK]';
-Parameter GsfBraendselsVarOmk_V(moall)     'Guldborgsund Forsyning Var braendsels omk. [DKK]';
-Parameter GsfAfgifter_V(moall)             'Guldborgsund Forsyning Afgifter [DKK]';
-Parameter GsfCO2emission_V(moall)          'Guldborgsund Forsyning CO2 emission [ton]';
-Parameter GsfTotalVarmeProd_V(moall)       'Guldborgsund Forsyning Total Varmeproduktion [MWhq]';
-
-Parameter NsTotalVarmeProd_V(moall)        'Nordic Sugar Total varmeproduktion [MWhq]';
+Parameter VPO_V(uaggr,moall)                 'VPO_V DKK/MWhq';
+                                             
+Parameter Usage_V(u,moall)                   'Kapacitetsudnyttelse af anlæg';
+Parameter LhvCons_V(u,moall)                 'Realiseret brændværdi';
+Parameter FuelConsumed_V(u,moall)            'Tonnage afbrændt timebasis';
+Parameter AffaldConsTotal_V(moall)           'Tonnage totalt afbrændt';
+Parameter AffaldAvail_V(moall)               'Rådig affaldsmængde [ton]';
+Parameter AffaldUudnyttet_V(moall)           'Ikke-udnyttet affald [ton]';
+Parameter AffaldLagret_V(moall)              'Lagerstand [ton]';
+                                             
+Parameter GsfTotalVarOmk_V(moall)            'Guldborgsund Forsyning Total indkomst [DKK]';
+Parameter GsfAnlaegsVarOmk_V(moall)          'Guldborgsund Forsyning Var anlaegs omk [DKK]';
+Parameter GsfBraendselsVarOmk_V(moall)       'Guldborgsund Forsyning Var braendsels omk. [DKK]';
+Parameter GsfAfgifter_V(moall)               'Guldborgsund Forsyning Afgifter [DKK]';
+Parameter GsfCO2emission_V(moall)            'Guldborgsund Forsyning CO2 emission [ton]';
+Parameter GsfTotalVarmeProd_V(moall)         'Guldborgsund Forsyning Total Varmeproduktion [MWhq]';
+                                             
+Parameter NsTotalVarmeProd_V(moall)          'Nordic Sugar Total varmeproduktion [MWhq]';
 
 # Erklæring af parametre til check af data mv.
 #+++ Parameter Stats(topicStats)                'Statistik sum over realiserede og mulige produktioner';
