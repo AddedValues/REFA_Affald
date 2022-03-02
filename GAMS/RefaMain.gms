@@ -124,8 +124,10 @@ set labDataFuel           'DataFuel labels'    / Aktiv, set.labDataFuelUniq /;
 set taxkind(labDataProgn) 'Omkostningstyper'   / ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
 
 
-set stoItem(labDataSto)   'Lagerdata som kan periodiseres     ' / LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost /;
-set fuelItem(labDataFuel) 'Brændselsdata som kan periodiseres ' / TilOvn2, TilOvn3, MinTonnage, MaxTonnage, Pris, LHV, Co2kgGJ /; 
+set stoItem(labDataSto)      'Lagerdata som kan periodiseres     ' / LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost /;
+set fuelItem(labDataFuel)    'Brændselsdata som kan periodiseres ' / TilOvn2, TilOvn3, MinTonnage, MaxTonnage, Pris, LHV, Co2kgGJ /; 
+set monthFuelItem(fuelItem)  'Månedlige brændselsegenskaber'       / TilOvn2, TilOvn3,                         Pris, LHV, CO2kgGJ /;
+
 
 set labPrognScen(labDataProgn) 'Aktive prognose scenarie-parms';
 

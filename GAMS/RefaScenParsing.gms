@@ -227,6 +227,14 @@ $OnOrder
     # Hvis kun FastVaerdi er angivet dvs. forskellig fra NaN, så anvendes denne for hele perioden, ellers anvendes ParmValues.
     # En stor del af Fuel-attributter er ikke implementeret som tidsafhængige, de øvrige optræder i set fuelItem.
     DataFuel(actFuel2,actFuel3) = FastVaerdi;
+    
+    # Hvis actFuel3 også er et fuelItem på månedsniveau (dvs. ikke årstonnager), så modificeres FuelBounds også med den faste værdi.
+    # Dette gøres fordi det kan virke forvirrende at skelne mellem FuelBounds og DataFuel, når kun en fast værdi angives.
+    loop (monthFuelItem $sameas(monthFuelItem, actFuel3),
+        display "FuelBounds sættes via Fuel", actFuel2, actFuel3, monthFuelItem, FastVaerdi;
+        FuelBounds(actFuel2, monthFuelItem, mo) = FastVaerdi;
+        break;
+    );
 
 #---    Loop (labDataFuel $sameas(labDataFuel,actFuel3),
 #---      if (fuelItem(labDataFuel),
