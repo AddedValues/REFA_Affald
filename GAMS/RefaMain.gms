@@ -111,13 +111,13 @@ set labScenRec            'Scen-records'        / set.labScenFirst, set.moall /;
 set droot                 'Data på niveau 1'    / Control, Schedule, Plant, Storage, Prognoses, Fuel, FuelBounds /;
 set drootPermitted(droot)                       / Control,           Plant, Storage, Prognoses, Fuel, FuelBounds /;
 
-set labDataCtrl           'Styringparms'       / RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald2021, FixAffaldSum, RgkRabatSats, RgkAndelRabat, Varmesalgspris, EgetforbrugKVV /;
+set labDataCtrl           'Styringparms'       / RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald2021, FixAffaldSum, DeltaTonAktiv, RgkRabatSats, RgkAndelRabat, Varmesalgspris, EgetforbrugKVV /;
 set labSchCol             'Periodeomfang'      / FirstYear, LastYear, FirstPeriod, LastPeriod /;
 set labSchRow             'Periodeomfang'      / aar, maaned, dato /;
 set labDataU              'DataU labels'       / Aktiv, Ukind, Prioritet, MinLhv, MaxLhv, MinTon, MaxTon, kapQNom, kapRgk, kapE, MinLast, KapMin, EtaE, EtaQ, DVMWhq, DVtime /;
 set labDataStoUniq        'DataSto labels'     / StoKind, LoadInit, LoadMin, LoadMax, DLoadMax, LossRate, LoadCost, DLoadCost, ResetFirst, ResetIntv, ResetLast /;  # stoKind=1 er affalds-, stoKind=2 er varmelager.
 set labDataPrognUniq      'Prognose labels'    / Ndage, Turbine, Varmebehov, NSprod, ELprod, Bypass, Elpris, ETS, AFV, ATL, CO2aff, ETSaff, CO2afgAff, NOxAff, NOxFlis, EnrPeak, CO2peak, NOxPeak /;
-set labDataFuelUniq       'DataFuel labels'    / Fkind, Lagerbar, Fri, Flex, Bortskaf, TilOvn2, TilOvn3, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, LHV, NOxKgTon, CO2kgGJ /;
+set labDataFuelUniq       'DataFuel labels'    / Fkind, Lagerbar, Fri, Flex, Bortskaf, TilOvn2, TilOvn3, DeltaTon, MinTonnage, MaxTonnage, InitSto1, InitSto2, Pris, LHV, NOxKgTon, CO2kgGJ /;
 set labDataSto            'DataSto labels'     / Aktiv, set.labDataStoUniq /;
 set labDataProgn          'Prognose labels'    / Aktiv, set.labDataPrognUniq, set.u /;
 set labDataFuel           'DataFuel labels'    / Aktiv, set.labDataFuelUniq /;
@@ -200,6 +200,7 @@ Scalar    EgetforbrugKVV            'Angiver egetforbrug MWhe/døgn';
 Scalar    RunScenarios              'Angiver 0/1 om scenarier skal køres';
 Scalar    FixAffald2021             'Angiver 0/1 om hver affaldsfraktion er fikseret på månedsniveau (udføres i Excel)';
 Scalar    FixAffaldSum              'Angiver 0/1 om affaldsfraktioners sum skal fikseres på månedsniveau';
+Scalar    DeltaTonAktiv             'Angiver 0/1 om tonnagetolerancer angivet i DataFuel(DeltaTon) er aktive';
 Scalar    NactiveM                  'Antal aktive måneder';
 
 Scalar    dbup, dbupa;
@@ -237,6 +238,7 @@ Parameter DataSto(s,labDataSto,moall)    'Lagerspecifikationer';
 Parameter DataProgn(labDataProgn,moall)  'Data for prognoser';
 Parameter DataFuel(f,labDataFuel)        'Data for drivmidler (ikke tidsafhængige)';
 Parameter FuelBounds(f,fuelItem,moall)   'Tidsbundne værdier for drivmidler';
+
 
 # FixValueAffT er input, men kan ikke modificeres af scenarier, da parameteren p.t. kun bruges til verifikation.
 Parameter FixValueAffT(moall)            'Fikserede månedstonnager på affald';
@@ -284,6 +286,7 @@ Parameter StoLossRate(s,moall)           'Max. lagertab ift. forrige periodes be
 Parameter StoFirstReset(s)               'Antal initielle perioder som omslutter første nulstiling af lagerstand';
 Parameter StoIntvReset(s)                'Antal perioder som omslutter første nulstiling af lagerstand, efter første nulstilling';
 
+Parameter DeltaTon(f)                    'Max. udsving plus/minus af tonnage som andel af max. årstonnage';
 Parameter MinTonSum(f)                   'Braendselstonnage min aarsniveau [ton/aar]';
 Parameter MaxTonSum(f)                   'Braendselstonnage max aarsniveau [ton/aar]';
 Parameter LhvMWh(f,moall)                'Braendvaerdi [MWf]';
@@ -442,6 +445,7 @@ EgetforbrugKVV      = DataCtrlRead('EgetforbrugKVV');
 RunScenarios        = DataCtrlRead('RunScenarios') NE 0;
 FixAffald2021       = DataCtrlRead('FixAffald2021') NE 0;
 FixAffaldSum        = DataCtrlRead('FixAffaldSum') NE 0;
+DeltaTonAktiv       = DataCtrlRead('DeltaTonAktiv') NE 0;
 
 $If not errorfree $exit
 
@@ -881,8 +885,13 @@ Equation  ZQ_FuelMaxSum(f)      'Stoerste braendselsforbrug på årsniveau';
 # Fleksible brændsler skal ikke overholde månedsgrænser, kun årsgrænser.
 #--- ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'MinTonnage',mo);
 #--- ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT fflex(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'MaxTonnage',mo) * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
-ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'MinTonnage',mo) $(NOT fflex(f));
-ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'MaxTonnage',mo) * (1 + 1E-6) $(NOT fflex(f)) + MaxTonSum(f) $fflex(f);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+#--- ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  FuelBounds(f,'MinTonnage',mo) $(NOT fflex(f));
+#--- ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  FuelBounds(f,'MaxTonnage',mo) * (1 + 1E-6) $(NOT fflex(f)) + MaxTonSum(f) $fflex(f);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+#OBS: Indført tolerance på månedstonnage grænser baseret på årstonnage i DataFuel. 
+#     Principielt kan tolerancen overflødiggøre kategorien fflex ved passende valg af DataFuel(fa,'DeltaTon').
+#     DeltaTon ignoreres, hvis fikserede tonnager er aktive.
+ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) * (1 - DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo)))] $(NOT fflex(f));  # Nedre grænse er nul for flex fuels.
+ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  [FuelBounds(f,'MaxTonnage',mo) * (1 + DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo))) * (1 + 1E-6) $(NOT fflex(f))] + [MaxTonSum(f) $fflex(f)];  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 #--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonSum(f) * sum(mo $OnF(f,mo), 1) / 12;
 #--- ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * [(sum(mo $On(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
@@ -892,8 +901,10 @@ ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) 
 #    Det skyldes, at der i praksis er væsentlige udsving på månedstonnager for alle fraktioner, også dagrenovation, som skal bortskaffes straks.
 #    Den øvre grænse på tonnagesummen for hver fraktion er kun relevant på frie hhv. fleksible fraktioner.
 #    Den nedre grænse på tonnagesummen for hver fraktion er kun relevant for fleksible fraktioner, da frie fraktioner har nedre grænse lig med nul (konvention for begrebet 'fri', kan skærpes så ikke-nul nedre grænse skal overholdes.)
-ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))) ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
-ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo));
+#--- ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))) ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
+#--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo));
+ZQ_FuelMaxSum(fa) $(OnGF(fa))             ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
+ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f))  ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo)) $(NOT ffri(f));
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';

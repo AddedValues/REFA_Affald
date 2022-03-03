@@ -36,6 +36,7 @@ EgetforbrugKVV      = DataCtrl('EgetforbrugKVV');
 RunScenarios        = DataCtrl('RunScenarios') NE 0;
 FixAffald2021       = DataCtrl('FixAffald2021') NE 0;
 FixAffaldSum        = DataCtrl('FixAffaldSum') NE 0;
+DeltaTonAktiv       = DataCtrlRead('DeltaTonAktiv') NE 0;
 
 # SKIP: Initialisering af overordnet rådighed af anlæg, lagre, brændsler og måneder.
 # Kan være gjort i scenarie specifikationen.
@@ -146,10 +147,12 @@ fpospris(f,mo) = FuelBounds(f,'pris',mo) GE 0.0;
 fnegpris(f,mo) = NOT fpospris(f,mo);
 fbiogen(f)     = fa(f) AND (sum(mo, FuelBounds(f,'CO2kgGJ',mo)) EQ 0);
 
+# DeltaTon er tolerancen på månedstonnagen. Fleksible brændsler har fuld årstonnage til rådighed hver måned (men månedssummen er underlagt den rådige middelmånedsmængde i FuelBounds).
+DeltaTon(f)  = IfThen(fflex(f), 1.0, DataFuel(f,'DeltaTon') / 12) * DataFuel(f,'MaxTonnage') $DeltaTonAktiv;
 MinTonSum(f) = DataFuel(f,'MinTonnage');
 MaxTonSum(f) = DataFuel(f,'MaxTonnage');
-LhvMWh(f,mo)    = FuelBounds(f,'LHV',mo) / 3.6;
-NSprod(mo)      = DataProgn('NSprod',mo);
+LhvMWh(f,mo) = FuelBounds(f,'LHV',mo) / 3.6;
+NSprod(mo)   = DataProgn('NSprod',mo);
 
 DoFixAffT(mo) = FixAffaldSum AND (FixValueAffT(mo) NE NaN);
 
