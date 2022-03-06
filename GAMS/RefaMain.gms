@@ -722,7 +722,7 @@ ZQ_TaxCO2total(mo) .. TaxCO2total(mo)  =E=  TaxCO2Aff(mo) + TaxCO2Aux(mo);
 
 # CO2-afgift af affald baseret på SKAT's administrative satser. 
 # I modsætning til tillægsafgiften, som tilskrives energiudbyttet, skal der kun svares CO2-afgift af det emissionsgivende udbytte, og dermed ikke af RGK-varme.
-ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * QudenrGK(mo);
+ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * QudenRgk(mo);
 
 ZQ_CostsETS(mo)  ..  CostsETS(mo)   =E=  TaxEtsTon(mo) * sum(fa $OnF(fa,mo), CO2emisF(fa,mo,'kvote'));  # Kun affaldsanlægget er kvoteomfattet.
 

@@ -186,6 +186,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   Q_V(u,mo)  = ifthen (Q.L(u,mo) EQ 0.0, tiny, Q.L(u,mo));
   Q_V(uv,mo) = -Q_V(uv,mo);            # Negation aht. afbildning i sheet Overblik.
   Q_V(u,mo) $(NOT OnU(u,mo)) = -tiny;  # Markerer ikke-rÃ¥dige anlæg.
+  Usage_V(u,mo) = tiny;  # Sikrer, at ikke-aktive anlæg ikke adopterer værdier fra et foregående scenarie, hvor de var aktive.
   Loop (u $OnU(u,mo),
     if (Q.L(u,mo) GT 0.0 AND ShareAvailU(u,mo) GT 0.0,
       #--- Usage_V(u,mo) = Q.L(u,mo) / (KapMax(u,mo) * ShareAvailU(u,mo) * Hours(mo));

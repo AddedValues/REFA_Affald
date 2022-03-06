@@ -24,9 +24,9 @@ Loop (scRec,
   actScRec(scRec) = yes;
   ActualScRec(labScenRec) = ScenRecs(actScRec,labScenRec);
   ScenId = ActualScRec('ScenId');
-  if (DEBUG, display  "RECORD: ------------------------------------------------", actScRec, ActualScRec;  );   
+  if (DEBUG, display  "RECORD: ------------------------------------------------", actScen, actScRec, ActualScRec;  );   
   break $(ScenId GT ActualScenId);
-  continue $(ActualScRec('Aktiv') EQ 0);
+  continue $(ScenId NE ActualScenId OR ActualScRec('Aktiv') EQ 0);
 
   # Inspicér niveau 1: Data typer, som i scenarie-record er angivet med ordinal position.
   Level1 = ActualScRec('Niveau1');
