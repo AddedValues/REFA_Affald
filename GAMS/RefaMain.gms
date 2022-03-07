@@ -890,8 +890,10 @@ Equation  ZQ_FuelMaxSum(f)      'Stoerste braendselsforbrug på årsniveau';
 #OBS: Indført tolerance på månedstonnage grænser baseret på årstonnage i DataFuel. 
 #     Principielt kan tolerancen overflødiggøre kategorien fflex ved passende valg af DataFuel(fa,'DeltaTon').
 #     DeltaTon ignoreres, hvis fikserede tonnager er aktive.
-ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) * (1 - DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo)))] $(NOT fflex(f));  # Nedre grænse er nul for flex fuels.
-ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  [FuelBounds(f,'MaxTonnage',mo) * (1 + DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo))) * (1 + 1E-6) $(NOT fflex(f))] + [MaxTonSum(f) $fflex(f)];  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+#--- ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) - (DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo)))] $(NOT fflex(f));  # Nedre grænse er nul for flex fuels.
+#--- ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  [FuelBounds(f,'MaxTonnage',mo) + (DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo))) * (1 + 1E-6) $(NOT fflex(f))] + [MaxTonSum(f) $fflex(f)];  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) - DeltaTon(f) $(fflex(f) AND NOT FixAffald2021 AND NOT DoFixAffT(mo))];
+ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  [FuelBounds(f,'MaxTonnage',mo) + DeltaTon(f) $(fflex(f) AND NOT FixAffald2021 AND NOT DoFixAffT(mo))] * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 #--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonSum(f) * sum(mo $OnF(f,mo), 1) / 12;
 #--- ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * [(sum(mo $On(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);

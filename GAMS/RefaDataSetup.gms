@@ -148,7 +148,8 @@ fnegpris(f,mo) = NOT fpospris(f,mo);
 fbiogen(f)     = fa(f) AND (sum(mo, FuelBounds(f,'CO2kgGJ',mo)) EQ 0);
 
 # DeltaTon er tolerancen på månedstonnagen. Fleksible brændsler har fuld årstonnage til rådighed hver måned (men månedssummen er underlagt den rådige middelmånedsmængde i FuelBounds).
-DeltaTon(f)  = IfThen(fflex(f), 1.0, DataFuel(f,'DeltaTon') / 12) * DataFuel(f,'MaxTonnage') $DeltaTonAktiv;
+#--- DeltaTon(f)  = IfThen(fflex(f), 1.0, DataFuel(f,'DeltaTon') / 12) * DataFuel(f,'MaxTonnage') $DeltaTonAktiv;
+DeltaTon(f)  = [DataFuel(f,'DeltaTon') * DataFuel(f,'MaxTonnage') / 12] $DeltaTonAktiv;
 MinTonSum(f) = DataFuel(f,'MinTonnage');
 MaxTonSum(f) = DataFuel(f,'MaxTonnage');
 LhvMWh(f,mo) = FuelBounds(f,'LHV',mo) / 3.6;
