@@ -41,7 +41,7 @@ if (nScen GE 1,
   Qbypass.up(moall)                  = Big $OnGU('Ovn3'); 
   Q.up(u,moall)                      = Big $OnGU(u); 
   QaffM.up(ua,moall)                 = Big $(OnGU(ua)); 
-  Qrgk.up(u,moall)                   = Big $(OnGU(u) AND ua(u)); 
+  Qrgk.up(ua,moall)                  = Big $(OnGU(ua)); 
   Qafv.up(moall)                     = Big; 
   QRgkMiss.up(moall)                 = Big; 
                                      

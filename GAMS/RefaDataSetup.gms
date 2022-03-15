@@ -93,17 +93,17 @@ MinLhvMWh(ua,mo) = DataU(ua,'MinLhv',mo) / 3.6;
 MaxLhvMWh(ua,mo) = DataU(ua,'MaxLhv',mo) / 3.6;
 MinTon(ua,mo)    = DataU(ua,'MinTon',mo);
 MaxTon(ua,mo)    = DataU(ua,'Maxton',mo);
-KapMin(u,mo)     = DataU(u, 'KapMin',mo);
-KapRgk(ua,mo)    = DataU(ua,'KapRgk',mo);
 KapQNom(u,mo)    = DataU(u,'KapQNom',mo);
+KapQmin(u,mo)    = DataU(u,'KapQmin',mo) * KapQNom(u,mo);
+KapRgk(ua,mo)    = DataU(ua,'KapRgk',mo) * max(0.0, min(1.0, DataCtrl('RGKudnyttelse')));
 KapE(u,mo)       = DataU(u,'KapE',mo);
 EtaE(u,mo)       = DataU(u,'EtaE',mo);
 EtaQ(u,mo)       = DataU(u,'EtaQ',mo);
 DvMWhq(u,mo)     = DataU(u,'DvMWhq',mo);
 DvTime(u,mo)     = DataU(u,'DvTime',mo);
 
-EtaRgk(u,mo) = KapRgk(u,mo) / KapQNom(u,mo) * EtaQ(u,mo);
-KapMax(u,mo) = KapQNom(u,mo) + KapRgk(u,mo);
+EtaRgk(u,mo) = KapRgk(u,mo) / KapQNom(u,mo) * EtaQ(u,mo) * max(0.0, min(1.0, DataCtrl('RGKudnyttelse')));
+KapQmax(u,mo) = KapQNom(u,mo) + KapRgk(u,mo);
 
 # EtaE er 18 % til og med august 2021, og derefter antages værdien givet i DataU.
 # KapE er 7,5 MWe til og med august 2021, og derefter antages værdien givet i DataU.
@@ -207,7 +207,7 @@ Loop (mo $DoFixAffT(mo),
 QrgkMax(ua,mo)   = KapRgk(ua,mo) / KapQNom(ua,mo) * QaffMmax(ua,mo);
 QaffTotalMax(mo) = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * (QaffMmax(ua,mo) + QrgkMax(ua,mo)) );
 
-TaxATLMax(mo)   = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * Hours(mo) * KapMax(ua,mo)) * TaxAtlMWh(mo);
+TaxATLMax(mo)   = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * Hours(mo) * KapQmax(ua,mo)) * TaxAtlMWh(mo);
 RgkRabatMax(mo) = RgkRabatSats * TaxATLMax(mo);
 QRgkMissMax(mo) = 2 * RgkRabatMinShare * sum(ua $OnU(ua,mo), 31 * 24 * KapQNom(ua,mo));  # Faktoren 2 er en sikkerhedsfaktor mod infeasibilitet.
 

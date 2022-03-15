@@ -23,11 +23,6 @@ NPV_Total_V = NPV.L + [PenaltyTotal_QInfeas + PenaltyTotal_AffTInfeas + PenaltyT
                     +  PenaltyTotal_bOnU + PenaltyTotal_QrgkMiss + PenaltyTotal_AffaldsGensalg + PenaltyTotal_QFlisK]
                     - [GainTotal_Qaff];
 
-# NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
-NPV_REFA_V  = NPV_Total_V + sum(mo, CostsTotalOwner.L('gsf',mo));
-
-#--- display PenaltyTotal_bOnU, PenaltyTotal_QrgkMiss, NPV.L, NPV_Total_V, NPV_REFA_V;
-
 # ------------------------------------------------------------------------------------------------
 # Beregn sammenfattende data til overordnet eftervisning af inputdata.
 #+++ FuelConsTsum_V(ua,mo) = sum(fa, FuelConsT.L(ua,fa,mo)); 
@@ -75,13 +70,13 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-Elsalg',mo)               = max(tiny, RefaElsalg_V(mo) );
   OverView('REFA-Varmesalg',mo)            = max(tiny, RefaVarmeSalg_V(mo) );
 
-  RefaAnlaegsVarOmk_V(mo)                  = sum(urefa $OnU(urefa,mo), CostsU.L(urefa,mo));
-  RefaBraendselsVarOmk_V(mo)               = sum(frefa, CostsPurchaseF.L(frefa,mo));
-  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + TaxCO2Aff.L(mo) + sum(frefa, TaxNOxF.L(frefa,mo));
+  RefaAnlaegsVarOmk_V(mo)                  = sum(urefa $(NOT sameas(urefa,'Flisk')), CostsU.L(urefa,mo));
+  RefaBraendselsVarOmk_V(mo)               = sum(fa, CostsPurchaseF.L(fa,mo));
+  RefaAfgifter_V(mo)                       = TaxAFV.L(mo) + TaxATL.L(mo) + TaxCO2Aff.L(mo) + sum(fa, TaxNOxF.L(fa,mo));
   RefaAfgiftAFV_V(mo)                      = TaxAFV.L(mo);
   RefaAfgiftATL_V(mo)                      = TaxATL.L(mo);
   RefaAfgiftCO2_V(mo)                      = TaxCO2Aff.L(mo);
-  RefaAfgiftNOx_V(mo)                      = sum(frefa, TaxNOxF.L(frefa,mo));
+  RefaAfgiftNOx_V(mo)                      = sum(fa, TaxNOxF.L(fa,mo));
   RefaKvoteOmk_V(mo)                       = max(tiny, CostsETS.L(mo));  # Kun REFA er kvoteomfattet.
   RefaStoCost_V(mo)                        = sum(s $OnS(s,mo), StoCostAll.L(s,mo));
   RefaTotalVarOmk_V(mo)                    = RefaAnlaegsVarOmk_V(mo) + RefaBraendselsVarOmk_V(mo) + RefaAfgifter_V(mo) + RefaKvoteOmk_V(mo) + RefaStoCost_V(mo);
@@ -100,7 +95,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-Daekningsbidrag',mo)      = ifthen(RefaDaekningsbidrag_V(mo) EQ 0.0, tiny, RefaDaekningsbidrag_V(mo));
 
 # TODO: Skal tilrettes ændrede CO2-opgørelser.
-  RefaCO2emission_V(mo,typeCO2)            = max(tiny, sum(frefa $OnF(frefa,mo), CO2emisF.L(frefa,mo,typeCO2)) );
+  RefaCO2emission_V(mo,typeCO2)            = max(tiny, sum(fa$OnF(fa,mo), CO2emisF.L(fa,mo,typeCO2)) );
   RefaElproduktionBrutto_V(mo)             = max(tiny, Pbrut.L(mo));
   RefaElproduktionNetto_V(mo)              = max(tiny, Pnet.L(mo));
   OverView('REFA-CO2-Emission-afgift',mo)  = RefaCO2emission_V(mo,'afgift');
@@ -118,7 +113,7 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   Overview('REFA-Affald-Lagret',mo)          = AffaldLagret_V(mo);
 
 
-  RefaVarmeProd_V(mo)       = max(tiny, sum(uprefa $OnU(uprefa,mo), Q.L(uprefa,mo)) );
+  RefaVarmeProd_V(mo)       = max(tiny, sum(ua $OnU(ua,mo), Q.L(ua,mo)) );
   RefaModtrykProd_V(mo)     = max(tiny, sum(ua $OnU(ua,mo), QAffM.L(ua,mo)) );
   RefaBypassVarme_V(mo)     = max(tiny, Qbypass.L(mo));
   RefaRgkProd_V(mo)         = max(tiny, sum(ua $OnU(ua,mo), Qrgk.L(ua,mo)) );
@@ -132,6 +127,19 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('REFA-RGK-Varme',mo)              = RefaRgkProd_V(mo);
   OverView('REFA-RGK-Andel',mo)              = RefaRgkShare_V(mo);
   OverView('REFA-Bortkoelet-Varme',mo)       = RefaBortkoeletVarme_V(mo);
+
+  FliskedelAnlaegsVarOmk_V(mo)                    = CostsU.L('Flisk', mo);
+  FliskedelBraendselsVarOmk_V(mo)                 = CostsPurchaseF.L('Flis',mo);
+  FliskedelAfgifter_V(mo)                         = TaxCO2Aux.L(mo) + taxNOxF.L('Flis',mo) + TaxEnr.L(mo);
+  FliskedelCO2emission_V(mo)                      = CO2emisF.L('Flis',mo,'afgift');
+  FliskedelTotalVarmeProd_V(mo)                   = Q.L('Flisk',mo);
+  FliskedelTotalVarOmk_V(mo)                      = FliskedelAnlaegsVarOmk_V(mo) + FliskedelBraendselsVarOmk_V(mo) + FliskedelAfgifter_V(mo);
+  OverView('Fliskedel-AnlaegsVarOmk',mo)          = max(tiny, FliskedelAnlaegsVarOmk_V(mo) );
+  OverView('Fliskedel-BraendselOmk',mo)           = max(tiny, FliskedelBraendselsVarOmk_V(mo) );
+  OverView('Fliskedel-Afgifter',mo)               = max(tiny, FliskedelAfgifter_V(mo) );
+  OverView('Fliskedel-CO2-Emission',mo)           = max(tiny, FliskedelCO2emission_V(mo) );
+  OverView('Fliskedel-Total-Varme-Produktion',mo) = max(tiny, FliskedelTotalVarmeProd_V(mo) );
+  OverView('Fliskedel-Total-Var-Omkostning',mo)   = max(tiny, FliskedelTotalVarOmk_V(mo) );
 
   GsfAnlaegsVarOmk_V(mo)                    = sum(ugsf, CostsU.L(ugsf, mo) );
   GsfBraendselsVarOmk_V(mo)                 = sum(fgsf, CostsPurchaseF.L(fgsf,mo) );
@@ -154,10 +162,8 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   OverView('Virtuel-Affaldstonnage-Kilde',mo) = max(tiny, AffTInfeas.L('source',mo));
   OverView('Virtuel-Affaldstonnage-Draen',mo) = max(tiny, AffTInfeas.L('drain',mo));
 
-#---  VarmeVarProdOmkTotal_V(mo)  = (sum(u $OnGU(u), CostsU.L(u,mo)) + sum(owner, CostsTotalF.L(owner,mo)) - IncomeTotal.L(mo)) / (sum(up, Q.L(up,mo) - sum(uv, Q.L(uv,mo))));
-#---  VarmeVarProdOmkRefa_V(mo)   = (sum(urefa, CostsU.L(urefa,mo)) + CostsTotalF.L('refa',mo) - IncomeTotal.L(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
   VarmeVarProdOmkTotal_V(mo)      = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo) + GsfTotalVarOmk_V(mo)) / Qdemand(mo);
-  VarmeVarProdOmkRefaTotal_V(mo)  = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo)) / (sum(uprefa, Q.L(uprefa,mo)) - sum(uv, Q.L(uv,mo)));
+  VarmeVarProdOmkRefaTotal_V(mo)  = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo)) / (sum(ua, Q.L(ua,mo)) - sum(uv, Q.L(uv,mo)));
   #OBS: VPO beregnes også for affaldsanlæg alene, idet fliskedlen er tænkt som spidslast (billigere end oliekedler), men er ikke en del af REFAs hensigt/scope med denne model.
   VarmeVarProdOmkRefaAffald_V(mo) = (RefaTotalVarOmk_V(mo) - RefaTotalVarIndkomst_V(mo)) / (sum(ua, Q.L(ua,mo)) - sum(uv, Q.L(uv,mo)));
   Overview('FJV-behov',mo)                      = max(tiny, Qdemand(mo));
@@ -186,14 +192,15 @@ Loop (mo $(NOT sameas(mo,'mo0')),
   Q_V(u,mo)  = ifthen (Q.L(u,mo) EQ 0.0, tiny, Q.L(u,mo));
   Q_V(uv,mo) = -Q_V(uv,mo);            # Negation aht. afbildning i sheet Overblik.
   Q_V(u,mo) $(NOT OnU(u,mo)) = -tiny;  # Markerer ikke-rÃ¥dige anlæg.
-  Usage_V(u,mo) = tiny;  # Sikrer, at ikke-aktive anlæg ikke adopterer værdier fra et foregående scenarie, hvor de var aktive.
+  Usage_V(kapref,u,mo)  = tiny;  # Sikrer, at ikke-aktive anlæg ikke adopterer værdier fra et foregående scenarie, hvor de var aktive.
+  Qshare_V(u,mo) = tiny;
   Loop (u $OnU(u,mo),
     if (Q.L(u,mo) GT 0.0 AND ShareAvailU(u,mo) GT 0.0,
-      #--- Usage_V(u,mo) = Q.L(u,mo) / (KapMax(u,mo) * ShareAvailU(u,mo) * Hours(mo));
-      Usage_V(u,mo) = Q.L(u,mo) / (KapMax(u,mo) * Hours(mo));
-    else
-      Usage_V(u,mo) = tiny;
+      Usage_V('Nominel',u,mo) = Q.L(u,mo) / (KapQNom(u,mo) * ShareAvailU(u,mo) * Hours(mo));
+      Usage_V('Maximum',u,mo) = Q.L(u,mo) / (KapQmax(u,mo) * ShareAvailU(u,mo) * Hours(mo));
     );
+    Qshare_V(u,mo) = ifthen(uv(u), -1, 1) * ifthen(Q.L(u,mo) EQ 0.0, tiny, Q.L(u,mo) / Qdemand(mo));
+
     if (up(u),
       # Realiseret brændværdi.
       tmp1 = sum(f $(OnF(f,mo) AND u2f(u,f,mo)), FuelConsT.L(u,f,mo));
@@ -236,8 +243,8 @@ Loop (mo $(NOT sameas(mo,'mo0')),
 
 DataCtrl_V(labDataCtrl)            = ifthen(DataCtrlRead(labDataCtrl)   EQ 0.0, tiny, DataCtrlRead(labDataCtrl));
 DataU_V(u,labDataU)                = ifthen(DataURead(u,labDataU)       EQ 0.0, tiny, DataURead(u,labDataU));
-DataU_V(u,'MinLast')               = 0.0;
-DataU_V(u,'KapMin')                = 0.0;
+#--- DataU_V(u,'MinLast')               = 0.0;
+#--- DataU_V(u,'KapQmin')               = 0.0;
 DataSto_V(s,labDataSto)            = ifthen(DataStoRead(s,labDataSto)   EQ 0.0, tiny, DataStoRead(s,labDataSto));
 DataFuel_V(f,labDataFuel)          = ifthen(DataFuelRead(f,labDataFuel) EQ 0.0, tiny, DataFuelRead(f,labDataFuel));
 DataProgn_V(labDataProgn,mo)       = ifthen(DataPrognRead(mo,labDataProgn) EQ 0.0, tiny, DataPrognRead(mo,labDataProgn));
@@ -254,6 +261,12 @@ StoDLoadF_V(s,f,'mo0')          = 0.0;
 FuelConsT_V(u,f,'mo0')          = 0.0;
 
 VirtualUsed = VirtualUsed OR sum(dir, sum(mo, QInfeas.L(dir,mo))) GT tiny OR sum(dir, sum(mo, AffTInfeas.L(dir,mo))) GT tiny;
+
+
+# NPV_REFA_V er REFAs andel af NPV med tilbageførte penalties og tilbageførte GSF-omkostninger.
+# NPV_REFA_V vedrører alene affaldskedlerne, derfra justeres også for bidrag fra fliskedlen, som reelt under GSF's disposition. 
+NPV_REFA_V  = NPV_Total_V + sum(mo, CostsTotalOwner.L('gsf',mo) + FliskedelTotalVarOmk_V(mo)) ;
+
 
 # Overførsel af aktuelt scenaries nøgletal til opsamlings-array.
 #--- Scen_TimeStamp(actScen) = mod(TimeOfWritingMasterResults, 1);  # Gemmer kun tidspunktet, men ikke døgnet.
@@ -286,13 +299,13 @@ display actScen, actScenRecs;
 
 execute_unload 'REFAoutput.gdx',
 TimeOfWritingMasterResults, scen, actScen,
-bound, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, fuelItem,
+bound, kapref, moall, mo, fkind, f, fa, fb, fc, fr, u, up, ua, ub, uc, ur, u2f, s2f, fuelItem,
 labDataU, labDataFuel, labSchRow, labSchCol, labDataProgn, taxkind, topic, typeCO2,
 Scen_Overview, Scen_Q, Scen_FuelDeliv, Scen_IncomeFuel,
 ScenRecs, #--- Scen_Progn, 
 Schedule, DataCtrl_V, DataU_V, DataSto_V, DataProgn_V, AvailDaysU, DataFuel_V, FuelBounds_V,
 DataUFull_V, DataStoFull_V, FuelBounds_V,
-OnGU, OnGF, OnM, OnGS, OnU, OnS, OnF, Hours, ShareAvailU, EtaQ, KapMin, KapQNom, KapRgk, KapMax, Qdemand, LhvMWh,
+OnGU, OnGF, OnM, OnGS, OnU, OnS, OnF, Hours, ShareAvailU, EtaQ, KapQmin, KapQNom, KapRgk, KapQmax, Qdemand, LhvMWh,
 Pbrut, Pnet, Qbypass,
 TaxAfvMWh, TaxAtlMWh, TaxCO2AffTon, TaxCO2peakTon,
 EaffGross, QaffMmax, QrgkMax, QaffTotalMax, TaxATLMax, RgkRabatMax,
@@ -333,7 +346,15 @@ VarmeVarProdOmkRefaAffald_V,
 RefaLagerBeholdning_V,
 StoLoadAll_V,
 Usage_V,
+Qshare_V,
 LhvCons_V,
+
+FliskedelAnlaegsVarOmk_V,     
+FliskedelBraendselsVarOmk_V,  
+FliskedelAfgifter_V,          
+FliskedelCO2emission_V,       
+FliskedelTotalVarmeProd_V,    
+FliskedelTotalVarOmk_V,       
 
 GsfTotalVarOmk_V,
 GsfAnlaegsVarOmk_V,
@@ -392,32 +413,35 @@ par=FuelBounds_V          rng=DataFuel!B10      cdim=1  rdim=2
 * Overview is the last sheet to be written hence becomes the actual sheet when opening Excel file.
 
 *begin sheet Overblik
-par=TimeOfWritingMasterResults      rng=Overblik!C2:C2
-text="Tidsstempel"                  rng=Overblik!A2:A2
-par=VirtualUsed                     rng=Overblik!B2:B2
-par=PerStart                        rng=Overblik!B3:B3
-par=PerSlut                         rng=Overblik!C3:C3
-par=NPV_Total_V                     rng=Overblik!B4:B4
-text="Total-NPV"                    rng=Overblik!A4:A4
-par=NPV_REFA_V                      rng=Overblik!B5:B5
-text="REFA-NPV"                     rng=Overblik!A5:A5
-par=OverView                        rng=Overblik!C7          cdim=1  rdim=1
-text="Overblik"                     rng=Overblik!C7:C7
-par=Q_V                             rng=Overblik!C55         cdim=1  rdim=1
-text="Varmemængder"                 rng=Overblik!A55:A55
-par=FuelDeliv_V                     rng=Overblik!C63         cdim=1  rdim=1
-text="Brændselsforbrug"             rng=Overblik!A63:A63
-par=IncomeFuel_V                    rng=Overblik!C95         cdim=1  rdim=1
-text="Brændselsindkomst"            rng=Overblik!A95:A95
-par=Usage_V                         rng=Overblik!C127        cdim=1  rdim=1
-text="Kapacitetsudnyttelse ift. KapMax"         rng=Overblik!A127:A127
-par=StoLoadAll_V                    rng=Overblik!C136        cdim=1 rdim=1
-text="Lagerbeholdning totalt"       rng=Overblik!A136:A136
-text="Lager"                        rng=Overblik!C136:C136
-par=StoLoadF_V                      rng=Overblik!B144        cdim=1 rdim=2
-text="Lagerbeh. pr fraktion"        rng=Overblik!A144:A144
-text="Lager"                        rng=Overblik!B144:B144
-text="Fraktion"                     rng=Overblik!C144:C144
+par=TimeOfWritingMasterResults           rng=Overblik!C2:C2
+text="Tidsstempel"                       rng=Overblik!A2:A2
+par=VirtualUsed                          rng=Overblik!B2:B2
+par=PerStart                             rng=Overblik!B3:B3
+par=PerSlut                              rng=Overblik!C3:C3
+par=NPV_Total_V                          rng=Overblik!B4:B4
+text="Total-NPV"                         rng=Overblik!A4:A4
+par=NPV_REFA_V                           rng=Overblik!B5:B5
+text="REFA-NPV"                          rng=Overblik!A5:A5
+par=OverView                             rng=Overblik!C7          cdim=1  rdim=1
+text="Overblik"                          rng=Overblik!C7:C7
+par=Q_V                                  rng=Overblik!C61         cdim=1  rdim=1
+text="Varmemængder"                      rng=Overblik!A61:A61
+par=FuelDeliv_V                          rng=Overblik!C69         cdim=1  rdim=1
+text="Brændselsforbrug"                  rng=Overblik!A69:A69
+par=IncomeFuel_V                         rng=Overblik!C101        cdim=1  rdim=1
+text="Brændselsindkomst"                 rng=Overblik!A101:A101
+par=Usage_V                              rng=Overblik!B133        cdim=1  rdim=2
+text="Kapacitetsudnyttelse"              rng=Overblik!A133:A133
+text="Reference"                         rng=Overblik!B133:B133
+par=Qshare_V                             rng=Overblik!C147        cdim=1  rdim=1
+text="Produceret andel af varmebehov"    rng=Overblik!A147:A147
+par=StoLoadAll_V                         rng=Overblik!C155        cdim=1 rdim=1
+text="Lagerbeholdning totalt"            rng=Overblik!A155:A155
+text="Lager"                             rng=Overblik!C155:C155
+par=StoLoadF_V                           rng=Overblik!B163        cdim=1 rdim=2
+text="Lagerbeh. pr fraktion"             rng=Overblik!A163:A163
+text="Lager"                             rng=Overblik!B163:B163
+text="Fraktion"                          rng=Overblik!C163:C163
 *end
 
 $offecho

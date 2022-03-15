@@ -102,7 +102,7 @@ if (NOT sameas(actScen,'scen0'),
 #--- MaxLhvMWh(ua,mo) = DataU(ua,'MaxLhv') / 3.6;
 #--- MinTon(ua,mo)    = DataU(ua,'MinTon');
 #--- MaxTon(ua,mo)    = DataU(ua,'Maxton');
-#--- KapMin(u,mo)     = DataU(u, 'KapMin');
+#--- KapQmin(u,mo)     = DataU(u, 'KapQmin');
 #--- KapRgk(ua,mo)    = DataU(ua,'KapRgk');
 #--- KapQNom(u,mo)    = DataU(u,'KapQNom');
 #--- KapE(u,mo)       = DataU(u,'KapE');
@@ -111,7 +111,7 @@ if (NOT sameas(actScen,'scen0'),
 #--- EtaRgk(u,mo)     = KapRgk(u,mo) / KapQNom(u,mo) * EtaQ(u,mo);
 #--- DvMWhq(u,mo)     = DataU(u,'DvMWhq');
 #--- DvTime(u,mo)     = DataU(u,'DvTime');
-#--- KapMax(u,mo)     = KapQNom(u,mo) + KapRgk(u,mo);
+#--- KapQmax(u,mo)     = KapQNom(u,mo) + KapRgk(u,mo);
 #---
 #--- # EtaE er 18 % til og med august 2021, og derefter antages værdien givet i DataU.
 #--- # KapE er 7,5 MWe til og med august 2021, og derefter antages værdien givet i DataU.
@@ -200,7 +200,7 @@ if (NOT sameas(actScen,'scen0'),
 #--- QrgkMax(ua,mo)   = KapRgk(ua,mo) / KapQNom(ua,mo) * QaffMmax(ua,mo);
 #--- QaffTotalMax(mo) = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * (QaffMmax(ua,mo) + QrgkMax(ua,mo)) );
 #--- 
-#--- TaxATLMax(mo) = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * Hours(mo) * KapMax(ua,mo)) * TaxAtlMWh(mo);
+#--- TaxATLMax(mo) = sum(ua $OnU(ua,mo), ShareAvailU(ua,mo) * Hours(mo) * KapQmax(ua,mo)) * TaxAtlMWh(mo);
 #--- RgkRabatMax(mo) = RgkRabatSats * TaxATLMax(mo);
 #--- QRgkMissMax(mo) = 2 * RgkRabatMinShare * sum(ua $OnU(ua,mo), 31 * 24 * KapQNom(ua,mo));  # Faktoren 2 er en sikkerhedsfaktor mod infeasibilitet.
 #--- 
