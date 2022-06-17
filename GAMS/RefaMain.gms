@@ -9,7 +9,7 @@ Repository: GitHub: <none>
 Dato:       2021-09-15 08:14
 $OffText
 
-# ENCODING SKAL VÆRE ANSI FOR AT DANSKE BOGSTAVER 'OVERLEVER' I KOMMENTARER.
+# ENCODING SKAL VÆRE ANSI FOR AT DANSKE BOGSTAVER "OVERLEVER" I KOMMENTARER.
 # Danske bogstaver kan IKKE bruges i model-elementer, såsom set-elementer, parameternavne, m.v.
 #--- set dummy / sæ, sø, så, sÆ, sØ, sÅ /;
 
@@ -25,7 +25,7 @@ Scalar VirtualUsed     'Angiver at virtuelle ressourcer er brugt (bløde infeasib
 Scalar Found           'Angiver at logisk betingelse er opfyldt';
 Scalar FoundError      'Angiver at fejl er fundet';
 Scalar tiny / 1E-14 /;
-Scalar Big  / 1E+9  /
+Scalar Big  / 1E+9  /;
 Scalar NaN             'Bruges til at angive void input fra Excel' / -9.99 /;
 Scalar IsNaN;
 Scalar tmp1, tmp2, tmp3;
@@ -61,7 +61,7 @@ set fkind 'Drivm.-typer'  / 1 'affald', 2 'biomasse', 3 'varme', 4 'peakfuel' /;
 Set f     'Drivmidler'    / DepoSort, DepoSmaat, DepoNedd, Dagren, AndetBrand, Trae,
                             DagrenRast, DagrenInst, DagrenHandel, DagrenRestau, Erhverv, DagrenErhverv,
                             HandelKontor, Privat, TyskRest, PolskRest, PcbTrae, TraeRekv, Halm, Pulver, FlisAffald,
-                            NyAff1, NyAff2, NyAff3, NyAff4, NyAff5,
+                            NyAff1, GrovBio, NyAff3, NyAff4, NyAff5,
                             Flis, NSvarme, PeakFuel /;
 
 set fa(f)                 'Affaldstyper';
@@ -323,8 +323,8 @@ $If not errorfree $exit
 # Indlaesning af input parametre
 
 $onecho > REFAinput.txt
-par=ScenRecs            rng=Scen!AU5:CK45            rdim=1 cdim=1
-par=DataCtrlRead        rng=DataCtrl!B4:C20          rdim=1 cdim=0
+par=ScenRecs            rng=Scen!AU5:CM45            rdim=1 cdim=1
+par=DataCtrlRead        rng=DataCtrl!B4:C26          rdim=1 cdim=0
 par=ScheduleRead        rng=DataU!A3:E6              rdim=1 cdim=1
 par=DataURead           rng=DataU!A11:P17            rdim=1 cdim=1
 par=DataStoRead         rng=DataU!R11:AD17           rdim=1 cdim=1
@@ -726,7 +726,7 @@ ZQ_TaxATL(mo)     .. TaxATL(mo)    =E=  TaxAtlMWh(mo) * (Quden_X_bOnRgkRabat(mo)
 # CO2-afgift for alle anlæg:
 ZQ_TaxCO2total(mo) .. TaxCO2total(mo)  =E=  TaxCO2Aff(mo) + TaxCO2Aux(mo);
 
-# CO2-afgift af affald baseret på SKAT's administrative satser. 
+# CO2-afgift af affald baseret på SKATs administrative satser. 
 # I modsætning til tillægsafgiften, som tilskrives energiudbyttet, skal der kun svares CO2-afgift af det emissionsgivende udbytte, og dermed ikke af RGK-varme.
 ZQ_TaxCO2Aff(mo) ..  TaxCO2Aff(mo)  =E=  TaxCO2AffTon(mo) * CO2ContentAff(mo) * QudenRgk(mo);
 
@@ -925,10 +925,10 @@ ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) 
 #    Det skyldes, at der i praksis er væsentlige udsving på månedstonnager for alle fraktioner, også dagrenovation, som skal bortskaffes straks.
 #    Den øvre grænse på tonnagesummen for hver fraktion er kun relevant på frie hhv. fleksible fraktioner.
 #    Den nedre grænse på tonnagesummen for hver fraktion er kun relevant for fleksible fraktioner, da frie fraktioner har nedre grænse lig med nul (konvention for begrebet 'fri', kan skærpes så ikke-nul nedre grænse skal overholdes.)
-#--- ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))) ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
-#--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo));
-ZQ_FuelMaxSum(fa) $(OnGF(fa))             ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
-ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f))  ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo)) $(NOT ffri(f));
+ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))) ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
+ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo));
+#--- ZQ_FuelMaxSum(fa) $(OnGF(fa))                                  ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
+#--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f))                       ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo)) $(NOT ffri(f));
 
 # Krav til frie affaldsfraktioner.
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
