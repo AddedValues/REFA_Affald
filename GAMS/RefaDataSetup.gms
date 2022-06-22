@@ -161,6 +161,7 @@ DoFixAffT(mo) = FixAffaldSum AND (FixValueAffT(mo) NE NaN);
 # Men uden skorstensmetoden anvendes i stedet for SKATs emissionssatser, som desuden er forskellige efter om det er CO2-afgift eller CO2-kvoteforbruget, som skal opgøres !!!
 CO2potenTon(f,typeCO2,mo) = FuelBounds(f,'LHV',mo) * FuelBounds(f,'CO2kgGJ',mo) / 1000;  # ton CO2 / ton brændsel.
 if (NOT SkorstensMetode,
+  # OBS: DataProgn('CO2aff') er i [kgCO2/GJf], mens DataProgn('ETSaff') er i [kgCO2/ton].
   CO2potenTon(fa,typeCO2,mo) = [FuelBounds(fa,'LHV',mo) * DataProgn('CO2aff',mo) $sameas(typeCO2,'afgift') + DataProgn('ETSaff',mo) $sameas(typeCO2,'kvote')] / 1000;
 );
 CO2potenTon(fbiogen,typeCO2,mo) = 0.0;

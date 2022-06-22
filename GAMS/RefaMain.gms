@@ -112,7 +112,7 @@ set labScenRec            'Scen-records'        / set.labScenFirst, set.moall /;
 set droot                 'Data på niveau 1'    / Control, Schedule, Plant, Storage, Prognoses, Fuel, FuelBounds /;
 set drootPermitted(droot)                       / Control,           Plant, Storage, Prognoses, Fuel, FuelBounds /;
 
-set labDataCtrl           'Styringparms'       / RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald2021, FixAffaldSum, DeltaTonAktiv, 
+set labDataCtrl           'Styringparms'       / RunId, RunScenarios, IncludeGSF, VirtuelVarme, VirtuelAffald, SkorstensMetode, FixAffald2021, FixAffaldSum, DeltaTonAktiv, 
                                                  RgkRabatSats, RgkAndelRabat, Varmesalgspris, EgetforbrugKVV, DVomkRGK, RGKudnyttelse, NyAff1Tonnage /;
 set labSchCol             'Periodeomfang'      / FirstYear, LastYear, FirstPeriod, LastPeriod /;
 set labSchRow             'Periodeomfang'      / aar, maaned, dato /;
@@ -323,7 +323,7 @@ $If not errorfree $exit
 # Indlaesning af input parametre
 
 $onecho > REFAinput.txt
-par=ScenRecs            rng=Scen!AU5:CM45            rdim=1 cdim=1
+par=ScenRecs            rng=Scen!AV5:CN55            rdim=1 cdim=1
 par=DataCtrlRead        rng=DataCtrl!B4:C26          rdim=1 cdim=0
 par=ScheduleRead        rng=DataU!A3:E6              rdim=1 cdim=1
 par=DataURead           rng=DataU!A11:P17            rdim=1 cdim=1
@@ -634,7 +634,7 @@ Equation  ZQ_PrioUp(up,up,moall)         'Prioritet af uprio over visse up anlae
 
 
 # OBS: GSF-omkostninger skal medtages i Obj for at sikre at varme leveres fra REFAs anlæg.
-#      REFA's økonomi vil blive optimeret selvom GSF-omkostningerne er medtaget, netop fordi
+#      REFAs økonomi vil blive optimeret selvom GSF-omkostningerne er medtaget, netop fordi
 #      GSF's varmeproduktionspris er (betydeligt) højere end REFA's.
 # Hvordan med Nordic Sugars varmeleverance?
 #   Den pålægges en overskudsvarmeafgift, som kan resultere i en lavere VPO_V end REFA kan præstere med indkøbt affald hhv. flis.
@@ -914,19 +914,24 @@ Equation  ZQ_FuelMaxSum(f)      'Stoerste braendselsforbrug på årsniveau';
 #     DeltaTon ignoreres, hvis fikserede tonnager er aktive.
 #--- ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) - (DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo)))] $(NOT fflex(f));  # Nedre grænse er nul for flex fuels.
 #--- ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  [FuelBounds(f,'MaxTonnage',mo) + (DeltaTon(f) $(NOT FixAffald2021 AND NOT DoFixAffT(mo))) * (1 + 1E-6) $(NOT fflex(f))] + [MaxTonSum(f) $fflex(f)];  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
-ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) - DeltaTon(f) $(fflex(f) AND NOT FixAffald2021 AND NOT DoFixAffT(mo))];
-ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))                  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  [FuelBounds(f,'MaxTonnage',mo) + DeltaTon(f) $(fflex(f) AND NOT FixAffald2021 AND NOT DoFixAffT(mo))] * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
+#--- ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f) AND NOT ffri(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) - DeltaTon(f) $(fflex(f) AND NOT FixAffald2021 AND NOT DoFixAffT(mo))];
+ZQ_FuelMin(f,mo) $(OnF(f,mo) AND fdis(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =G=  [FuelBounds(f,'MinTonnage',mo) - DeltaTon(f) $(fflex(f) AND NOT FixAffald2021 AND NOT DoFixAffT(mo))];
+ZQ_FuelMax(f,mo) $(OnF(f,mo) AND fdis(f))  ..  FuelDelivT(f,mo) + FuelResaleT(f,mo)  =L=  [FuelBounds(f,'MaxTonnage',mo) + DeltaTon(f) $(fflex(f) AND NOT FixAffald2021 AND NOT DoFixAffT(mo))] * (1 + 1E-6);  # Faktor 1.0001 indsat da afrundingsfejl giver infeasibility.
 
 #--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f)) ..  sum(mo $OnF(f,mo),  FuelDelivT(f,mo) + FuelResaleT(f,mo))    =G=  MinTonSum(f) * sum(mo $OnF(f,mo), 1) / 12;
 #--- ZQ_FuelMaxSum(fa) $(OnGF(fa))            ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * [(sum(mo $On(fa,mo), 1) / 12) $(NOT fflex(fa)) + 1 $fflex(fa)] * (1 + 1E-6);
 #--- ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))    ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  MaxTonSum(fa) * (sum(mo $OnF(fa,mo), 1) / 12) * (1 + 1E-6);
 
-#OBS Årstonnager i DataFuel skal ikke anvendes i modellen, kun tonnager angivet på månedsbasis i FuelBounds.
+#OBS Kravet på årstonnager i DataFuel skal kun anvendes på frie og/eller fleksible fraktioner.
 #    Det skyldes, at der i praksis er væsentlige udsving på månedstonnager for alle fraktioner, også dagrenovation, som skal bortskaffes straks.
 #    Den øvre grænse på tonnagesummen for hver fraktion er kun relevant på frie hhv. fleksible fraktioner.
 #    Den nedre grænse på tonnagesummen for hver fraktion er kun relevant for fleksible fraktioner, da frie fraktioner har nedre grænse lig med nul (konvention for begrebet 'fri', kan skærpes så ikke-nul nedre grænse skal overholdes.)
-ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))) ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
-ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo));
+
+ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa)))              ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  DataFuel(fa,'MaxTonnage') * (1 + 1E-6);
+ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f) AND NOT ffri(f))  ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  DataFuel(f, 'MinTonnage');
+
+#--- ZQ_FuelMaxSum(fa) $(OnGF(fa) AND (ffri(fa) OR fflex(fa))) ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
+#--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo));
 #--- ZQ_FuelMaxSum(fa) $(OnGF(fa))                                  ..  sum(mo $OnF(fa,mo), FuelDelivT(fa,mo) + FuelResaleT(fa,mo))  =L=  sum(mo $OnF(fa,mo), FuelBounds(fa,'MaxTonnage',mo)) * (1 + 1E-6);
 #--- ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f))                       ..  sum(mo $OnF(f, mo), FuelDelivT(f, mo) + FuelResaleT(f,mo))   =G=  sum(mo $OnF(f,mo),  FuelBounds(f, 'MinTonnage',mo)) $(NOT ffri(f));
 
@@ -934,7 +939,7 @@ ZQ_FuelMinSum(f)  $(OnGF(f) AND fdis(f) AND fflex(f))     ..  sum(mo $OnF(f, mo)
 Equation ZQ_FuelDelivFreeSum(f)              'Aarstonnage af frie affaldsfraktioner';
 Equation ZQ_FuelMinFreeNonStorable(f,moall)  'Ligeligt tonnageforbrug af ikke-lagerbare frie affaldsfraktioner';
 
-ZQ_FuelDelivFreeSum(ffri) $(OnGF(ffri) AND card(mo) GT 1)                                                   ..  FuelDelivFreeSumT(ffri)  =E=  sum(mo $OnF(ffri,mo), FuelDelivT(ffri,mo));
+ZQ_FuelDelivFreeSum(ffri) $(OnGF(ffri) AND card(mo) GT 1)   ..  FuelDelivFreeSumT(ffri)  =E=  sum(mo $OnF(ffri,mo), FuelDelivT(ffri,mo));
 #BUGFIX Frie fraktioner er ikke underlagt månedsaftag, hvis de også er fleksible, da der så kun er krav til aftag på årsniveau.
 ZQ_FuelMinFreeNonStorable(ffri,mo) $(OnF(ffri,mo) AND NOT fsto(ffri) AND NOT fflex(ffri) AND card(mo) GT 1) ..  FuelDelivT(ffri,mo)      =E=  FuelDelivFreeSumT(ffri) / card(mo);
 

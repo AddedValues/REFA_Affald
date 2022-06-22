@@ -52,7 +52,9 @@ NPV_Total_V = NPV.L + [PenaltyTotal_QInfeas + PenaltyTotal_AffTInfeas + PenaltyT
 
 # Tidsstempel for beregningens udfoerelse.
 
-TimeOfWritingMasterResults = jnow;
+# OBS: En fejl i GAMS bevirker, at det aktuelle tidspunkt jnow er 1 døgn bagud.
+TimeOfWritingMasterResults = jnow + 1;
+
 PerStart = Schedule('dato','firstPeriod');
 PerSlut  = Schedule('dato','lastPeriod');
 VPO_V(uaggr,mo) = 0.0;
